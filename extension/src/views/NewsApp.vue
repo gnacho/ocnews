@@ -131,7 +131,9 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+// useRouter SIEMPRE desde web-pkg (inyecta el router del host); el de
+// vue-router no tiene inyección en el contexto de extensión
+import { useRouter } from '@opencloud-eu/web-pkg'
 import { useGettext } from 'vue3-gettext'
 import { Newspaper, Rss, Star, FolderOpen, Plus, X } from 'lucide-vue-next'
 import { useNewsApi, Item, Feed, Folder, Selection } from '../api'
