@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gnacho/ocnews/backend/internal/feed"
-	"github.com/gnacho/ocnews/backend/internal/sanitize"
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
 
@@ -58,9 +57,7 @@ func (r *Refresher) refresh(ctx context.Context, f *store.Feed) Result {
 	if parsed.Link != "" {
 		link = parsed.Link
 	}
-	for i := range items {
-		items[i].Body = sanitize.Body(items[i].Body)
-	}
+	feed.SanitizeItems(items)
 	inserted, err := r.store.ReplaceFeedItems(f.ID, f.UserID, title, link, items)
 	if err != nil {
 		return Result{FeedID: f.ID, Err: err}

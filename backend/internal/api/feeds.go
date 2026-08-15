@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gnacho/ocnews/backend/internal/feed"
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
 
@@ -79,6 +80,7 @@ func (s *Server) createFeed(w http.ResponseWriter, r *http.Request) {
 	if body.FolderID != nil && *body.FolderID > 0 {
 		f.FolderID = body.FolderID
 	}
+	feed.SanitizeItems(items) // los items de la suscripción también se limpian
 
 	created, err := s.store.CreateFeed(user(r).ID, body.URL, f.FolderID, f.Title, f.Link, f.FaviconLink, items)
 	if errors.Is(err, store.ErrConflict) {

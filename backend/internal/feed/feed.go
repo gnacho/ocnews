@@ -13,6 +13,7 @@ import (
 
 	"github.com/mmcdole/gofeed"
 
+	"github.com/gnacho/ocnews/backend/internal/sanitize"
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
 
@@ -51,6 +52,15 @@ func (h *HTTPFetcher) Fetch(ctx context.Context, url string) (*store.Feed, []sto
 		return nil, nil, fmt.Errorf("leer feed: %w", err)
 	}
 	return Parse(body)
+}
+
+// SanitizeItems limpia el HTML de los cuerpos de una tanda de items.
+// ÚNICA vía de entrada a la BD: la llaman la suscripción (API) y el
+// refresher (scheduler) — nunca persistir bodies sin pasar por aquí.
+func SanitizeItems(items []store.NewItem) {
+	for i := range items {
+		items[i].Body = sanitize.Body(items[i].Body)
+	}
 }
 
 // Parse normaliza un documento RSS/Atom (separable de la red para tests).
