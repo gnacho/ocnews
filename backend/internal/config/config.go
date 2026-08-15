@@ -20,19 +20,24 @@ type Config struct {
 	FeedInterval time.Duration // OCNEWS_FEED_INTERVAL, default 15m (base del scheduler)
 	MaxGap       time.Duration // OCNEWS_MAX_GAP, default 6h (tope adaptativo)
 	Retention    time.Duration // OCNEWS_RETENTION_DAYS, default 90d; 0 = desactivada
+
+	AuthMode       string // OCNEWS_AUTH_MODE: local (default) | opencloud
+	OpenCloudURL   string // OCNEWS_OPENCOLOUD_URL: raíz del servidor OpenCloud (modo opencloud)
 }
 
 func Load() (*Config, error) {
 	c := &Config{
-		Addr:         env("OCNEWS_ADDR", ":8094"),
-		DataDir:      env("OCNEWS_DATA_DIR", "./data"),
-		FetchTimeout: 20 * time.Second,
-		LogLevel:     env("OCNEWS_LOG_LEVEL", "info"),
-		AuthUser:     os.Getenv("AUTH_USER"),
-		AuthPass:     os.Getenv("AUTH_PASS"),
-		FeedInterval: 15 * time.Minute,
-		MaxGap:       6 * time.Hour,
-		Retention:    90 * 24 * time.Hour,
+		Addr:           env("OCNEWS_ADDR", ":8094"),
+		DataDir:        env("OCNEWS_DATA_DIR", "./data"),
+		FetchTimeout:   20 * time.Second,
+		LogLevel:       env("OCNEWS_LOG_LEVEL", "info"),
+		AuthUser:       os.Getenv("AUTH_USER"),
+		AuthPass:       os.Getenv("AUTH_PASS"),
+		FeedInterval:   15 * time.Minute,
+		MaxGap:         6 * time.Hour,
+		Retention:      90 * 24 * time.Hour,
+		AuthMode:       env("OCNEWS_AUTH_MODE", "local"),
+		OpenCloudURL:   os.Getenv("OCNEWS_OPENCOLOUD_URL"),
 	}
 	for _, e := range []struct {
 		key string
@@ -74,6 +79,14 @@ func Load() (*Config, error) {
 	case "debug", "info", "warn", "error":
 	default:
 		return nil, fmt.Errorf("OCNEWS_LOG_LEVEL inválido: %q (debug|info|warn|error)", c.LogLevel)
+	}
+	switch c.AuthMode {
+	case "local", "opencloud":
+	default:
+		return nil, fmt.Errorf("OCNEWS_AUTH_MODE inválido: %q (local|opencloud)", c.AuthMode)
+	}
+	if c.AuthMode == "opencloud" && c.OpenCloudURL == "" {
+		return nil, fmt.Errorf("OCNEWS_AUTH_MODE=opencloud exige OCNEWS_OPENCOLOUD_URL")
 	}
 	if c.Addr == "" {
 		return nil, fmt.Errorf("OCNEWS_ADDR no puede estar vacío")

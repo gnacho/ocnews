@@ -90,7 +90,8 @@ func newTestEnv(t *testing.T, fetcher feed.Fetcher) *testEnv {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := NewServer(st, fetcher, refresh, fc, 90*24*time.Hour, log).Handler()
+	validator := &auth.LocalValidator{Store: st}
+	h := NewServer(st, validator, fetcher, refresh, fc, 90*24*time.Hour, log).Handler()
 	ts := httptest.NewServer(h)
 	t.Cleanup(ts.Close)
 	return &testEnv{ts: ts, client: ts.Client(), user: "nacho", pass: "pass1234", faviconDir: favDir}

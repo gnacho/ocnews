@@ -25,6 +25,22 @@ func (s *Server) userAPI() http.Handler {
 	return mux
 }
 
+// ocsUser: stub del endpoint OCS de Nextcloud que consume news-android
+// (display name del drawer). Formato OCS v2 con "ocs"→"data"→{id,displayname}.
+func (s *Server) ocsUser(w http.ResponseWriter, r *http.Request) {
+	u := user(r)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ocs": map[string]any{
+			"meta": map[string]any{"status": "ok", "statuscode": 200, "message": "OK"},
+			"data": map[string]any{
+				"id":           u.Username,
+				"displayname":  u.DisplayName,
+				"display-name": u.DisplayName,
+			},
+		},
+	})
+}
+
 var validUsername = regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{2,31}$`)
 
 type meResponse struct {

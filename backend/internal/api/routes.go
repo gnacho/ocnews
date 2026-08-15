@@ -19,8 +19,11 @@ func (s *Server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /feeds", s.listFeeds)
 	mux.HandleFunc("POST /feeds", s.createFeed)
 	mux.HandleFunc("DELETE /feeds/{feedId}", s.deleteFeed)
-	mux.HandleFunc("POST /feeds/{feedId}/move", s.moveFeed)
-	mux.HandleFunc("POST /feeds/{feedId}/rename", s.renameFeed)
+	// move/rename: la spec v1.3 dice POST pero news-android usa PUT → ambos
+	for _, m := range []string{http.MethodPost, http.MethodPut} {
+		mux.HandleFunc(m+" /feeds/{feedId}/move", s.moveFeed)
+		mux.HandleFunc(m+" /feeds/{feedId}/rename", s.renameFeed)
+	}
 	mux.HandleFunc("POST /feeds/{feedId}/read", s.markFeedRead)
 	mux.HandleFunc("GET /feeds/update", s.updateFeed) // updater API, solo admin
 

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gnacho/ocnews/backend/internal/auth"
@@ -26,6 +27,7 @@ const reportedVersion = "28.4.0"
 
 type Server struct {
 	store     *store.Store
+	validator auth.Validator
 	fetcher   feed.Fetcher
 	refresher *refresher.Refresher
 	favicons  *favicon.Cache
@@ -33,9 +35,9 @@ type Server struct {
 	log       *slog.Logger
 }
 
-func NewServer(s *store.Store, f feed.Fetcher, r *refresher.Refresher, fc *favicon.Cache,
+func NewServer(s *store.Store, v auth.Validator, f feed.Fetcher, r *refresher.Refresher, fc *favicon.Cache,
 	retention time.Duration, log *slog.Logger) *Server {
-	return &Server{store: s, fetcher: f, refresher: r, favicons: fc, retention: retention, log: log}
+	return &Server{store: s, validator: v, fetcher: f, refresher: r, favicons: fc, retention: retention, log: log}
 }
 
 // Handler monta el router completo con CORS + auth en la base de la API.
@@ -48,11 +50,14 @@ func (s *Server) Handler() http.Handler {
 
 	api := http.NewServeMux()
 	s.routes(api)
-	authed := auth.Middleware(s.store, withCORS(api))
+	authed := auth.Middleware(s.validator, withCORS(api))
 
 	mux.Handle(Base+"/", http.StripPrefix(Base, authed))
 	// API propia de la app (perfil/usuarios) bajo /api/, misma Basic auth
-	mux.Handle("/api/", auth.Middleware(s.store, withCORS(s.userAPI())))
+	mux.Handle("/api/", auth.Middleware(s.validator, withCORS(s.userAPI())))
+	// Stub OCS user para clientes Nextcloud (p.ej. news-android lee el
+	// display name de /ocs/v2.php/cloud/user; OpenCloud no lo sirve).
+	mux.Handle("/ocs/v2.php/cloud/user", auth.Middleware(s.validator, withCORS(http.HandlerFunc(s.ocsUser))))
 	// Preflight de CORS antes de auth (no lleva credenciales).
 	mux.Handle("OPTIONS "+Base+"/", http.StripPrefix(Base, withCORS(preflightHandler())))
 	mux.Handle("OPTIONS /api/", withCORS(preflightHandler()))
@@ -111,10 +116,15 @@ func errorStatus(w http.ResponseWriter, r *http.Request, status int, key string)
 	}
 }
 
-// decodeBody decodifica JSON tolerante (cuerpo vacío = no error).
+// decodeBody decodifica JSON tolerante: cuerpo vacío o content-type no-JSON
+// (form-urlencoded lo procesa el handler vía ParseForm) no son error.
 func decodeBody(r *http.Request, v any) error {
 	if r.Body == nil {
 		return nil
+	}
+	ct := r.Header.Get("Content-Type")
+	if ct != "" && !strings.Contains(ct, "json") {
+		return nil // form/query: el handler hace ParseForm si lo necesita
 	}
 	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(v); err != nil {

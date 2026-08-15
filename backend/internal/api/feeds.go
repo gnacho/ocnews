@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gnacho/ocnews/backend/internal/store"
@@ -26,13 +27,32 @@ func (s *Server) listFeeds(w http.ResponseWriter, r *http.Request) {
 }
 
 // createFeed suscribe un feed nuevo: valida, fetchea (F0: en la propia
-// petición con timeout) y persiste feed+items.
+// petición con timeout) y persiste feed+items. Acepta JSON (spec) y
+// form-urlencoded/query (news-android manda @Field form).
 func (s *Server) createFeed(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		URL      string `json:"url"`
 		FolderID *int64 `json:"folderId"`
 	}
-	if err := decodeBody(r, &body); err != nil || body.URL == "" {
+	if err := decodeBody(r, &body); err != nil {
+		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_body")
+		return
+	}
+	// fallback form-urlencoded / query (ParseForm cubre ambos)
+	if body.URL == "" {
+		if err := r.ParseForm(); err == nil {
+			if v := r.Form.Get("url"); v != "" {
+				body.URL = v
+			}
+			if v := r.Form.Get("folderId"); v != "" {
+				var fid int64
+				if _, err := fmt.Sscanf(v, "%d", &fid); err == nil && fid > 0 {
+					body.FolderID = &fid
+				}
+			}
+		}
+	}
+	if body.URL == "" {
 		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_url")
 		return
 	}

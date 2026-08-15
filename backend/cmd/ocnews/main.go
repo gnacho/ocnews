@@ -44,38 +44,48 @@ func run() error {
 	}
 	defer st.Close()
 
-	if cfg.AuthUser != "" && cfg.AuthPass != "" {
-		hash, err := auth.HashPassword(cfg.AuthPass)
-		if err != nil {
-			return err
-		}
-		created, err := st.BootstrapUser(cfg.AuthUser, hash)
-		if err != nil {
-			return err
-		}
-		if created {
-			log.Info("usuario admin bootstrap", "username", cfg.AuthUser)
-		}
-	} else if cfg.AuthUser == "" || cfg.AuthPass == "" {
-		var count int
-		if err := st.BootstrapCount(&count); err != nil {
-			return err
-		}
-		if count == 0 {
-			return errors.New("sin usuarios en BD: define AUTH_USER y AUTH_PASS para el bootstrap del primer admin")
-		}
-	}
-
 	favicons, err := favicon.NewCache(cfg.FaviconsDir(), log)
 	if err != nil {
 		return err
 	}
+
+	// validador de credenciales: local (bcrypt) u OpenCloud (Graph /me)
+	var validator auth.Validator
+	switch cfg.AuthMode {
+	case "opencloud":
+		validator = auth.NewOpenCloudValidator(st, cfg.OpenCloudURL, log)
+		log.Info("auth: opencloud", "server", cfg.OpenCloudURL)
+	default:
+		validator = &auth.LocalValidator{Store: st}
+		if cfg.AuthUser != "" && cfg.AuthPass != "" {
+			hash, err := auth.HashPassword(cfg.AuthPass)
+			if err != nil {
+				return err
+			}
+			created, err := st.BootstrapUser(cfg.AuthUser, hash)
+			if err != nil {
+				return err
+			}
+			if created {
+				log.Info("usuario admin bootstrap", "username", cfg.AuthUser)
+			}
+		} else {
+			var count int
+			if err := st.BootstrapCount(&count); err != nil {
+				return err
+			}
+			if count == 0 {
+				return errors.New("sin usuarios en BD: define AUTH_USER y AUTH_PASS para el bootstrap del primer admin")
+			}
+		}
+	}
+
 	fetcher := feed.NewHTTPFetcher(cfg.FetchTimeout)
 	refresh := refresher.New(st, fetcher, log, cfg.FeedInterval, cfg.MaxGap)
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           api.NewServer(st, fetcher, refresh, favicons, cfg.Retention, log).Handler(),
+		Handler:           api.NewServer(st, validator, fetcher, refresh, favicons, cfg.Retention, log).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
