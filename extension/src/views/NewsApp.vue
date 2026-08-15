@@ -4,24 +4,45 @@
     <aside
       class="ext:flex ext:flex-col ext:w-64 ext:shrink-0 ext:border-r ext:border-surface-normal-secondary ext:bg-surface-normal-subtle"
     >
-      <div class="ext:flex ext:items-center ext:gap-2 ext:px-4 ext:py-3">
-        <input
-          v-model="newFeedUrl"
-          type="url"
-          :placeholder="$gettext('Feed URL…')"
-          :aria-label="$gettext('Feed URL')"
-          class="ext:flex-1 ext:text-sm ext:px-2 ext:py-1 ext:rounded ext:border ext:border-surface-normal-emphasis ext:bg-surface-normal ext:min-w-0"
-          @keydown.enter="subscribeFeed"
-        />
-        <oc-button
-          variation="primary"
-          appearance="raw"
-          :aria-label="$gettext('Subscribe')"
-          :disabled="!newFeedUrl.trim() || subscribing"
-          @click="subscribeFeed"
+      <div
+        class="ext:px-3 ext:py-3 ext:border-b ext:border-surface-normal-secondary"
+        style="border-bottom: 1px solid rgba(125, 125, 125, 0.2)"
+      >
+        <label
+          for="news-add-feed"
+          class="ext:text-xs ext:font-semibold ext:uppercase ext:tracking-wide ext:opacity-60"
+          style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.65; margin-bottom: 6px"
         >
-          <Plus class="ext:w-4 ext:h-4" />
-        </oc-button>
+          {{ $gettext('Add feed') }}
+        </label>
+        <div style="display: flex; gap: 8px; align-items: center">
+          <input
+            id="news-add-feed"
+            v-model="newFeedUrl"
+            type="url"
+            :placeholder="$gettext('https://site.example/feed')"
+            :aria-label="$gettext('Feed URL')"
+            style="
+              flex: 1;
+              min-width: 0;
+              font-size: 13px;
+              padding: 6px 8px;
+              border-radius: 6px;
+              border: 1px solid var(--oc-color-input-border, #94a3b8);
+              background: var(--oc-color-input-bg, transparent);
+              color: var(--oc-color-input-text, inherit);
+            "
+            @keydown.enter="subscribeFeed"
+          />
+          <oc-button
+            variation="primary"
+            appearance="filled"
+            :disabled="!newFeedUrl.trim() || subscribing"
+            @click="subscribeFeed"
+          >
+            <Plus class="ext:w-4 ext:h-4" />&nbsp;{{ $gettext('Add') }}
+          </oc-button>
+        </div>
       </div>
 
       <nav class="ext:flex-1 ext:overflow-y-auto ext:py-2 ext:px-2 ext:space-y-0.5">
