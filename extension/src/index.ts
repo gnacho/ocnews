@@ -17,15 +17,14 @@ export default defineWebApplication({
     const appInfo = {
       id: 'news',
       name: $gettext('News'),
-      icon: 'resource-type-text-link',
-      color: '#1e4bd8'
+      icon: 'rss',
+      color: '#ee7318'
     }
 
+    // El host monta estas rutas bajo /news (via el menu item path).
+    // UNA sola ruta por path: un redirect extra en '/' pisa el matching
+    // del componente y provoca un bucle (issue #001).
     const routes: RouteRecordRaw[] = [
-      {
-        path: '/',
-        redirect: `/${appInfo.id}/`
-      },
       {
         path: '/',
         name: 'news-root',
