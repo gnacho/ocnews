@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"sync"
+	"sync/atomic"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -22,7 +24,37 @@ func (s *Server) userAPI() http.Handler {
 	mux.HandleFunc("POST /api/users", s.adminOnly(s.createUser))
 	mux.HandleFunc("PUT /api/users/{id}", s.adminOnly(s.updateUser))
 	mux.HandleFunc("DELETE /api/users/{id}", s.adminOnly(s.deleteUser))
+	mux.HandleFunc("POST /api/refresh", s.refreshUserFeeds)
 	return mux
+}
+
+// refreshUserFeeds: refresco manual e inmediato de TODOS los feeds del
+// usuario autenticado (la ruta /feeds/update de la spec es solo admin).
+func (s *Server) refreshUserFeeds(w http.ResponseWriter, r *http.Request) {
+	u := user(r)
+	feeds, err := s.store.ListFeeds(u.ID)
+	if err != nil {
+		s.logError(w, r, "listar feeds para refresh", err)
+		return
+	}
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 4)
+	inserted := int64(0)
+	for i := range feeds {
+		f := feeds[i]
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			if res := s.refresher.Refresh(r.Context(), &f); res.Err == nil {
+				atomic.AddInt64(&inserted, res.Inserted)
+			}
+		}()
+	}
+	wg.Wait()
+	s.log.Info("refresco manual", "user", u.Username, "feeds", len(feeds), "nuevos", inserted)
+	writeJSON(w, http.StatusOK, map[string]any{"refreshed": len(feeds), "newItems": inserted})
 }
 
 // ocsUser: stub del endpoint OCS de Nextcloud que consume news-android

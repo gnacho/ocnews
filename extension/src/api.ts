@@ -69,16 +69,20 @@ export function useNewsApi() {
   }
 
   return {
+    client,
     folders: (): Promise<{ folders: Folder[] }> => get('/folders'),
     feeds: (): Promise<FeedsResponse> => get('/feeds'),
-    items: (sel: Selection, opts: { batchSize?: number; offset?: number; getRead?: boolean }) => {
+    items: (
+      sel: Selection,
+      opts: { batchSize?: number; offset?: number; getRead?: boolean; oldestFirst?: boolean }
+    ) => {
       const params: Record<string, string> = {
         type: String(
           sel.kind === 'feed' ? 0 : sel.kind === 'folder' ? 1 : sel.kind === 'starred' ? 2 : 3
         ),
         getRead: String(opts.getRead ?? false),
         batchSize: String(opts.batchSize ?? -1),
-        oldestFirst: 'false'
+        oldestFirst: String(opts.oldestFirst ?? false)
       }
       if (sel.kind === 'feed' || sel.kind === 'folder') params.id = String(sel.id)
       if (opts.offset) params.offset = String(opts.offset)
@@ -89,9 +93,31 @@ export function useNewsApi() {
     star: (id: number) => post(`/items/${id}/star`),
     unstar: (id: number) => post(`/items/${id}/unstar`),
     markAllRead: (newestItemId: number) => post('/items/read', { newestItemId }),
+    markFeedRead: (feedId: number, newestItemId: number) =>
+      post(`/feeds/${feedId}/read`, { newestItemId }),
+    markFolderRead: (folderId: number, newestItemId: number) =>
+      post(`/folders/${folderId}/read`, { newestItemId }),
     addFeed: (url: string, folderId: number | null) =>
       client.httpAuthenticated.post(`${BASE}/feeds`, { url, folderId }),
+    deleteFeed: (feedId: number) => client.httpAuthenticated.delete(`${BASE}/feeds/${feedId}`),
+    renameFeed: (feedId: number, title: string) =>
+      client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/rename`, { feedTitle: title }),
+    moveFeed: (feedId: number, folderId: number | null) =>
+      client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/move`, { folderId }),
     addFolder: (name: string) => post('/folders', { name }),
-    deleteFeed: (feedId: number) => client.httpAuthenticated.delete(`${BASE}/feeds/${feedId}`)
+    renameFolder: (folderId: number, name: string) =>
+      client.httpAuthenticated.put(`${BASE}/folders/${folderId}`, { name }),
+    deleteFolder: (folderId: number) =>
+      client.httpAuthenticated.delete(`${BASE}/folders/${folderId}`),
+    refresh: () => client.httpAuthenticated.post(`/api/refresh`, {}),
+    importOpml: async (file: File) => {
+      const body = await file.text()
+      return client.httpAuthenticated.post(`${BASE}/import/opml`, body, {
+        headers: { 'Content-Type': 'text/xml' }
+      })
+    },
+    exportOpml: async () => {
+      return client.httpAuthenticated.get(`${BASE}/export/opml`, { responseType: 'text' })
+    }
   }
 }

@@ -108,3 +108,17 @@ func TestUsersEndpoints(t *testing.T) {
 		t.Fatalf("maria eliminada no debe autenticar: %d", code)
 	}
 }
+
+func TestRefreshEndpoint(t *testing.T) {
+	ff := &fakeFetcher{}
+	e := newTestEnv(t, ff)
+	e.do(t, "POST", "/feeds", e.user, e.pass, map[string]string{"url": "https://r.example/f"})
+	before := ff.fetches
+	code, body := e.do(t, "POST", "/api/refresh", e.user, e.pass, nil)
+	if code != 200 || !strings.Contains(string(body), `"refreshed":1`) {
+		t.Fatalf("refresh: %d %s", code, body)
+	}
+	if ff.fetches != before+1 {
+		t.Fatalf("esperaba 1 fetch nuevo, tengo %d", ff.fetches-before)
+	}
+}

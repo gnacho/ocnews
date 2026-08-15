@@ -1,16 +1,13 @@
 <template>
-  <main class="ext:flex ext:h-full ext:bg-surface-normal">
+  <main style="display: flex; height: 100%; width: 100%; overflow: hidden">
     <!-- Sidebar -->
     <aside
-      class="ext:flex ext:flex-col ext:w-64 ext:shrink-0 ext:border-r ext:border-surface-normal-secondary ext:bg-surface-normal-subtle"
+      style="display: flex; flex-direction: column; width: 280px; flex-shrink: 0; border-right: 1px solid rgba(125, 125, 125, 0.25); overflow: hidden"
     >
-      <div
-        class="ext:px-3 ext:py-3 ext:border-b ext:border-surface-normal-secondary"
-        style="border-bottom: 1px solid rgba(125, 125, 125, 0.2)"
-      >
+      <!-- Add feed -->
+      <div style="padding: 12px; border-bottom: 1px solid rgba(125, 125, 125, 0.2)">
         <label
           for="news-add-feed"
-          class="ext:text-xs ext:font-semibold ext:uppercase ext:tracking-wide ext:opacity-60"
           style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.65; margin-bottom: 6px"
         >
           {{ $gettext('Add feed') }}
@@ -22,16 +19,7 @@
             type="url"
             :placeholder="$gettext('https://site.example/feed')"
             :aria-label="$gettext('Feed URL')"
-            style="
-              flex: 1;
-              min-width: 0;
-              font-size: 13px;
-              padding: 6px 8px;
-              border-radius: 6px;
-              border: 1px solid var(--oc-color-input-border, #94a3b8);
-              background: var(--oc-color-input-bg, transparent);
-              color: var(--oc-color-input-text, inherit);
-            "
+            style="flex: 1; min-width: 0; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; background: transparent; color: inherit"
             @keydown.enter="subscribeFeed"
           />
           <oc-button
@@ -40,76 +28,184 @@
             :disabled="!newFeedUrl.trim() || subscribing"
             @click="subscribeFeed"
           >
-            <Plus class="ext:w-4 ext:h-4" />&nbsp;{{ $gettext('Add') }}
+            <Plus style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Add') }}
           </oc-button>
         </div>
       </div>
 
-      <nav class="ext:flex-1 ext:overflow-y-auto ext:py-2 ext:px-2 ext:space-y-0.5">
-        <button
-          v-for="entry in navEntries"
-          :key="entry.key"
-          class="ext:w-full ext:flex ext:items-center ext:gap-2 ext:px-2 ext:py-1.5 ext:rounded ext:text-sm ext:text-left"
-          :class="isActive(entry) ? 'ext:bg-surface-highlight ext:text-infobox-brand' : 'hover:ext:bg-surface-highlight'"
-          @click="select(entry)"
-        >
-          <component :is="entry.icon" class="ext:w-4 ext:h-4 ext:opacity-70" />
-          <span class="ext:flex-1 ext:truncate">{{ entry.label }}</span>
-          <span v-if="entry.unread" class="ext:text-xs ext:opacity-60">{{ entry.unread }}</span>
-        </button>
+      <!-- Sidebar nav -->
+      <nav style="flex: 1; overflow-y: auto; padding: 8px">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px">
+          <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; opacity: 0.6">
+            {{ $gettext('Subscriptions') }}
+          </span>
+          <oc-button
+            variation="passive"
+            appearance="raw"
+            :aria-label="$gettext('New folder')"
+            :title="$gettext('New folder')"
+            @click="createFolder"
+          >
+            <FolderPlus style="width: 16px; height: 16px" />
+          </oc-button>
+        </div>
+
+        <template v-for="entry in navEntries" :key="entry.key">
+          <div
+            style="display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer"
+            :style="{
+              background: isActive(entry) ? 'rgba(0, 100, 200, 0.12)' : 'transparent',
+              paddingLeft: entry.indent ? '28px' : '8px',
+              fontWeight: entry.unread ? 600 : 400
+            }"
+            @mouseenter="hovered = entry.key"
+            @mouseleave="hovered = ''"
+            @click="select(entry)"
+          >
+            <component :is="entry.icon" style="width: 16px; height: 16px; opacity: 0.7; flex-shrink: 0" />
+            <span style="flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+              {{ entry.label }}
+            </span>
+            <span v-if="entry.error" :title="entry.error" style="flex-shrink: 0; display: inline-flex">
+              <AlertTriangle style="width: 14px; height: 14px; color: #d97706" />
+            </span>
+            <span v-if="entry.unread" style="font-size: 12px; opacity: 0.6; flex-shrink: 0">{{ entry.unread }}</span>
+            <oc-button
+              v-if="entry.kind === 'feed' || entry.kind === 'folder'"
+              variation="passive"
+              appearance="raw"
+              style="flex-shrink: 0"
+              :aria-label="$gettext('Options')"
+              @click.stop="openMenu = openMenu === entry.key ? '' : entry.key"
+            >
+              <MoreHorizontal v-if="hovered === entry.key || openMenu === entry.key" style="width: 16px; height: 16px" />
+              <span v-else style="width: 16px; display: inline-block"></span>
+            </oc-button>
+          </div>
+
+          <!-- Context menu -->
+          <div
+            v-if="openMenu === entry.key"
+            style="margin: 2px 8px; border: 1px solid rgba(125, 125, 125, 0.3); border-radius: 8px; padding: 4px; display: flex; flex-direction: column; gap: 2px; background: #fff; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15)"
+          >
+            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Rename')" @click="renameFeed(entry)" />
+            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Move to folder…')" @click="moveFeed(entry)" />
+            <MenuBtn v-if="entry.kind === 'folder'" :label="$gettext('Rename')" @click="renameFolder(entry)" />
+            <MenuBtn
+              v-if="entry.kind === 'feed' || entry.kind === 'folder'"
+              :label="$gettext('Mark all read')"
+              @click="markEntryRead(entry)"
+            />
+            <MenuBtn
+              v-if="entry.kind === 'feed' || entry.kind === 'folder'"
+              :label="$gettext('Delete')"
+              danger
+              @click="deleteEntry(entry)"
+            />
+          </div>
+        </template>
       </nav>
+
+      <!-- OPML -->
+      <div style="padding: 8px; border-top: 1px solid rgba(125, 125, 125, 0.2); display: flex; gap: 12px">
+        <oc-button variation="passive" appearance="raw" style="font-size: 13px" @click="exportOpml">
+          <Download style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Export OPML') }}
+        </oc-button>
+        <oc-button variation="passive" appearance="raw" style="font-size: 13px" @click="opmlInputEl?.click()">
+          <Upload style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Import OPML') }}
+        </oc-button>
+        <input
+          ref="opmlInputEl"
+          type="file"
+          accept=".opml,.xml,text/xml,text/x-opml"
+          style="display: none"
+          @change="importOpml"
+        />
+      </div>
     </aside>
 
-    <!-- Lista de items -->
-    <section class="ext:flex ext:flex-col ext:flex-1 ext:min-w-0">
+    <!-- Lista -->
+    <section style="display: flex; flex-direction: column; flex: 1; min-width: 0">
       <header
-        class="ext:flex ext:items-center ext:justify-between ext:px-4 ext:py-2 ext:border-b ext:border-surface-normal-secondary"
+        style="display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid rgba(125, 125, 125, 0.25); flex-wrap: wrap"
       >
-        <h1 class="ext:text-lg ext:font-semibold ext:truncate">{{ currentTitle }}</h1>
-        <oc-button v-if="unreadCount > 0" variation="passive" appearance="raw" @click="markAllRead">
-          {{ $gettext('Mark all read') }}
+        <h1
+          style="font-size: 16px; font-weight: 600; margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+        >
+          {{ currentTitle }}
+        </h1>
+        <label style="font-size: 12px; display: flex; align-items: center; gap: 4px">
+          {{ $gettext('Show') }}
+          <select v-model="showAll" style="font-size: 12px; padding: 2px 4px" :aria-label="$gettext('Show')">
+            <option :value="false">{{ $gettext('Unread') }}</option>
+            <option :value="true">{{ $gettext('All') }}</option>
+          </select>
+        </label>
+        <label style="font-size: 12px; display: flex; align-items: center; gap: 4px">
+          {{ $gettext('Order') }}
+          <select v-model="oldestFirst" style="font-size: 12px; padding: 2px 4px" :aria-label="$gettext('Order')">
+            <option :value="false">{{ $gettext('Newest first') }}</option>
+            <option :value="true">{{ $gettext('Oldest first') }}</option>
+          </select>
+        </label>
+        <oc-button
+          variation="passive"
+          appearance="raw"
+          :aria-label="$gettext('Refresh')"
+          :title="$gettext('Refresh')"
+          :disabled="refreshing"
+          @click="refreshNow"
+        >
+          <RefreshCw style="width: 16px; height: 16px" :style="refreshing ? 'animation: news-spin 1s linear infinite' : ''" />
+        </oc-button>
+        <oc-button v-if="unreadCount > 0" variation="passive" appearance="raw" style="font-size: 13px" @click="markAllRead">
+          <CheckCheck style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Mark all read') }}
         </oc-button>
       </header>
 
       <p
         v-if="error"
-        class="ext:px-4 ext:py-2 ext:text-status-danger ext:text-sm ext:border-b ext:border-surface-normal-secondary"
+        style="padding: 8px 16px; color: #b91c1c; font-size: 13px; border-bottom: 1px solid rgba(125, 125, 125, 0.2); margin: 0"
       >
         {{ error }}
       </p>
-      <p v-if="loading" class="ext:px-4 ext:py-8 ext:text-muted ext:text-sm ext:animate-pulse">
-        {{ $gettext('Loading…') }}
-      </p>
-      <p v-else-if="items.length === 0" class="ext:px-4 ext:py-8 ext:text-muted ext:text-sm">
+      <p v-if="loading" style="padding: 32px 16px; opacity: 0.6; font-size: 13px">{{ $gettext('Loading…') }}</p>
+      <p v-else-if="items.length === 0" style="padding: 32px 16px; opacity: 0.6; font-size: 13px">
         {{ $gettext('No articles') }}
       </p>
 
-      <ul v-else class="ext:flex-1 ext:overflow-y-auto" :class="detail ? 'ext:hidden sm:ext:block' : ''">
+      <ul v-else style="flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: 0">
         <li
           v-for="item in items"
           :key="item.id"
-          class="ext:flex ext:gap-3 ext:px-4 ext:py-3 ext:border-b ext:border-surface-normal-secondary ext:cursor-pointer"
-          :class="[
-            detail?.id === item.id ? 'ext:bg-surface-highlight' : 'hover:ext:bg-surface-highlight',
-            item.unread ? 'ext-font-medium' : 'ext:opacity-70'
-          ]"
+          style="display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid rgba(125, 125, 125, 0.15); cursor: pointer"
+          :style="{
+            background: detail?.id === item.id ? 'rgba(0, 100, 200, 0.08)' : 'transparent',
+            opacity: item.unread ? 1 : 0.65
+          }"
           @click="openItem(item)"
         >
-          <div class="ext:flex-1 ext:min-w-0">
-            <p class="ext:truncate">{{ item.title }}</p>
-            <p class="ext:text-xs ext:opacity-60 ext:truncate">
-              {{ feedTitle(item.feedId) }}<span v-if="item.author"> · {{ item.author }}</span>
-              · {{ fmtDate(item.pubDate) }}
+          <div style="flex: 1; min-width: 0">
+            <p style="margin: 0; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+              {{ item.title }}
+            </p>
+            <p style="margin: 2px 0 0; font-size: 12px; opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+              {{ feedTitle(item.feedId) }}<span v-if="item.author"> · {{ item.author }}</span> · {{ fmtDate(item.pubDate) }}
             </p>
           </div>
           <button
-            class="ext:self-start ext:p-1 ext:rounded"
-            :class="item.starred ? 'ext:text-amber-500' : 'ext:opacity-40 hover:ext:opacity-90'"
+            style="align-self: flex-start; background: none; border: 0; cursor: pointer; padding: 2px"
+            :style="{ color: item.starred ? '#d97706' : 'rgba(0,0,0,0.35)' }"
             :aria-label="item.starred ? $gettext('Unstar') : $gettext('Star')"
             @click.stop="toggleStar(item)"
           >
-            <Star class="ext:w-4 ext:h-4" :fill="item.starred ? 'currentColor' : 'none'" />
+            <Star style="width: 16px; height: 16px" :fill="item.starred ? 'currentColor' : 'none'" />
           </button>
+        </li>
+        <li v-if="moreAvailable" style="padding: 12px; text-align: center; list-style: none">
+          <oc-button variation="passive" appearance="filled" @click="loadMore">
+            {{ $gettext('Load more') }}
+          </oc-button>
         </li>
       </ul>
     </section>
@@ -117,54 +213,115 @@
     <!-- Detalle -->
     <section
       v-if="detail"
-      class="ext:flex ext:flex-col ext:flex-1 ext:min-w-0 ext:border-l ext:border-surface-normal-secondary"
+      style="display: flex; flex-direction: column; flex: 1; min-width: 0; border-left: 1px solid rgba(125, 125, 125, 0.25)"
     >
-      <header
-        class="ext:flex ext:items-start ext:gap-2 ext:px-4 ext:py-2 ext:border-b ext:border-surface-normal-secondary"
-      >
+      <header style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 16px; border-bottom: 1px solid rgba(125, 125, 125, 0.25)">
         <oc-button variation="passive" appearance="raw" :aria-label="$gettext('Back')" @click="detail = null">
-          <X class="ext:w-4 ext:h-4" />
+          <X style="width: 16px; height: 16px" />
         </oc-button>
-        <h2 class="ext:flex-1 ext:font-semibold ext:leading-tight">
-          <a :href="detail.url" target="_blank" rel="noopener noreferrer" class="hover:ext:underline">
+        <h2 style="flex: 1; font-size: 15px; font-weight: 600; margin: 0">
+          <a :href="detail.url" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none">
             {{ detail.title }}
           </a>
         </h2>
         <oc-button
           variation="passive"
           appearance="raw"
+          :aria-label="detail.unread ? $gettext('Mark as unread') : $gettext('Mark as read')"
+          :title="detail.unread ? $gettext('Mark as read') : $gettext('Mark as unread')"
+          @click="toggleUnread(detail)"
+        >
+          <MailOpen style="width: 16px; height: 16px" />
+        </oc-button>
+        <oc-button
+          variation="passive"
+          appearance="raw"
           :aria-label="detail.starred ? $gettext('Unstar') : $gettext('Star')"
           @click="toggleStar(detail)"
         >
-          <Star class="ext:w-4 ext:h-4" :fill="detail.starred ? 'currentColor' : 'none'" />
+          <Star style="width: 16px; height: 16px" :fill="detail.starred ? 'currentColor' : 'none'" />
         </oc-button>
+        <a
+          :href="detail.url"
+          target="_blank"
+          rel="noopener noreferrer"
+          :aria-label="$gettext('Open in new tab')"
+          :title="$gettext('Open in new tab')"
+          style="color: inherit; display: inline-flex; padding: 4px"
+        >
+          <ExternalLink style="width: 16px; height: 16px" />
+        </a>
       </header>
-      <div class="ext:flex-1 ext:overflow-y-auto ext:px-4 ext:py-3">
-        <p class="ext:text-xs ext:opacity-60 ext:mb-3">
+      <div style="flex: 1; overflow-y: auto; padding: 12px 16px">
+        <p style="font-size: 12px; opacity: 0.6; margin: 0 0 12px">
           {{ feedTitle(detail.feedId) }} · {{ fmtDate(detail.pubDate) }}
         </p>
         <!-- body sanitizado server-side -->
-        <div class="oc-prose ext:max-w-prose" v-html="detail.body" />
+        <div class="oc-prose" style="max-width: 72ch" v-html="detail.body" />
       </div>
     </section>
   </main>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, defineComponent, h, onMounted, ref, watch } from 'vue'
 // useRouter SIEMPRE desde web-pkg (inyecta el router del host); el de
-// vue-router no tiene inyección en el contexto de extensión
+// vue-router no tiene inyección en el contexto de extensión (issues #002/#004)
 import { useRouter } from '@opencloud-eu/web-pkg'
 import { useGettext } from 'vue3-gettext'
-import { Newspaper, Rss, Star, FolderOpen, Plus, X } from 'lucide-vue-next'
+import {
+  Newspaper,
+  Star,
+  FolderOpen,
+  FolderPlus,
+  Plus,
+  X,
+  Rss,
+  MoreHorizontal,
+  RefreshCw,
+  CheckCheck,
+  Download,
+  Upload,
+  AlertTriangle,
+  MailOpen,
+  ExternalLink
+} from 'lucide-vue-next'
 import { useNewsApi, Item, Feed, Folder, Selection } from '../api'
 
 const { $gettext } = useGettext()
 const router = useRouter()
-// sin useRoute(): en extensiones esa inyección no existe (las apps oficiales
-// leen router.currentRoute / useRouteQuery); route.name explotaba el setup
 const route = computed(() => router.currentRoute.value)
 const api = useNewsApi()
+
+// botón de menú contextual (componente local mínimo)
+const MenuBtn = defineComponent({
+  props: { label: { type: String, required: true }, danger: { type: Boolean, default: false } },
+  emits: ['click'],
+  setup(props, { emit }) {
+    return () =>
+      h(
+        'button',
+        {
+          style: {
+            all: 'unset',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            width: '100%',
+            padding: '6px 10px',
+            borderRadius: '6px',
+            fontSize: '13px',
+            color: props.danger ? '#b91c1c' : 'inherit'
+          },
+          onClick: (e: MouseEvent) => {
+            e.stopPropagation()
+            emit('click')
+          }
+        },
+        props.label
+      )
+  }
+})
 
 const folders = ref<Folder[]>([])
 const feeds = ref<Feed[]>([])
@@ -175,13 +332,24 @@ const loading = ref(false)
 const error = ref('')
 const newFeedUrl = ref('')
 const subscribing = ref(false)
+const refreshing = ref(false)
+const openMenu = ref('')
+const hovered = ref('')
+const showAll = ref(false)
+const oldestFirst = ref(false)
+const moreAvailable = ref(false)
+const opmlInputEl = ref<HTMLInputElement | null>(null)
+
+const BATCH = 50
 
 type NavEntry = {
   key: string
+  kind: 'all' | 'starred' | 'folder' | 'feed'
   label: string
   icon: typeof Rss
   sel: Selection
   unread: number
+  error?: string
   indent?: boolean
 }
 
@@ -200,24 +368,13 @@ const navEntries = computed<NavEntry[]>(() => {
     byFolder.set(k, [...(byFolder.get(k) ?? []), f])
   }
   const entries: NavEntry[] = [
-    {
-      key: 'all',
-      label: $gettext('All articles'),
-      icon: Newspaper,
-      sel: { kind: 'all' },
-      unread: totalUnread.value
-    },
-    {
-      key: 'starred',
-      label: $gettext('Starred'),
-      icon: Star,
-      sel: { kind: 'starred' },
-      unread: starredCount.value
-    }
+    { key: 'all', kind: 'all', label: $gettext('All articles'), icon: Newspaper, sel: { kind: 'all' }, unread: totalUnread.value },
+    { key: 'starred', kind: 'starred', label: $gettext('Starred'), icon: Star, sel: { kind: 'starred' }, unread: starredCount.value }
   ]
   for (const folder of folders.value) {
     entries.push({
       key: `folder-${folder.id}`,
+      kind: 'folder',
       label: folder.name,
       icon: FolderOpen,
       sel: { kind: 'folder', id: folder.id },
@@ -226,10 +383,12 @@ const navEntries = computed<NavEntry[]>(() => {
     for (const f of byFolder.get(folder.id) ?? []) {
       entries.push({
         key: `feed-${f.id}`,
+        kind: 'feed',
         label: f.title,
         icon: Rss,
         sel: { kind: 'feed', id: f.id },
         unread: f.unreadCount,
+        error: f.updateErrorCount > 0 ? f.lastUpdateError ?? `${f.updateErrorCount} errors` : undefined,
         indent: true
       })
     }
@@ -237,10 +396,12 @@ const navEntries = computed<NavEntry[]>(() => {
   for (const f of byFolder.get(0) ?? []) {
     entries.push({
       key: `feed-${f.id}`,
+      kind: 'feed',
       label: f.title,
       icon: Rss,
       sel: { kind: 'feed', id: f.id },
       unread: f.unreadCount,
+      error: f.updateErrorCount > 0 ? f.lastUpdateError ?? `${f.updateErrorCount} errors` : undefined,
       indent: true
     })
   }
@@ -263,18 +424,10 @@ function isActive(entry: NavEntry) {
 function select(entry: NavEntry) {
   detail.value = null
   switch (entry.sel.kind) {
-    case 'all':
-      router.push('/news/')
-      break
-    case 'starred':
-      router.push('/news/starred')
-      break
-    case 'feed':
-      router.push(`/news/feed/${entry.sel.id}`)
-      break
-    case 'folder':
-      router.push(`/news/folder/${entry.sel.id}`)
-      break
+    case 'all': router.push('/news/'); break
+    case 'starred': router.push('/news/starred'); break
+    case 'feed': router.push(`/news/feed/${entry.sel.id}`); break
+    case 'folder': router.push(`/news/folder/${entry.sel.id}`); break
   }
 }
 
@@ -298,16 +451,29 @@ async function loadSidebar() {
   folders.value = fd.folders
 }
 
-async function loadItems() {
-  loading.value = true
+async function loadItems(append = false) {
+  loading.value = !append
   error.value = ''
   try {
-    const res = await api.items(selection.value, { getRead: selection.value.kind === 'starred' })
-    items.value = res.items
+    const getRead = selection.value.kind === 'starred' ? true : showAll.value
+    const offset = append ? (oldestFirst.value ? Math.max(...items.value.map((i) => i.id)) : Math.min(...items.value.map((i) => i.id))) : undefined
+    const res = await api.items(selection.value, { getRead, batchSize: BATCH, oldestFirst: oldestFirst.value, offset })
+    items.value = append ? [...items.value, ...res.items] : res.items
+    moreAvailable.value = res.items.length >= BATCH
   } catch (e) {
-    error.value = String(e)
+    error.value = $gettext('Could not load items: ') + errText(e)
   } finally {
     loading.value = false
+  }
+}
+
+async function refreshCounts() {
+  try {
+    const f = await api.feeds()
+    feeds.value = f.feeds
+    starredCount.value = f.starredCount
+  } catch {
+    /* el sidebar se refrescará en el siguiente load */
   }
 }
 
@@ -320,6 +486,16 @@ async function openItem(item: Item) {
   }
 }
 
+async function toggleUnread(item: Item) {
+  item.unread = !item.unread
+  if (item.unread) {
+    await api.markUnread(item.id)
+  } else {
+    await api.markRead(item.id)
+  }
+  refreshCounts()
+}
+
 async function toggleStar(item: Item) {
   item.starred = !item.starred
   if (item.starred) {
@@ -330,14 +506,22 @@ async function toggleStar(item: Item) {
   refreshCounts()
 }
 
-async function refreshCounts() {
+async function refreshNow() {
+  refreshing.value = true
+  error.value = ''
   try {
-    const f = await api.feeds()
-    feeds.value = f.feeds
-    starredCount.value = f.starredCount
-  } catch {
-    /* el sidebar se refrescará en el siguiente load */
+    await api.refresh()
+    await loadSidebar()
+    await loadItems()
+  } catch (e) {
+    error.value = $gettext('Refresh failed: ') + errText(e)
+  } finally {
+    refreshing.value = false
   }
+}
+
+async function loadMore() {
+  await loadItems(true)
 }
 
 async function markAllRead() {
@@ -356,11 +540,130 @@ async function subscribeFeed() {
     await api.addFeed(url, null)
     newFeedUrl.value = ''
     await loadSidebar()
+    await loadItems()
   } catch (e: unknown) {
     error.value = extractErrorMessage(e, $gettext('Could not subscribe to the feed'))
   } finally {
     subscribing.value = false
   }
+}
+
+async function createFolder() {
+  const name = window.prompt($gettext('Folder name'))
+  if (!name?.trim()) return
+  try {
+    await api.addFolder(name.trim())
+    await loadSidebar()
+  } catch (e) {
+    error.value = $gettext('Could not create folder: ') + errText(e)
+  }
+}
+
+function entryFeed(entry: NavEntry): Feed | undefined {
+  return feeds.value.find((f) => `feed-${f.id}` === entry.key)
+}
+function entryFolder(entry: NavEntry): Folder | undefined {
+  return folders.value.find((f) => `folder-${f.id}` === entry.key)
+}
+
+async function renameFeed(entry: NavEntry) {
+  openMenu.value = ''
+  const f = entryFeed(entry)
+  if (!f) return
+  const title = window.prompt($gettext('New title'), f.title)
+  if (!title?.trim()) return
+  await api.renameFeed(f.id, title.trim())
+  await loadSidebar()
+}
+
+async function moveFeed(entry: NavEntry) {
+  openMenu.value = ''
+  const f = entryFeed(entry)
+  if (!f) return
+  const names = folders.value.map((fo) => fo.name).join(', ')
+  const raw = window.prompt($gettext('Move to folder (name, empty = none)') + (names ? ` [${names}]` : ''), '')
+  if (raw === null) return
+  const target = folders.value.find((fo) => fo.name.toLowerCase() === raw.trim().toLowerCase())
+  await api.moveFeed(f.id, target ? target.id : null)
+  await loadSidebar()
+}
+
+async function renameFolder(entry: NavEntry) {
+  openMenu.value = ''
+  const fo = entryFolder(entry)
+  if (!fo) return
+  const name = window.prompt($gettext('New name'), fo.name)
+  if (!name?.trim()) return
+  await api.renameFolder(fo.id, name.trim())
+  await loadSidebar()
+}
+
+async function markEntryRead(entry: NavEntry) {
+  openMenu.value = ''
+  const newest = await currentNewest()
+  if (entry.kind === 'feed') await api.markFeedRead((entry.sel as { id: number }).id, newest)
+  if (entry.kind === 'folder') await api.markFolderRead((entry.sel as { id: number }).id, newest)
+  await loadSidebar()
+  await loadItems()
+}
+
+async function currentNewest(): Promise<number> {
+  const f = await api.feeds()
+  return f.newestItemId ?? 0
+}
+
+async function deleteEntry(entry: NavEntry) {
+  openMenu.value = ''
+  const isFeed = entry.kind === 'feed'
+  const label = isFeed ? entryFeed(entry)?.title : entryFolder(entry)?.name
+  if (!window.confirm($gettext('Delete') + ` "${label}"?` + (isFeed ? '' : ' ' + $gettext('(feeds inside will be deleted)')))) return
+  try {
+    if (isFeed) await api.deleteFeed((entry.sel as { id: number }).id)
+    else await api.deleteFolder((entry.sel as { id: number }).id)
+    if (isActive(entry)) router.push('/news/')
+    await loadSidebar()
+    await loadItems()
+  } catch (e) {
+    error.value = $gettext('Delete failed: ') + errText(e)
+  }
+}
+
+async function exportOpml() {
+  try {
+    const res: { data: string } = await api.exportOpml()
+    const blob = new Blob([res.data], { type: 'text/x-opml' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'subscriptions.opml'
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    error.value = $gettext('Export failed: ') + errText(e)
+  }
+}
+
+async function importOpml(ev: Event) {
+  const input = ev.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  try {
+    const res: { data: { imported: number; skipped: number } } = await api.importOpml(file)
+    error.value = ''
+    await loadSidebar()
+    await refreshNow()
+    window.alert($gettext('Imported') + `: ${res.data.imported}, ` + $gettext('skipped') + `: ${res.data.skipped}`)
+  } catch (e) {
+    error.value = $gettext('Import failed: ') + errText(e)
+  } finally {
+    input.value = ''
+  }
+}
+
+function errText(e: unknown): string {
+  const anyE = e as { response?: { status?: number; data?: unknown }; message?: string }
+  if (anyE?.response?.status) return `HTTP ${anyE.response.status}`
+  return anyE?.message ?? String(e)
 }
 
 function extractErrorMessage(e: unknown, fallback: string): string {
@@ -370,29 +673,24 @@ function extractErrorMessage(e: unknown, fallback: string): string {
   return fallback
 }
 
-watch(selection, loadItems)
+watch(selection, () => loadItems())
+watch(showAll, () => loadItems())
+watch(oldestFirst, () => loadItems())
 watch(() => route.value.fullPath, () => (detail.value = null))
 
 onMounted(async () => {
   try {
     await loadSidebar()
   } catch (e) {
-    console.error('[news] loadSidebar failed', e)
     error.value = $gettext('Could not load folders/feeds: ') + errText(e)
   }
-  try {
-    await loadItems()
-  } catch (e) {
-    console.error('[news] loadItems failed', e)
-    error.value = (error.value ? error.value + ' · ' : '') + $gettext('Could not load items: ') + errText(e)
-  }
+  await loadItems()
 })
-
-function errText(e: unknown): string {
-  const anyE = e as { response?: { status?: number; data?: unknown }; message?: string }
-  if (anyE?.response?.status) {
-    return `HTTP ${anyE.response.status}`
-  }
-  return anyE?.message ?? String(e)
-}
 </script>
+
+<style>
+@keyframes news-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+</style>
