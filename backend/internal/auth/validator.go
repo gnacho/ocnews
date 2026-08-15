@@ -1,10 +1,9 @@
-// Package auth: validación de credenciales HTTP Basic.
-// Dos modos:
-//   - Local: bcrypt contra la tabla users (apps standalone).
-//   - OpenCloud: Basic user:app-token validado contra la Graph API del
-//     servidor OpenCloud (GET /graph/v1.0/me). Los usuarios se crean como
-//     shadow en la tabla local (hash inutilizable) al primer login; la
-//     autenticación SIEMPRE es externa.
+// Package auth: validación de credenciales.
+//   - Basic user:app-token (clientes News: Android, curl, PWA futura)
+//   - Bearer <access-token OIDC> (sesión de la web de OpenCloud: las
+//     extensiones usan clientService.httpAuthenticated)
+// Ambos se validan contra la Graph API del servidor OpenCloud y se
+// resuelven al MISMO shadow user vía oc_id (uuid del IDM).
 package auth
 
 import (
@@ -24,39 +23,47 @@ import (
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
 
-// Validator decide si unas credenciales Basic son válidas.
-type Validator interface {
-	Validate(ctx context.Context, username, password string) (*store.User, bool)
+// Credential: exactamente una de las dos formas.
+type Credential struct {
+	Username, Password string // Basic
+	Bearer             string // Bearer access token
 }
 
-// LocalValidator: bcrypt contra la tabla users.
+// Validator decide si una credencial es válida.
+type Validator interface {
+	Validate(ctx context.Context, cred Credential) (*store.User, bool)
+}
+
+// LocalValidator: bcrypt contra la tabla users (solo Basic).
 type LocalValidator struct {
 	Store *store.Store
 }
 
-func (l *LocalValidator) Validate(_ context.Context, username, password string) (*store.User, bool) {
-	u, err := l.Store.GetUserByUsername(username)
+func (l *LocalValidator) Validate(_ context.Context, cred Credential) (*store.User, bool) {
+	if cred.Bearer != "" || cred.Username == "" {
+		return nil, false
+	}
+	u, err := l.Store.GetUserByUsername(cred.Username)
 	if err != nil {
 		return nil, false
 	}
-	if bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)) != nil {
+	if bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(cred.Password)) != nil {
 		return nil, false
 	}
 	l.Store.TouchLogin(u.ID)
 	return u, true
 }
 
-// OpenCloudValidator: Basic user:app-token contra Graph /me del servidor
-// OpenCloud. Caché positiva en memoria (TTL) para no golpear el IdP en cada
-// petición; los usuarios se materializan como shadow al primer login.
+// OpenCloudValidator: Basic o Bearer contra Graph /me; shadow users unificados
+// por oc_id; caché positiva con TTL para no golpear el IdP en cada petición.
 type OpenCloudValidator struct {
 	Store  *store.Store
-	URL    string // raíz del servidor OpenCloud, p.ej. https://drive.example
+	URL    string // raíz del servidor OpenCloud
 	Client *http.Client
 	Log    *slog.Logger
 
 	mu    sync.Mutex
-	cache map[string]cacheEntry // sha256(user:pass) → {userID, expira}
+	cache map[string]cacheEntry // sha256(cred) → {userID, expira}
 }
 
 type cacheEntry struct {
@@ -78,32 +85,38 @@ func NewOpenCloudValidator(st *store.Store, url string, log *slog.Logger) *OpenC
 
 // graphMe: campos de GET /graph/v1.0/me que usamos.
 type graphMe struct {
-	ID                         string `json:"id"`
-	DisplayName                string `json:"displayName"`
-	OnPremisesSamAccountName   string `json:"onPremisesSamAccountName"`
-	UserPrincipalName          string `json:"userPrincipalName"`
+	ID                       string `json:"id"`
+	DisplayName              string `json:"displayName"`
+	OnPremisesSamAccountName string `json:"onPremisesSamAccountName"`
+	UserPrincipalName        string `json:"userPrincipalName"`
+	Mail                     string `json:"mail"`
 }
 
-func (o *OpenCloudValidator) Validate(ctx context.Context, username, password string) (*store.User, bool) {
-	key := cacheKey(username, password)
+func (o *OpenCloudValidator) Validate(ctx context.Context, cred Credential) (*store.User, bool) {
+	if cred.Bearer == "" && cred.Username == "" {
+		return nil, false
+	}
+	key := cacheKey(cred)
 
 	o.mu.Lock()
 	if e, ok := o.cache[key]; ok && time.Now().Before(e.expiry) {
 		o.mu.Unlock()
-		u, err := o.Store.GetUserByID(e.userID)
-		if err == nil {
+		if u, err := o.Store.GetUserByID(e.userID); err == nil {
 			return u, true
 		}
 	} else {
 		o.mu.Unlock()
 	}
 
-	// validar contra OpenCloud: reenviamos el MISMO Basic
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, o.URL+"/graph/v1.0/me", nil)
 	if err != nil {
 		return nil, false
 	}
-	req.SetBasicAuth(username, password)
+	if cred.Bearer != "" {
+		req.Header.Set("Authorization", "Bearer "+cred.Bearer)
+	} else {
+		req.SetBasicAuth(cred.Username, cred.Password)
+	}
 	resp, err := o.Client.Do(req)
 	if err != nil {
 		o.Log.Warn("opencloud graph /me inalcanzable", "err", err)
@@ -118,9 +131,9 @@ func (o *OpenCloudValidator) Validate(ctx context.Context, username, password st
 		return nil, false
 	}
 
-	u, err := o.upsertShadow(username, me)
+	u, err := o.upsertShadow(cred, me)
 	if err != nil {
-		o.Log.Error("crear shadow user", "err", err)
+		o.Log.Error("shadow user", "err", err)
 		return nil, false
 	}
 	o.Store.TouchLogin(u.ID)
@@ -131,11 +144,36 @@ func (o *OpenCloudValidator) Validate(ctx context.Context, username, password st
 	return u, true
 }
 
-// upsertShadow materializa el usuario OpenCloud en la tabla local.
-// password_hash = hash inutilizable: el login local NUNCA funciona.
-func (o *OpenCloudValidator) upsertShadow(username string, me graphMe) (*store.User, error) {
-	if u, err := o.Store.GetUserByUsername(username); err == nil {
-		// refrescar display name si cambió
+// upsertShadow resuelve el shadow user: primero por oc_id (canónico); si no
+// existe, por el username del Basic (para sombras previas sin oc_id, se
+// vincula); si tampoco, se crea. Con Bearer el username preferido es el
+// account name del IDM, no el uuid.
+func (o *OpenCloudValidator) upsertShadow(cred Credential, me graphMe) (*store.User, error) {
+	if me.ID != "" {
+		if u, err := o.Store.GetUserByOCID(me.ID); err == nil {
+			if me.DisplayName != "" && u.DisplayName != me.DisplayName {
+				_ = o.Store.UpdateProfile(u.ID, me.DisplayName, u.Language)
+			}
+			return o.Store.GetUserByOCID(me.ID)
+		}
+	}
+	username := cred.Username
+	if username == "" {
+		username = me.OnPremisesSamAccountName
+		if username == "" {
+			username = me.UserPrincipalName
+		}
+		if username == "" {
+			username = me.Mail
+		}
+		if username == "" {
+			username = me.ID
+		}
+	}
+	if u, err := o.Store.GetUserByUsername(username); err == nil && me.ID != "" {
+		if u.OCID == "" {
+			_ = o.Store.SetUserOCID(u.ID, me.ID)
+		}
 		if me.DisplayName != "" && u.DisplayName != me.DisplayName {
 			_ = o.Store.UpdateProfile(u.ID, me.DisplayName, u.Language)
 		}
@@ -147,18 +185,26 @@ func (o *OpenCloudValidator) upsertShadow(username string, me graphMe) (*store.U
 	}
 	role := "user"
 	if users, err := o.Store.CountUsers(); err == nil && users == 0 {
-		role = "admin" // el primer usuario de la instancia es admin
+		role = "admin"
 	}
-	id, err := o.Store.CreateUser(username, "shadow:"+string(n), me.DisplayName, role)
-	if err != nil {
-		return nil, fmt.Errorf("shadow user: %w", err)
+	if _, err := o.Store.CreateUserWithOCID(username, me.ID, "shadow:"+string(n), me.DisplayName, role); err != nil {
+		return nil, fmt.Errorf("crear shadow: %w", err)
 	}
 	o.Log.Info("usuario opencloud vinculado", "username", username, "display", me.DisplayName)
-	return o.Store.GetUserByID(id)
+	if me.ID != "" {
+		return o.Store.GetUserByOCID(me.ID)
+	}
+	return o.Store.GetUserByUsername(username)
 }
 
-func cacheKey(username, password string) string {
-	h := sha256.Sum256([]byte(username + "\x00" + password))
+func cacheKey(cred Credential) string {
+	var material string
+	if cred.Bearer != "" {
+		material = "bearer\x00" + cred.Bearer
+	} else {
+		material = "basic\x00" + cred.Username + "\x00" + cred.Password
+	}
+	h := sha256.Sum256([]byte(material))
 	return hex.EncodeToString(h[:])
 }
 

@@ -19,6 +19,39 @@ func (s *Store) CreateUser(username, passwordHash, displayName, role string) (in
 	return res.LastInsertId()
 }
 
+// CreateUserWithOCID crea un shadow user con identidad OpenCloud canónica.
+func (s *Store) CreateUserWithOCID(username, ocID, passwordHash, displayName, role string) (int64, error) {
+	res, err := s.db.Exec(
+		`INSERT INTO users (username, password_hash, display_name, role, language, oc_id, created_at) VALUES (?, ?, ?, ?, 'auto', ?, ?)`,
+		username, passwordHash, displayName, role, ocID, now())
+	if err != nil {
+		return 0, fmt.Errorf("crear usuario: %w", err)
+	}
+	return res.LastInsertId()
+}
+
+// SetUserOCID vincula el oc_id a un usuario existente (p.ej. shadow Basic
+// creado antes del primer login Bearer).
+func (s *Store) SetUserOCID(userID int64, ocID string) error {
+	_, err := s.db.Exec(`UPDATE users SET oc_id = ? WHERE id = ?`, ocID, userID)
+	return err
+}
+
+func (s *Store) GetUserByOCID(ocID string) (*User, error) {
+	u := &User{}
+	err := s.db.QueryRow(
+		`SELECT id, username, password_hash, display_name, role, language, oc_id, created_at, last_login_at
+		 FROM users WHERE oc_id = ?`, ocID,
+	).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.DisplayName, &u.Role, &u.Language, &u.OCID, &u.CreatedAt, &u.LastLoginAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
 // SetUserLanguage fija el idioma preferido del usuario (auto|es|en).
 func (s *Store) SetUserLanguage(userID int64, language string) error {
 	_, err := s.db.Exec(`UPDATE users SET language = ? WHERE id = ?`, language, userID)
@@ -42,9 +75,9 @@ func (s *Store) BootstrapUser(username, passwordHash string) (bool, error) {
 func (s *Store) GetUserByUsername(username string) (*User, error) {
 	u := &User{}
 	err := s.db.QueryRow(
-		`SELECT id, username, password_hash, display_name, role, language, created_at, last_login_at
+		`SELECT id, username, password_hash, display_name, role, language, oc_id, created_at, last_login_at
 		 FROM users WHERE username = ?`, username,
-	).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.DisplayName, &u.Role, &u.Language, &u.CreatedAt, &u.LastLoginAt)
+	).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.DisplayName, &u.Role, &u.Language, &u.OCID, &u.CreatedAt, &u.LastLoginAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -83,7 +116,7 @@ func (s *Store) CountAdmins() (int, error) {
 // ListUsers devuelve todos los usuarios (sin hashes) para admin.
 func (s *Store) ListUsers() ([]User, error) {
 	rows, err := s.db.Query(
-		`SELECT id, username, '', display_name, role, language, created_at, last_login_at FROM users ORDER BY username`)
+		`SELECT id, username, '', display_name, role, language, oc_id, created_at, last_login_at FROM users ORDER BY username`)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +124,7 @@ func (s *Store) ListUsers() ([]User, error) {
 	out := []User{}
 	for rows.Next() {
 		u := User{}
-		if err := rows.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.DisplayName, &u.Role, &u.Language, &u.CreatedAt, &u.LastLoginAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.DisplayName, &u.Role, &u.Language, &u.OCID, &u.CreatedAt, &u.LastLoginAt); err != nil {
 			return nil, err
 		}
 		out = append(out, u)
@@ -102,9 +135,9 @@ func (s *Store) ListUsers() ([]User, error) {
 func (s *Store) GetUserByID(id int64) (*User, error) {
 	u := &User{}
 	err := s.db.QueryRow(
-		`SELECT id, username, password_hash, display_name, role, language, created_at, last_login_at
+		`SELECT id, username, password_hash, display_name, role, language, oc_id, created_at, last_login_at
 		 FROM users WHERE id = ?`, id,
-	).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.DisplayName, &u.Role, &u.Language, &u.CreatedAt, &u.LastLoginAt)
+	).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.DisplayName, &u.Role, &u.Language, &u.OCID, &u.CreatedAt, &u.LastLoginAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}

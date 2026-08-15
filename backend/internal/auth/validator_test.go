@@ -23,11 +23,13 @@ func newStore(t *testing.T) *store.Store {
 	return st
 }
 
-// fakeGraph: servidor OpenCloud de mentira que solo valida un par fijo.
+// fakeGraph: OpenCloud de mentira; valida Basic (user fijo) y Bearer (token fijo),
+// ambos resuelven al MISMO /me (mismo oc_id).
 type fakeGraph struct {
 	mu       sync.Mutex
 	meHits   int
-	password string // la password válida para "nacho"
+	password string
+	bearer   string
 }
 
 func (f *fakeGraph) handler(t *testing.T) http.Handler {
@@ -39,8 +41,13 @@ func (f *fakeGraph) handler(t *testing.T) http.Handler {
 			http.NotFound(w, r)
 			return
 		}
-		user, pass, ok := r.BasicAuth()
-		if !ok || user != "nacho" || pass != f.password {
+		ok := false
+		if user, pass, b := r.BasicAuth(); b {
+			ok = user == "nacho" && pass == f.password
+		} else if h := r.Header.Get("Authorization"); h != "" {
+			ok = h == "Bearer "+f.bearer
+		}
+		if !ok {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -49,58 +56,57 @@ func (f *fakeGraph) handler(t *testing.T) http.Handler {
 	})
 }
 
-func TestOpenCloudValidatorShadowUser(t *testing.T) {
+func TestOpenCloudValidatorBasicAndBearerUnify(t *testing.T) {
 	st := newStore(t)
-	fg := &fakeGraph{password: "app-token-xyz"}
+	fg := &fakeGraph{password: "app-token-xyz", bearer: "oidc-access-tok"}
 	ts := httptest.NewServer(fg.handler(t))
 	t.Cleanup(ts.Close)
 
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	v := NewOpenCloudValidator(st, ts.URL, log)
 
-	// credenciales malas → false
-	if u, ok := v.Validate(context.Background(), "nacho", "malapass"); ok || u != nil {
+	// Basic malo → false
+	if u, ok := v.Validate(context.Background(), Credential{Username: "nacho", Password: "malapass"}); ok || u != nil {
 		t.Fatal("pass mala debe fallar")
 	}
-
-	// credenciales buenas → shadow creado con displayName del Graph
-	u, ok := v.Validate(context.Background(), "nacho", "app-token-xyz")
-	if !ok || u == nil {
-		t.Fatal("login válido rechazado")
+	// Basic bueno → shadow admin con displayName del Graph
+	uBasic, ok := v.Validate(context.Background(), Credential{Username: "nacho", Password: "app-token-xyz"})
+	if !ok || uBasic.Username != "nacho" || uBasic.DisplayName != "Nacho Real" || uBasic.OCID != "uuid-1234" {
+		t.Fatalf("shadow Basic mal: %+v", uBasic)
 	}
-	if u.Username != "nacho" || u.DisplayName != "Nacho Real" {
-		t.Fatalf("shadow mal: %+v", u)
-	}
-	if u.Role != "admin" {
-		t.Fatalf("primer usuario debe ser admin: %s", u.Role)
+	if uBasic.Role != "admin" {
+		t.Fatalf("primer usuario debe ser admin: %s", uBasic.Role)
 	}
 
-	// el login LOCAL contra el shadow NUNCA funciona (hash inutilizable)
-	lv := &LocalValidator{Store: st}
-	if _, ok := lv.Validate(context.Background(), "nacho", "app-token-xyz"); ok {
-		t.Fatal("el shadow no debe autenticar localmente")
+	// Bearer (sesión web) → MISMO usuario (oc_id), sin duplicar
+	uBearer, ok := v.Validate(context.Background(), Credential{Bearer: "oidc-access-tok"})
+	if !ok {
+		t.Fatal("bearer válido rechazado")
+	}
+	if uBearer.ID != uBasic.ID {
+		t.Fatalf("Basic y Bearer deben resolver al mismo shadow: %d vs %d", uBasic.ID, uBearer.ID)
 	}
 
-	// segunda validación misma pass → cache (sin hit nuevo al Graph)
+	// Bearer malo → false
+	if _, ok := v.Validate(context.Background(), Credential{Bearer: "caducado"}); ok {
+		t.Fatal("bearer malo debe fallar")
+	}
+
+	// cache: misma credencial no golpea el Graph de nuevo
 	before := fg.meHits
-	u2, ok := v.Validate(context.Background(), "nacho", "app-token-xyz")
-	if !ok || u2.ID != u.ID {
-		t.Fatal("revalidación falló")
+	if _, ok := v.Validate(context.Background(), Credential{Bearer: "oidc-access-tok"}); !ok {
+		t.Fatal("revalidación bearer falló")
 	}
 	if fg.meHits != before {
 		t.Fatalf("cache no aplicada: %d hits nuevos", fg.meHits-before)
 	}
 
-	// password rotada → el token NUEVO valida (crea entrada de cache nueva);
-	// el viejo sigue vivo hasta agotar el TTL (tradeoff documentado de la
-	// caché positiva: revocación efectiva en <= cacheTTL)
-	fg.mu.Lock()
-	fg.password = "nueva"
-	fg.mu.Unlock()
-	if _, ok := v.Validate(context.Background(), "nacho", "nueva"); !ok {
-		t.Fatal("token nuevo debe validar")
+	// LocalValidator NUNCA acepta Bearer ni el hash shadow
+	lv := &LocalValidator{Store: st}
+	if _, ok := lv.Validate(context.Background(), Credential{Bearer: "oidc-access-tok"}); ok {
+		t.Fatal("local no debe aceptar bearer")
 	}
-	if _, ok := v.Validate(context.Background(), "nacho", "app-token-xyz"); !ok {
-		t.Log("nota: token viejo aún en cache (TTL); esperado")
+	if _, ok := lv.Validate(context.Background(), Credential{Username: "nacho", Password: "app-token-xyz"}); ok {
+		t.Fatal("el shadow no debe autenticar localmente")
 	}
 }

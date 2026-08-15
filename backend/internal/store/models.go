@@ -10,6 +10,7 @@ type User struct {
 	DisplayName  string
 	Role         string
 	Language     string // auto|es|en
+	OCID         string // uuid OpenCloud (identidad canónica del shadow)
 	CreatedAt    int64
 	LastLoginAt  int64
 }

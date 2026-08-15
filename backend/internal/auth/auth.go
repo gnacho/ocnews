@@ -27,14 +27,14 @@ func HashPassword(pw string) (string, error) {
 	return string(b), err
 }
 
-// Middleware exige Basic auth válida; 401 con WWW-Authenticate si no.
+// Middleware exige credenciales válidas (Basic o Bearer); 401 si no.
 // El mensaje se negocia por Accept-Language (no hay usuario todavía).
 func Middleware(v Validator, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		username, password, ok := basicCredentials(r)
+		cred, ok := credentials(r)
 		var u *store.User
 		if ok {
-			u, ok = v.Validate(r.Context(), username, password)
+			u, ok = v.Validate(r.Context(), cred)
 		}
 		if !ok {
 			w.Header().Set("WWW-Authenticate", `Basic realm="ocnews"`)
@@ -63,18 +63,28 @@ func Lang(r *http.Request) i18n.Lang {
 	return l
 }
 
-func basicCredentials(r *http.Request) (string, string, bool) {
+// credentials extrae Basic o Bearer de la cabecera Authorization.
+func credentials(r *http.Request) (Credential, bool) {
 	h := r.Header.Get("Authorization")
-	const prefix = "Basic "
-	if !strings.HasPrefix(h, prefix) {
-		return "", "", false
+	switch {
+	case strings.HasPrefix(h, "Basic "):
+		raw, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(h, "Basic "))
+		if err != nil {
+			return Credential{}, false
+		}
+		user, pass, ok := strings.Cut(string(raw), ":")
+		if !ok || user == "" {
+			return Credential{}, false
+		}
+		return Credential{Username: user, Password: pass}, true
+	case strings.HasPrefix(h, "Bearer "):
+		tok := strings.TrimSpace(strings.TrimPrefix(h, "Bearer "))
+		if tok == "" {
+			return Credential{}, false
+		}
+		return Credential{Bearer: tok}, true
 	}
-	raw, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(h, prefix))
-	if err != nil {
-		return "", "", false
-	}
-	user, pass, ok := strings.Cut(string(raw), ":")
-	return user, pass, ok
+	return Credential{}, false
 }
 
 type errBody struct {
