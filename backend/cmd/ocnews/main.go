@@ -18,6 +18,7 @@ import (
 	"github.com/gnacho/ocnews/backend/internal/config"
 	"github.com/gnacho/ocnews/backend/internal/feed"
 	"github.com/gnacho/ocnews/backend/internal/favicon"
+	"github.com/gnacho/ocnews/backend/internal/imgproxy"
 	"github.com/gnacho/ocnews/backend/internal/refresher"
 	"github.com/gnacho/ocnews/backend/internal/scheduler"
 	"github.com/gnacho/ocnews/backend/internal/store"
@@ -45,6 +46,10 @@ func run() error {
 	defer st.Close()
 
 	favicons, err := favicon.NewCache(cfg.FaviconsDir(), log)
+	if err != nil {
+		return err
+	}
+	imgs, err := imgproxy.New(cfg.DataDir, log)
 	if err != nil {
 		return err
 	}
@@ -85,7 +90,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           api.NewServer(st, validator, fetcher, refresh, favicons, cfg.Retention, log).Handler(),
+		Handler:           api.NewServer(st, validator, fetcher, refresh, favicons, imgs, cfg.Retention, log).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

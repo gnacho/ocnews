@@ -195,6 +195,15 @@
           </div>
           <button
             style="align-self: flex-start; background: none; border: 0; cursor: pointer; padding: 2px"
+            :style="{ color: item.unread ? '#2563eb' : 'rgba(0,0,0,0.35)' }"
+            :aria-label="item.unread ? $gettext('Mark as read') : $gettext('Mark as unread')"
+            :title="item.unread ? $gettext('Mark as read') : $gettext('Mark as unread')"
+            @click.stop="toggleUnread(item)"
+          >
+            <component :is="item.unread ? Mail : MailOpen" style="width: 16px; height: 16px" />
+          </button>
+          <button
+            style="align-self: flex-start; background: none; border: 0; cursor: pointer; padding: 2px"
             :style="{ color: item.starred ? '#d97706' : 'rgba(0,0,0,0.35)' }"
             :aria-label="item.starred ? $gettext('Unstar') : $gettext('Star')"
             @click.stop="toggleStar(item)"
@@ -256,8 +265,8 @@
         <p style="font-size: 12px; opacity: 0.6; margin: 0 0 12px">
           {{ feedTitle(detail.feedId) }} · {{ fmtDate(detail.pubDate) }}
         </p>
-        <!-- body sanitizado server-side -->
-        <div class="oc-prose" style="max-width: 72ch" v-html="detail.body" />
+        <!-- body sanitizado server-side; imágenes via proxy propio (CSP) -->
+        <div class="oc-prose news-body" style="max-width: 72ch" v-html="detailBody" />
       </div>
     </section>
   </main>
@@ -272,6 +281,7 @@ import { useGettext } from 'vue3-gettext'
 import {
   Newspaper,
   Star,
+  Mail,
   FolderOpen,
   FolderPlus,
   Plus,
@@ -407,6 +417,12 @@ const navEntries = computed<NavEntry[]>(() => {
   }
   return entries
 })
+
+// cuerpo del detalle: enlaces del artículo a pestaña nueva (dentro del host
+// navegarían en el propio frame); las imágenes ya llegan vía proxy firmado
+const detailBody = computed(() =>
+  (detail.value?.body ?? "").replaceAll('<a ', '<a target="_blank" rel="noopener noreferrer" ')
+)
 
 const totalUnread = computed(() => feeds.value.reduce((a, f) => a + f.unreadCount, 0))
 const unreadCount = computed(() =>
@@ -693,4 +709,41 @@ onMounted(async () => {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+.news-body p { margin: 0 0 0.9em; line-height: 1.65; }
+.news-body h1, .news-body h2, .news-body h3, .news-body h4 {
+  margin: 1.2em 0 0.5em;
+  line-height: 1.3;
+  font-weight: 600;
+}
+.news-body h2 { font-size: 1.3em; }
+.news-body h3 { font-size: 1.15em; }
+.news-body ul, .news-body ol { margin: 0 0 1em; padding-left: 1.4em; line-height: 1.6; }
+.news-body li { margin-bottom: 0.3em; }
+.news-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 0.4em 0 1em;
+}
+.news-body a { color: #2563eb; text-decoration: underline; }
+.news-body a:hover { opacity: 0.8; }
+.news-body blockquote {
+  margin: 0 0 1em;
+  padding: 0.4em 1em;
+  border-left: 3px solid rgba(125, 125, 125, 0.4);
+  opacity: 0.9;
+}
+.news-body pre {
+  background: rgba(125, 125, 125, 0.12);
+  border-radius: 8px;
+  padding: 0.8em 1em;
+  overflow-x: auto;
+  font-size: 0.9em;
+}
+.news-body code { background: rgba(125, 125, 125, 0.12); border-radius: 4px; padding: 0.1em 0.35em; }
+.news-body pre code { background: none; padding: 0; }
+.news-body figure { margin: 0 0 1em; }
+.news-body figcaption { font-size: 0.85em; opacity: 0.65; margin-top: 0.3em; }
+.news-body table { border-collapse: collapse; margin-bottom: 1em; }
+.news-body th, .news-body td { border: 1px solid rgba(125, 125, 125, 0.35); padding: 0.4em 0.7em; }
 </style>

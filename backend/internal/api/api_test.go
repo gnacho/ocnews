@@ -17,6 +17,7 @@ import (
 	"github.com/gnacho/ocnews/backend/internal/auth"
 	"github.com/gnacho/ocnews/backend/internal/feed"
 	"github.com/gnacho/ocnews/backend/internal/favicon"
+	"github.com/gnacho/ocnews/backend/internal/imgproxy"
 	"github.com/gnacho/ocnews/backend/internal/refresher"
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
@@ -57,6 +58,7 @@ type testEnv struct {
 	user       string
 	pass       string
 	faviconDir string
+	srv        *Server
 }
 
 func newTestEnv(t *testing.T, fetcher feed.Fetcher) *testEnv {
@@ -90,11 +92,16 @@ func newTestEnv(t *testing.T, fetcher feed.Fetcher) *testEnv {
 	if err != nil {
 		t.Fatal(err)
 	}
+	imgs, err := imgproxy.New(t.TempDir(), log)
+	if err != nil {
+		t.Fatal(err)
+	}
 	validator := &auth.LocalValidator{Store: st}
-	h := NewServer(st, validator, fetcher, refresh, fc, 90*24*time.Hour, log).Handler()
+	srv := NewServer(st, validator, fetcher, refresh, fc, imgs, 90*24*time.Hour, log)
+	h := srv.Handler()
 	ts := httptest.NewServer(h)
 	t.Cleanup(ts.Close)
-	return &testEnv{ts: ts, client: ts.Client(), user: "nacho", pass: "pass1234", faviconDir: favDir}
+	return &testEnv{ts: ts, client: ts.Client(), user: "nacho", pass: "pass1234", faviconDir: favDir, srv: srv}
 }
 
 // do ejecuta una petición con Basic auth del usuario dado.

@@ -88,6 +88,7 @@ func (s *Server) listItems(w http.ResponseWriter, r *http.Request) {
 		s.logError(w, r, "listar items", err)
 		return
 	}
+	s.rewriteAll(items)
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
@@ -103,6 +104,7 @@ func (s *Server) updatedItems(w http.ResponseWriter, r *http.Request) {
 		s.logError(w, r, "items actualizados", err)
 		return
 	}
+	s.rewriteAll(items)
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 

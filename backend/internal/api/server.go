@@ -15,6 +15,7 @@ import (
 	"github.com/gnacho/ocnews/backend/internal/feed"
 	"github.com/gnacho/ocnews/backend/internal/favicon"
 	"github.com/gnacho/ocnews/backend/internal/i18n"
+	"github.com/gnacho/ocnews/backend/internal/imgproxy"
 	"github.com/gnacho/ocnews/backend/internal/refresher"
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
@@ -32,13 +33,15 @@ type Server struct {
 	fetcher   feed.Fetcher
 	refresher *refresher.Refresher
 	favicons  *favicon.Cache
+	imgs      *imgproxy.Proxy
 	retention time.Duration
 	log       *slog.Logger
 }
 
-func NewServer(s *store.Store, v auth.Validator, f feed.Fetcher, r *refresher.Refresher, fc *favicon.Cache,
-	retention time.Duration, log *slog.Logger) *Server {
-	return &Server{store: s, validator: v, fetcher: f, refresher: r, favicons: fc, retention: retention, log: log}
+func NewServer(s *store.Store, v auth.Validator, f feed.Fetcher, r *refresher.Refresher,
+	fc *favicon.Cache, ip *imgproxy.Proxy, retention time.Duration, log *slog.Logger) *Server {
+	return &Server{store: s, validator: v, fetcher: f, refresher: r, favicons: fc, imgs: ip,
+		retention: retention, log: log}
 }
 
 // Handler monta el router completo con CORS + auth en la base de la API.
@@ -52,6 +55,11 @@ func (s *Server) Handler() http.Handler {
 	api := http.NewServeMux()
 	s.routes(api)
 	authed := auth.Middleware(s.validator, withCORS(api))
+
+// Proxy de imágenes PÚBLICO (el <img> del navegador no puede mandar auth):
+// la seguridad la aporta la firma HMAC de la URL. Con método explícito para
+// no chocar con el patrón OPTIONS de preflight.
+mux.Handle("GET "+Base+"/img", http.StripPrefix(Base, withCORS(http.HandlerFunc(s.imgs.Serve))))
 
 	mux.Handle(Base+"/", http.StripPrefix(Base, authed))
 	// API propia de la app (perfil/usuarios) bajo /api/, misma Basic auth
