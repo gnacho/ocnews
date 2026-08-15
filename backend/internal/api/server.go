@@ -4,10 +4,11 @@
 package api
 
 import (
+	"bufio"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gnacho/ocnews/backend/internal/auth"
@@ -116,22 +117,39 @@ func errorStatus(w http.ResponseWriter, r *http.Request, status int, key string)
 	}
 }
 
-// decodeBody decodifica JSON tolerante: cuerpo vacío o content-type no-JSON
-// (form-urlencoded lo procesa el handler vía ParseForm) no son error.
+// decodeBody decodifica JSON tolerante: decide por el CONTENIDO (primer
+// byte '{'/'['), no por el content-type — curl -d manda form-urlencoded
+// por defecto aunque el body sea JSON (la spec v1.3 acepta ambos). Si no
+// es JSON, deja el body intacto para que el handler haga ParseForm.
 func decodeBody(r *http.Request, v any) error {
 	if r.Body == nil {
 		return nil
 	}
-	ct := r.Header.Get("Content-Type")
-	if ct != "" && !strings.Contains(ct, "json") {
-		return nil // form/query: el handler hace ParseForm si lo necesita
+	br := bufio.NewReader(io.LimitReader(r.Body, 4<<20))
+	lead, err := peekNonSpace(br)
+	if err != nil || (lead != '{' && lead != '[') {
+		r.Body = io.NopCloser(br)
+		return nil
 	}
-	dec := json.NewDecoder(r.Body)
+	dec := json.NewDecoder(br)
 	if err := dec.Decode(v); err != nil {
-		if err.Error() == "EOF" {
-			return nil
-		}
 		return err
 	}
 	return nil
+}
+
+func peekNonSpace(br *bufio.Reader) (byte, error) {
+	for i := 0; i < 64; i++ {
+		b, err := br.Peek(1)
+		if err != nil {
+			return 0, err
+		}
+		c := b[0]
+		if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
+			br.ReadByte()
+			continue
+		}
+		return c, nil
+	}
+	return 0, nil
 }

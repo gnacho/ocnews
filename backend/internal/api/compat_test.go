@@ -91,6 +91,21 @@ func TestAndroidCompat(t *testing.T) {
 	if !strings.Contains(string(fb), "Otro") {
 		t.Fatalf("rename no aplicado: %s", fb)
 	}
+
+	// crear carpeta con JSON pero content-type form (curl -d por defecto):
+	// decodeBody decide por contenido, no por cabecera
+	reqC, _ := http.NewRequest("POST", e.ts.URL+Base+"/folders",
+		strings.NewReader(`{"name":"Tecnología"}`))
+	reqC.SetBasicAuth(e.user, e.pass)
+	reqC.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	respC, err := e.client.Do(reqC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bodyC := readBody(t, respC)
+	if respC.StatusCode != 200 || !strings.Contains(string(bodyC), "Tecnología") {
+		t.Fatalf("carpeta JSON con content-type form: %d %s", respC.StatusCode, bodyC)
+	}
 }
 
 // TestOCSUserStub: /ocs/v2.php/cloud/user con formato OCS v2 para el drawer
