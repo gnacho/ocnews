@@ -236,6 +236,16 @@
         <oc-button
           variation="passive"
           appearance="raw"
+          :aria-label="$gettext('Full article')"
+          :title="fullBody ? $gettext('Show summary') : $gettext('Full article')"
+          :disabled="fullLoading"
+          @click="toggleFull"
+        >
+          <BookOpenText style="width: 16px; height: 16px" :style="fullBody ? 'color: #2563eb' : ''" />
+        </oc-button>
+        <oc-button
+          variation="passive"
+          appearance="raw"
           :aria-label="detail.unread ? $gettext('Mark as unread') : $gettext('Mark as read')"
           :title="detail.unread ? $gettext('Mark as read') : $gettext('Mark as unread')"
           @click="toggleUnread(detail)"
@@ -264,6 +274,10 @@
       <div style="flex: 1; overflow-y: auto; padding: 12px 16px">
         <p style="font-size: 12px; opacity: 0.6; margin: 0 0 12px">
           {{ feedTitle(detail.feedId) }} · {{ fmtDate(detail.pubDate) }}
+          <span v-if="fullLoading" style="opacity: 0.7"> · {{ $gettext('loading full article…') }}</span>
+          <span v-else-if="fullFailed" style="color: #d97706">
+            · {{ $gettext('full article not available — open the original') }}
+          </span>
         </p>
         <!-- body sanitizado server-side; imágenes via proxy propio (CSP) -->
         <div class="oc-prose news-body" style="max-width: 72ch" v-html="detailBody" />
@@ -294,7 +308,8 @@ import {
   Upload,
   AlertTriangle,
   MailOpen,
-  ExternalLink
+  ExternalLink,
+  BookOpenText
 } from 'lucide-vue-next'
 import { useNewsApi, Item, Feed, Folder, Selection } from '../api'
 
@@ -338,6 +353,9 @@ const feeds = ref<Feed[]>([])
 const starredCount = ref(0)
 const items = ref<Item[]>([])
 const detail = ref<Item | null>(null)
+const fullBody = ref('')
+const fullLoading = ref(false)
+const fullFailed = ref(false)
 const loading = ref(false)
 const error = ref('')
 const newFeedUrl = ref('')
@@ -418,11 +436,30 @@ const navEntries = computed<NavEntry[]>(() => {
   return entries
 })
 
+async function toggleFull() {
+  if (!detail.value) return
+  if (fullBody.value) {
+    fullBody.value = '' // volver al resumen del feed
+    return
+  }
+  fullLoading.value = true
+  fullFailed.value = false
+  try {
+    const res = await api.itemFull(detail.value.id)
+    fullBody.value = res.body
+  } catch {
+    fullFailed.value = true
+  } finally {
+    fullLoading.value = false
+  }
+}
+
 // cuerpo del detalle: enlaces del artículo a pestaña nueva (dentro del host
 // navegarían en el propio frame); las imágenes ya llegan vía proxy firmado
-const detailBody = computed(() =>
-  (detail.value?.body ?? "").replaceAll('<a ', '<a target="_blank" rel="noopener noreferrer" ')
-)
+const detailBody = computed(() => {
+  const base = fullBody.value || detail.value?.body || ""
+  return base.replaceAll('<a ', '<a target="_blank" rel="noopener noreferrer" ')
+})
 
 const totalUnread = computed(() => feeds.value.reduce((a, f) => a + f.unreadCount, 0))
 const unreadCount = computed(() =>
@@ -495,6 +532,8 @@ async function refreshCounts() {
 
 async function openItem(item: Item) {
   detail.value = item
+  fullBody.value = ''
+  fullFailed.value = false
   if (item.unread) {
     item.unread = false
     await api.markRead(item.id)

@@ -16,6 +16,7 @@ import (
 	"github.com/gnacho/ocnews/backend/internal/api"
 	"github.com/gnacho/ocnews/backend/internal/auth"
 	"github.com/gnacho/ocnews/backend/internal/config"
+	"github.com/gnacho/ocnews/backend/internal/extract"
 	"github.com/gnacho/ocnews/backend/internal/feed"
 	"github.com/gnacho/ocnews/backend/internal/favicon"
 	"github.com/gnacho/ocnews/backend/internal/imgproxy"
@@ -86,11 +87,12 @@ func run() error {
 	}
 
 	fetcher := feed.NewHTTPFetcher(cfg.FetchTimeout)
+	extractor := extract.New(cfg.FetchTimeout)
 	refresh := refresher.New(st, fetcher, log, cfg.FeedInterval, cfg.MaxGap)
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           api.NewServer(st, validator, fetcher, refresh, favicons, imgs, cfg.Retention, log).Handler(),
+		Handler:           api.NewServer(st, validator, fetcher, refresh, favicons, imgs, extractor, cfg.Retention, log).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

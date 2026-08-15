@@ -89,6 +89,7 @@ export function useNewsApi() {
       return get('/items', params) as Promise<{ items: Item[] }>
     },
     markRead: (id: number) => post(`/items/${id}/read`),
+    itemFull: (id: number): Promise<{ body: string }> => get(`/items/${id}/full`),
     markUnread: (id: number) => post(`/items/${id}/unread`),
     star: (id: number) => post(`/items/${id}/star`),
     unstar: (id: number) => post(`/items/${id}/unstar`),

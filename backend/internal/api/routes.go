@@ -30,6 +30,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	// Items
 	mux.HandleFunc("GET /items", s.listItems)
 	mux.HandleFunc("GET /items/updated", s.updatedItems)
+	mux.HandleFunc("GET /items/{itemId}/full", s.itemFull)
 	mux.HandleFunc("POST /items/read", s.markAllRead)
 	mux.HandleFunc("POST /items/{itemId}/read", s.markItem(false, "unread"))
 	mux.HandleFunc("POST /items/{itemId}/unread", s.markItem(true, "unread"))

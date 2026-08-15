@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -215,4 +216,42 @@ func (s *Store) PurgeOldItems(olderThan int64) (int64, error) {
 		return 0, err
 	}
 	return res.RowsAffected()
+}
+
+// GetItemFull devuelve el cuerpo completo cacheado ("" si no hay).
+func (s *Store) GetItemFull(itemID int64) (string, error) {
+	var body string
+	err := s.db.QueryRow(`SELECT body FROM item_full WHERE item_id = ?`, itemID).Scan(&body)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return body, nil
+}
+
+// SaveItemFull guarda/actualiza el cuerpo completo extraído.
+func (s *Store) SaveItemFull(itemID int64, body string) error {
+	_, err := s.db.Exec(
+		`INSERT INTO item_full (item_id, body, fetched_at) VALUES (?, ?, ?)
+		 ON CONFLICT(item_id) DO UPDATE SET body = excluded.body, fetched_at = excluded.fetched_at`,
+		itemID, body, now())
+	return err
+}
+
+// GetItemURL devuelve la URL original del item (para extraer el completo).
+func (s *Store) GetItemURL(userID, itemID int64) (string, error) {
+	var u string
+	err := s.db.QueryRow(`SELECT url FROM items WHERE user_id = ? AND id = ?`, userID, itemID).Scan(&u)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	return u, err
+}
+
+// SetItemURLForTesting reescribe la URL de un item (solo tests de extracción).
+func (s *Store) SetItemURLForTesting(itemID int64, url string) error {
+	_, err := s.db.Exec(`UPDATE items SET url = ? WHERE id = ?`, url, itemID)
+	return err
 }

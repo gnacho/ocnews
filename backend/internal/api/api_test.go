@@ -16,6 +16,7 @@ import (
 
 	"github.com/gnacho/ocnews/backend/internal/auth"
 	"github.com/gnacho/ocnews/backend/internal/feed"
+	"github.com/gnacho/ocnews/backend/internal/extract"
 	"github.com/gnacho/ocnews/backend/internal/favicon"
 	"github.com/gnacho/ocnews/backend/internal/imgproxy"
 	"github.com/gnacho/ocnews/backend/internal/refresher"
@@ -97,7 +98,8 @@ func newTestEnv(t *testing.T, fetcher feed.Fetcher) *testEnv {
 		t.Fatal(err)
 	}
 	validator := &auth.LocalValidator{Store: st}
-	srv := NewServer(st, validator, fetcher, refresh, fc, imgs, 90*24*time.Hour, log)
+	ex := extract.New(5 * time.Second)
+	srv := NewServer(st, validator, fetcher, refresh, fc, imgs, ex, 90*24*time.Hour, log)
 	h := srv.Handler()
 	ts := httptest.NewServer(h)
 	t.Cleanup(ts.Close)
