@@ -1,0 +1,15 @@
+# Go
+backend/bin/
+backend/*.exe
+backend/data/
+backend/*.db
+
+# Node / Vite
+node_modules/
+dist/
+*.local
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
