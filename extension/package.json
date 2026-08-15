@@ -17,11 +17,12 @@
     "@opencloud-eu/tsconfig": "^7.0.0",
     "@opencloud-eu/web-client": "^7.0.0",
     "@opencloud-eu/web-pkg": "^7.0.0",
-    "typescript": "^5.6.0",
-    "vite": "^6.0.0",
+    "lucide-vue-next": "^1.0.0",
+    "typescript": "^6.0.0",
+    "vite": "^8.0.0",
     "vue": "^3.5.13",
-    "vue-router": "^4.5.0",
+    "vue-router": "^5.0.0",
     "vue3-gettext": "^4.0.0-beta.1",
-    "vue-tsc": "^2.1.0"
+    "vue-tsc": "^3.0.0"
   }
 }
