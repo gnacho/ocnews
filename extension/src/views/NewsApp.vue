@@ -131,14 +131,16 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useGettext } from 'vue3-gettext'
 import { Newspaper, Rss, Star, FolderOpen, Plus, X } from 'lucide-vue-next'
 import { useNewsApi, Item, Feed, Folder, Selection } from '../api'
 
 const { $gettext } = useGettext()
-const route = useRoute()
 const router = useRouter()
+// sin useRoute(): en extensiones esa inyección no existe (las apps oficiales
+// leen router.currentRoute / useRouteQuery); route.name explotaba el setup
+const route = computed(() => router.currentRoute.value)
 const api = useNewsApi()
 
 const folders = ref<Folder[]>([])
@@ -161,9 +163,10 @@ type NavEntry = {
 }
 
 const selection = computed<Selection>(() => {
-  if (route.name === 'news-feed') return { kind: 'feed', id: Number(route.params.feedId) }
-  if (route.name === 'news-folder') return { kind: 'folder', id: Number(route.params.folderId) }
-  if (route.name === 'news-starred') return { kind: 'starred' }
+  const r = route.value
+  if (r.name === 'news-feed') return { kind: 'feed', id: Number(r.params.feedId) }
+  if (r.name === 'news-folder') return { kind: 'folder', id: Number(r.params.folderId) }
+  if (r.name === 'news-starred') return { kind: 'starred' }
   return { kind: 'all' }
 })
 
@@ -345,7 +348,7 @@ function extractErrorMessage(e: unknown, fallback: string): string {
 }
 
 watch(selection, loadItems)
-watch(() => route.fullPath, () => (detail.value = null))
+watch(() => route.value.fullPath, () => (detail.value = null))
 
 onMounted(async () => {
   try {
