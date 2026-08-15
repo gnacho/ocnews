@@ -50,7 +50,12 @@
         </oc-button>
       </header>
 
-      <p v-if="error" class="ext:px-4 ext:py-2 ext:text-status-danger ext:text-sm">{{ error }}</p>
+      <p
+        v-if="error"
+        class="ext:px-4 ext:py-2 ext:text-status-danger ext:text-sm ext:border-b ext:border-surface-normal-secondary"
+      >
+        {{ error }}
+      </p>
       <p v-if="loading" class="ext:px-4 ext:py-8 ext:text-muted ext:text-sm ext:animate-pulse">
         {{ $gettext('Loading…') }}
       </p>
@@ -343,7 +348,25 @@ watch(selection, loadItems)
 watch(() => route.fullPath, () => (detail.value = null))
 
 onMounted(async () => {
-  await loadSidebar()
-  await loadItems()
+  try {
+    await loadSidebar()
+  } catch (e) {
+    console.error('[news] loadSidebar failed', e)
+    error.value = $gettext('Could not load folders/feeds: ') + errText(e)
+  }
+  try {
+    await loadItems()
+  } catch (e) {
+    console.error('[news] loadItems failed', e)
+    error.value = (error.value ? error.value + ' · ' : '') + $gettext('Could not load items: ') + errText(e)
+  }
 })
+
+function errText(e: unknown): string {
+  const anyE = e as { response?: { status?: number; data?: unknown }; message?: string }
+  if (anyE?.response?.status) {
+    return `HTTP ${anyE.response.status}`
+  }
+  return anyE?.message ?? String(e)
+}
 </script>
