@@ -8,6 +8,7 @@
 package imgproxy
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -78,7 +79,8 @@ func cachePath(url string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// Serve responde con la imagen (cache 24h). Firma inválida → 403.
+// Serve responde con la imagen (cache 24h) o hace streaming de audio/vídeo
+// (con soporte Range para seek; sin caché en disco). Firma inválida → 403.
 func (p *Proxy) Serve(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	u, sig := q.Get("u"), q.Get("t")
@@ -91,16 +93,72 @@ func (p *Proxy) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// caché en disco (nombre sin extensión; el content-type real se recuerda
-	// en el fichero sidecar .ct)
+	// HEAD al origen: por content-type decidimos imagen (caché) o media (stream)
+	ct, ok := p.probeContentType(r.Context(), u)
+	if !ok {
+		http.Error(w, "no disponible", http.StatusBadGateway)
+		return
+	}
+	switch {
+	case strings.HasPrefix(ct, "image/"):
+		p.serveImage(w, r, u, ct)
+	case strings.HasPrefix(ct, "audio/"), strings.HasPrefix(ct, "video/"):
+		p.serveMedia(w, r, u, ct)
+	default:
+		http.Error(w, "tipo no permitido", http.StatusUnsupportedMediaType)
+	}
+}
+
+// probeContentType descubre el content-type del origen. HEAD primero; si el
+// origen no soporta HEAD (405/501), GET con Range 0-0 y cerrar enseguida.
+func (p *Proxy) probeContentType(ctx context.Context, u string) (string, bool) {
+	for _, probe := range []struct {
+		method string
+		rng    string
+	}{
+		{http.MethodHead, ""},
+		{http.MethodGet, "bytes=0-0"},
+	} {
+		req, err := http.NewRequestWithContext(ctx, probe.method, u, nil)
+		if err != nil {
+			return "", false
+		}
+		req.Header.Set("User-Agent", userAgent)
+		if probe.rng != "" {
+			req.Header.Set("Range", probe.rng)
+		}
+		resp, err := p.client.Do(req)
+		if err != nil {
+			p.log.Debug("imgproxy probe falló", "url", u, "err", err)
+			return "", false
+		}
+		ct := strings.ToLower(resp.Header.Get("Content-Type"))
+		code := resp.StatusCode
+		io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<10))
+		resp.Body.Close()
+		if code == http.StatusOK || code == http.StatusPartialContent {
+			if ct != "" && ct != "application/octet-stream" {
+				return ct, true
+			}
+			// octet-stream o vacío con 200: puede ser media sin mime correcto;
+			// lo dejamos pasar y el serveMedia/serveImage vuelve a evaluar
+			if code == http.StatusOK && ct == "" {
+				return "application/octet-stream", true
+			}
+		}
+	}
+	return "", false
+}
+
+// serveImage: imagen con caché en disco (comportamiento original).
+func (p *Proxy) serveImage(w http.ResponseWriter, r *http.Request, u, ct string) {
 	base := filepath.Join(p.dir, cachePath(u))
-	if ct, err := os.ReadFile(base + ".ct"); err == nil {
+	if cachedCT, err := os.ReadFile(base + ".ct"); err == nil {
 		if img, err := os.ReadFile(base); err == nil {
-			p.respond(w, string(ct), img)
+			p.respond(w, string(cachedCT), img)
 			return
 		}
 	}
-
 	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, u, nil)
 	if err != nil {
 		http.Error(w, "url inválida", http.StatusForbidden)
@@ -109,7 +167,6 @@ func (p *Proxy) Serve(w http.ResponseWriter, r *http.Request) {
 	req.Header.Set("User-Agent", userAgent)
 	resp, err := p.client.Do(req)
 	if err != nil {
-		p.log.Debug("imgproxy fetch falló", "url", u, "err", err)
 		http.Error(w, "no disponible", http.StatusBadGateway)
 		return
 	}
@@ -118,8 +175,7 @@ func (p *Proxy) Serve(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no disponible", http.StatusBadGateway)
 		return
 	}
-	ct := strings.ToLower(resp.Header.Get("Content-Type"))
-	if !strings.HasPrefix(ct, "image/") {
+	if ct2 := strings.ToLower(resp.Header.Get("Content-Type")); !strings.HasPrefix(ct2, "image/") {
 		http.Error(w, "no es una imagen", http.StatusUnsupportedMediaType)
 		return
 	}
@@ -131,6 +187,44 @@ func (p *Proxy) Serve(w http.ResponseWriter, r *http.Request) {
 	_ = os.WriteFile(base, img, 0o600)
 	_ = os.WriteFile(base+".ct", []byte(ct), 0o600)
 	p.respond(w, ct, img)
+}
+
+// serveMedia: streaming de audio/vídeo con Range passthrough (el <video> del
+// navegador necesita 206 para seek). Sin buffer completo ni caché en disco.
+func (p *Proxy) serveMedia(w http.ResponseWriter, r *http.Request, u, ct string) {
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, u, nil)
+	if err != nil {
+		http.Error(w, "url inválida", http.StatusForbidden)
+		return
+	}
+	req.Header.Set("User-Agent", userAgent)
+	if rng := r.Header.Get("Range"); rng != "" {
+		req.Header.Set("Range", rng)
+	}
+	resp, err := p.client.Do(req)
+	if err != nil {
+		p.log.Debug("imgproxy media falló", "url", u, "err", err)
+		http.Error(w, "no disponible", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
+		http.Error(w, "no disponible", http.StatusBadGateway)
+		return
+	}
+
+	h := w.Header()
+	h.Set("Content-Type", ct)
+	h.Set("Accept-Ranges", "bytes")
+	if cr := resp.Header.Get("Content-Range"); cr != "" {
+		h.Set("Content-Range", cr)
+	}
+	h.Set("Cache-Control", "public, max-age=86400")
+	if cl := resp.Header.Get("Content-Length"); cl != "" {
+		h.Set("Content-Length", cl)
+	}
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
 }
 
 func (p *Proxy) respond(w http.ResponseWriter, ct string, img []byte) {

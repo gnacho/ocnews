@@ -273,6 +273,20 @@
         </a>
       </header>
       <div style="flex: 1; overflow-y: auto; padding: 12px 16px">
+        <audio
+          v-if="detail.enclosureMime?.startsWith('audio/') && detail.enclosureLink"
+          :src="detail.enclosureLink"
+          controls
+          preload="metadata"
+          style="width: 100%; margin: 0 0 12px"
+        />
+        <video
+          v-else-if="detail.enclosureMime?.startsWith('video/') && detail.enclosureLink"
+          :src="detail.enclosureLink"
+          controls
+          preload="metadata"
+          style="width: 100%; border-radius: 8px; margin: 0 0 12px; max-height: 60vh; background: #000"
+        />
         <p style="font-size: 12px; opacity: 0.6; margin: 0 0 12px">
           {{ feedTitle(detail.feedId) }} · {{ fmtDate(detail.pubDate) }}
           <span v-if="fullLoading" style="opacity: 0.7"> · {{ $gettext('loading full article…') }}</span>

@@ -4,6 +4,7 @@ import (
 	"html"
 	"net/url"
 	"regexp"
+	"strings"
 
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
@@ -33,9 +34,23 @@ func (s *Server) rewriteImages(body string) string {
 	})
 }
 
-// rewriteAll aplica el proxy a todos los items de una respuesta.
+// rewriteAll aplica el proxy a todos los items de una respuesta: bodies
+// (imágenes y media embebida) y enclosures de audio/vídeo/imagen.
 func (s *Server) rewriteAll(items []store.Item) {
 	for i := range items {
 		items[i].Body = s.rewriteImages(items[i].Body)
+		if items[i].EnclosureLink != nil && items[i].EnclosureMime != nil {
+			m := *items[i].EnclosureMime
+			if s.mediaMime(m) && strings.HasPrefix(*items[i].EnclosureLink, "http") {
+				u := html.UnescapeString(*items[i].EnclosureLink)
+				proxied := Base + "/img?u=" + url.QueryEscape(u) + "&t=" + s.imgs.Sign(u)
+				items[i].EnclosureLink = &proxied
+			}
+		}
 	}
+}
+
+func (s *Server) mediaMime(m string) bool {
+	return strings.HasPrefix(m, "audio/") || strings.HasPrefix(m, "video/") ||
+		strings.HasPrefix(m, "image/")
 }

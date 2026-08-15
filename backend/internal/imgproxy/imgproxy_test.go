@@ -62,8 +62,10 @@ func TestServeProxiesAndCaches(t *testing.T) {
 	p := newProxy(t)
 	png := "\x89PNG\r\n\x1a\n" + "fakeimagebytes"
 	var hits int
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		hits++
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			hits++ // el probe HEAD no cuenta
+		}
 		w.Header().Set("Content-Type", "image/png")
 		io.WriteString(w, png)
 	}))
