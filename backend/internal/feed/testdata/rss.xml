@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+     xmlns:media="http://search.yahoo.com/mrss/"
+     xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Ejemplo Blog</title>
+    <link>https://ejemplo.example</link>
+    <description>Feed de prueba RSS 2.0</description>
+    <item>
+      <title>Primera entrada</title>
+      <link>https://ejemplo.example/1</link>
+      <guid isPermaLink="false">urn:ejemplo:1</guid>
+      <pubDate>Mon, 02 Jan 2006 15:04:05 -0700</pubDate>
+      <description>Resumen de la primera</description>
+      <content:encoded xmlns:content="http://purl.org/rss/1.0/modules/content/">&lt;p&gt;Cuerpo &lt;b&gt;completo&lt;/b&gt; de la primera&lt;/p&gt;</content:encoded>
+      <author>ana@example.com (Ana Prueba)</author>
+      <enclosure url="https://ejemplo.example/audio/1.mp3" length="1024" type="audio/mpeg"/>
+      <media:thumbnail url="https://ejemplo.example/img/1.jpg"/>
+    </item>
+    <item>
+      <title>Segunda entrada</title>
+      <link>https://ejemplo.example/2</link>
+      <guid isPermaLink="false">urn:ejemplo:2</guid>
+      <pubDate>Tue, 03 Jan 2006 15:04:05 -0700</pubDate>
+      <description>Resumen de la segunda</description>
+    </item>
+  </channel>
+</rss>

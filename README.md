@@ -45,6 +45,20 @@ ship a backend, so the feed engine lives in a separate service.
 - **F3** Material 3 PWA: webapp identical to the news-android client.
 - **F4** Integration + deploy: OpenCloud token auth, CT deploy, demo.
 
+## Running the backend (F0)
+
+```bash
+cd backend
+go test ./...
+CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o ocnews ./cmd/ocnews
+OCNEWS_ADDR=:8094 OCNEWS_DATA_DIR=./data AUTH_USER=admin AUTH_PASS=secret \
+  ./ocnews
+```
+
+API base path (same as Nextcloud News): `/index.php/apps/news/api/v1-3/`.
+ES/EN error messages negotiated from the user's `language` preference
+(`auto` falls back to `Accept-Language`, then English).
+
 ## References
 
 - OpenCloud extension system: https://docs.opencloud.eu/docs/dev/web/extension-system/
