@@ -24,7 +24,6 @@ func (s *Server) userAPI() http.Handler {
 	mux.HandleFunc("POST /api/users", s.adminOnly(s.createUser))
 	mux.HandleFunc("PUT /api/users/{id}", s.adminOnly(s.updateUser))
 	mux.HandleFunc("DELETE /api/users/{id}", s.adminOnly(s.deleteUser))
-	mux.HandleFunc("POST /api/refresh", s.refreshUserFeeds)
 	return mux
 }
 

@@ -114,7 +114,7 @@ func TestRefreshEndpoint(t *testing.T) {
 	e := newTestEnv(t, ff)
 	e.do(t, "POST", "/feeds", e.user, e.pass, map[string]string{"url": "https://r.example/f"})
 	before := ff.fetches
-	code, body := e.do(t, "POST", "/api/refresh", e.user, e.pass, nil)
+	code, body := e.do(t, "POST", "/refresh", e.user, e.pass, nil)
 	if code != 200 || !strings.Contains(string(body), `"refreshed":1`) {
 		t.Fatalf("refresh: %d %s", code, body)
 	}

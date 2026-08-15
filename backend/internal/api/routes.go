@@ -58,6 +58,11 @@ func (s *Server) routes(mux *http.ServeMux) {
 	// suscripciones para la PWA y migración desde otros lectores.
 	mux.HandleFunc("GET /export/opml", s.exportOPML)
 	mux.HandleFunc("POST /import/opml", s.importOPML)
+
+	// Refresco manual (extensión propia bajo la base v1.3; la ruta updater
+	// de la spec es solo-admin). OJO: NADA bajo /api/ — ese prefijo es de
+	// OpenCloud (api/v0/settings) y no se puede proxificar a ocnews.
+	mux.HandleFunc("POST /refresh", s.refreshUserFeeds)
 }
 
 // adminOnly envuelve un handler exigiendo rol admin.

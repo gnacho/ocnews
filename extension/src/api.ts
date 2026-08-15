@@ -109,7 +109,7 @@ export function useNewsApi() {
       client.httpAuthenticated.put(`${BASE}/folders/${folderId}`, { name }),
     deleteFolder: (folderId: number) =>
       client.httpAuthenticated.delete(`${BASE}/folders/${folderId}`),
-    refresh: () => client.httpAuthenticated.post(`/api/refresh`, {}),
+    refresh: () => client.httpAuthenticated.post(`${BASE}/refresh`, {}),
     importOpml: async (file: File) => {
       const body = await file.text()
       return client.httpAuthenticated.post(`${BASE}/import/opml`, body, {
