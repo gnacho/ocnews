@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"errors"
 	"net/http"
 
@@ -180,28 +179,11 @@ func (s *Server) updateFeed(w http.ResponseWriter, r *http.Request) {
 		errorStatus(w, r, http.StatusNotFound, "feed_not_found")
 		return
 	}
-	if err := s.refreshFeed(r.Context(), owner.ID, f); err != nil {
-		s.logError(w, r, "actualizar feed", err)
+	if res := s.refresher.Refresh(r.Context(), f); res.Err != nil {
+		s.logError(w, r, "actualizar feed", res.Err)
 		return
 	}
 	writeEmpty(w)
-}
-
-// refreshFeed re-descarga y persiste; errores de fetch se registran en el feed.
-func (s *Server) refreshFeed(ctx context.Context, userID int64, f *store.Feed) error {
-	parsed, items, err := s.fetcher.Fetch(ctx, f.URL)
-	if err != nil {
-		s.store.RecordFeedError(f.ID, err.Error())
-		s.log.Warn("refresh falló", "url", f.URL, "err", err)
-		return nil // error de fetch no es error del endpoint updater
-	}
-	if parsed.Title != "" {
-		f.Title = parsed.Title
-	}
-	if parsed.Link != "" {
-		f.Link = parsed.Link
-	}
-	return s.store.ReplaceFeedItems(f.ID, userID, f.Title, f.Link, items)
 }
 
 // normFolderID normaliza folderId 0 → nil (raíz).

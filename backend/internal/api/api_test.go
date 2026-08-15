@@ -12,9 +12,12 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gnacho/ocnews/backend/internal/auth"
 	"github.com/gnacho/ocnews/backend/internal/feed"
+	"github.com/gnacho/ocnews/backend/internal/favicon"
+	"github.com/gnacho/ocnews/backend/internal/refresher"
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
 
@@ -49,10 +52,11 @@ func (f *fakeFetcher) Fetch(_ context.Context, url string) (*store.Feed, []store
 }
 
 type testEnv struct {
-	ts     *httptest.Server
-	client *http.Client
-	user   string
-	pass   string
+	ts         *httptest.Server
+	client     *http.Client
+	user       string
+	pass       string
+	faviconDir string
 }
 
 func newTestEnv(t *testing.T, fetcher feed.Fetcher) *testEnv {
@@ -80,14 +84,28 @@ func newTestEnv(t *testing.T, fetcher feed.Fetcher) *testEnv {
 	}
 
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h := NewServer(st, fetcher, log).Handler()
+	refresh := refresher.New(st, fetcher, log, time.Minute, time.Hour)
+	favDir := t.TempDir()
+	fc, err := favicon.NewCache(favDir, log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := NewServer(st, fetcher, refresh, fc, 90*24*time.Hour, log).Handler()
 	ts := httptest.NewServer(h)
 	t.Cleanup(ts.Close)
-	return &testEnv{ts: ts, client: ts.Client(), user: "nacho", pass: "pass1234"}
+	return &testEnv{ts: ts, client: ts.Client(), user: "nacho", pass: "pass1234", faviconDir: favDir}
 }
 
 // do ejecuta una petición con Basic auth del usuario dado.
 func (e *testEnv) do(t *testing.T, method, path, user, pass string, body any) (int, []byte) {
+	t.Helper()
+	if strings.HasPrefix(path, "/api/") {
+		return e.doRaw(t, method, path, user, pass, body)
+	}
+	return e.doRaw(t, method, Base+path, user, pass, body)
+}
+
+func (e *testEnv) doRaw(t *testing.T, method, path, user, pass string, body any) (int, []byte) {
 	t.Helper()
 	var rd io.Reader
 	if body != nil {
@@ -97,7 +115,7 @@ func (e *testEnv) do(t *testing.T, method, path, user, pass string, body any) (i
 		}
 		rd = bytes.NewReader(b)
 	}
-	req, err := http.NewRequest(method, e.ts.URL+Base+path, rd)
+	req, err := http.NewRequest(method, e.ts.URL+path, rd)
 	if err != nil {
 		t.Fatal(err)
 	}

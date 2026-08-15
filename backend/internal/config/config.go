@@ -16,6 +16,10 @@ type Config struct {
 	LogLevel     string        // OCNEWS_LOG_LEVEL, default "info"
 	AuthUser     string        // AUTH_USER: bootstrap del primer usuario admin
 	AuthPass     string        // AUTH_PASS: bootstrap del primer usuario admin
+
+	FeedInterval time.Duration // OCNEWS_FEED_INTERVAL, default 15m (base del scheduler)
+	MaxGap       time.Duration // OCNEWS_MAX_GAP, default 6h (tope adaptativo)
+	Retention    time.Duration // OCNEWS_RETENTION_DAYS, default 90d; 0 = desactivada
 }
 
 func Load() (*Config, error) {
@@ -26,16 +30,45 @@ func Load() (*Config, error) {
 		LogLevel:     env("OCNEWS_LOG_LEVEL", "info"),
 		AuthUser:     os.Getenv("AUTH_USER"),
 		AuthPass:     os.Getenv("AUTH_PASS"),
+		FeedInterval: 15 * time.Minute,
+		MaxGap:       6 * time.Hour,
+		Retention:    90 * 24 * time.Hour,
 	}
-	if v := os.Getenv("OCNEWS_FETCH_TIMEOUT"); v != "" {
-		d, err := time.ParseDuration(v)
-		if err != nil {
-			return nil, fmt.Errorf("OCNEWS_FETCH_TIMEOUT inválido (%q): %w", v, err)
+	for _, e := range []struct {
+		key string
+		dst *time.Duration
+	}{
+		{"OCNEWS_FETCH_TIMEOUT", &c.FetchTimeout},
+		{"OCNEWS_FEED_INTERVAL", &c.FeedInterval},
+		{"OCNEWS_MAX_GAP", &c.MaxGap},
+	} {
+		if v := os.Getenv(e.key); v != "" {
+			d, err := time.ParseDuration(v)
+			if err != nil {
+				return nil, fmt.Errorf("%s inválido (%q): %w", e.key, v, err)
+			}
+			*e.dst = d
 		}
-		c.FetchTimeout = d
+	}
+	if v := os.Getenv("OCNEWS_RETENTION_DAYS"); v != "" {
+		days, err := strconv.Atoi(v)
+		if err != nil || days < 0 {
+			return nil, fmt.Errorf("OCNEWS_RETENTION_DAYS inválido: %q", v)
+		}
+		if days == 0 {
+			c.Retention = 0 // retención desactivada explícitamente
+		} else {
+			c.Retention = time.Duration(days) * 24 * time.Hour
+		}
 	}
 	if c.FetchTimeout <= 0 {
 		return nil, fmt.Errorf("OCNEWS_FETCH_TIMEOUT debe ser > 0 (got %s)", c.FetchTimeout)
+	}
+	if c.FeedInterval <= 0 {
+		return nil, fmt.Errorf("OCNEWS_FEED_INTERVAL debe ser > 0 (got %s)", c.FeedInterval)
+	}
+	if c.MaxGap < c.FeedInterval {
+		return nil, fmt.Errorf("OCNEWS_MAX_GAP (%s) debe ser >= OCNEWS_FEED_INTERVAL (%s)", c.MaxGap, c.FeedInterval)
 	}
 	switch c.LogLevel {
 	case "debug", "info", "warn", "error":
@@ -46,6 +79,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("OCNEWS_ADDR no puede estar vacío")
 	}
 	return c, nil
+}
+
+// FaviconsDir devuelve la ruta de la caché de favicons.
+func (c *Config) FaviconsDir() string {
+	return c.DataDir + string(os.PathSeparator) + "favicons"
 }
 
 // DBPath devuelve la ruta del fichero SQLite dentro del data dir.

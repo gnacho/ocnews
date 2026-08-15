@@ -1,13 +1,15 @@
 package store
 
 import (
+	"crypto/md5"
 	"database/sql"
 	"errors"
+	"fmt"
 )
 
 const feedCols = `f.id, f.url, f.title, f.favicon, f.added, f.next_update, f.folder_id,
 	COALESCE(c.unread, 0), f.ordering, f.link, f.pinned, f.update_error_count,
-	NULLIF(f.last_update_error, '')`
+	NULLIF(f.last_update_error, ''), f.no_new_streak, f.user_id, f.url_hash`
 
 const feedSelect = `SELECT ` + feedCols + `
 	FROM feeds f
@@ -20,7 +22,7 @@ func scanFeed(row interface{ Scan(...any) error }) (*Feed, error) {
 	var pinned int
 	err := row.Scan(&f.ID, &f.URL, &f.Title, &f.FaviconLink, &f.Added, &f.NextUpdateTime,
 		&f.FolderID, &f.UnreadCount, &f.Ordering, &f.Link, &pinned,
-		&f.UpdateErrorCount, &lastErr)
+		&f.UpdateErrorCount, &lastErr, &f.NoNewStreak, &f.UserID, &f.URLHash)
 	if err != nil {
 		return nil, err
 	}
@@ -78,9 +80,9 @@ func (s *Store) CreateFeed(userID int64, url string, folderID *int64, title, lin
 	defer tx.Rollback()
 
 	res, err := tx.Exec(
-		`INSERT INTO feeds (user_id, folder_id, url, link, title, favicon, added, next_update)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		userID, folderID, url, link, title, favicon, now(), now()+600)
+		`INSERT INTO feeds (user_id, folder_id, url, url_hash, link, title, favicon, added, next_update)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		userID, folderID, url, md5Hex(url), link, title, favicon, now(), now()+600)
 	if err != nil {
 		return nil, ErrConflict
 	}
@@ -107,30 +109,138 @@ func (s *Store) CreateFeed(userID int64, url string, folderID *int64, title, lin
 }
 
 // ReplaceFeedItems: refresco completo de un feed. Inserta items nuevos
-// (INSERT OR IGNORE por guid_hash) y devuelve el feed actualizado.
+// (INSERT OR IGNORE por guid_hash) y devuelve cuántos eran nuevos;
+// no_new_streak alimenta el intervalo adaptativo del scheduler.
 // Los items desaparecidos del feed NO se borran (igual que News).
-func (s *Store) ReplaceFeedItems(feedID, userID int64, title, link string, items []NewItem) error {
+func (s *Store) ReplaceFeedItems(feedID, userID int64, title, link string, items []NewItem) (int64, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer tx.Rollback()
-	if _, err := tx.Exec(`UPDATE feeds SET title = ?, link = ?, next_update = ?, update_error_count = 0, last_update_error = '' WHERE id = ?`,
-		title, link, now()+600, feedID); err != nil {
-		return err
+	if _, err := tx.Exec(`UPDATE feeds SET title = ?, link = ?, update_error_count = 0, last_update_error = '' WHERE id = ?`,
+		title, link, feedID); err != nil {
+		return 0, err
 	}
+	var inserted int64
 	for _, it := range items {
-		if _, err := tx.Exec(itemInsertSQL(), feedID, userID, it.GUID, it.GUIDHash, it.URL, it.Title,
+		r, err := tx.Exec(itemInsertSQL(), feedID, userID, it.GUID, it.GUIDHash, it.URL, it.Title,
 			it.Author, it.PubDate, it.Body, it.EnclosureMime, it.EnclosureLink,
-			it.MediaThumbnail, it.MediaDescription, it.Fingerprint, now()); err != nil {
-			return err
+			it.MediaThumbnail, it.MediaDescription, it.Fingerprint, now())
+		if err != nil {
+			return 0, err
+		}
+		if n, _ := r.RowsAffected(); n > 0 {
+			inserted += n
 		}
 	}
-	return tx.Commit()
+	streak := 0
+	if inserted == 0 {
+		streak = 1 // señal: sumar 1 a la racha existente (ver UPDATE)
+	}
+	if _, err := tx.Exec(
+		`UPDATE feeds SET no_new_streak = CASE WHEN ? = 1 THEN no_new_streak + 1 ELSE 0 END WHERE id = ?`,
+		streak, feedID); err != nil {
+		return 0, err
+	}
+	return inserted, tx.Commit()
 }
 
 func (s *Store) RecordFeedError(feedID int64, msg string) {
 	s.db.Exec(`UPDATE feeds SET update_error_count = update_error_count + 1, last_update_error = ? WHERE id = ?`, msg, feedID)
+}
+
+// ListDueFeeds devuelve los feeds con next_update vencido (para el scheduler).
+func (s *Store) ListDueFeeds(now int64, limit int) ([]Feed, error) {
+	q := feedSelect + ` WHERE f.next_update <= ? ORDER BY f.next_update`
+	if limit > 0 {
+		q += fmt.Sprintf(" LIMIT %d", limit)
+	}
+	rows, err := s.db.Query(q, now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Feed{}
+	for rows.Next() {
+		f, err := scanFeed(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *f)
+	}
+	return out, rows.Err()
+}
+
+// SetNextUpdate fija la próxima hora de refresco del feed.
+func (s *Store) SetNextUpdate(feedID, nextUpdate int64) error {
+	_, err := s.db.Exec(`UPDATE feeds SET next_update = ? WHERE id = ?`, nextUpdate, feedID)
+	return err
+}
+
+// FeedRow: feed mínimo para el refresher (sin contadores agregados).
+type FeedRow struct {
+	ID     int64
+	UserID int64
+	URL    string
+	Link   string
+	Title  string
+}
+
+// FeedByURLHash busca un feed por el hash md5 de su URL (endpoint /favicon).
+func (s *Store) FeedByURLHash(hash string) (*FeedRow, error) {
+	row := &FeedRow{}
+	err := s.db.QueryRow(`SELECT id, user_id, url, link, title FROM feeds WHERE url_hash = ? LIMIT 1`, hash).
+		Scan(&row.ID, &row.UserID, &row.URL, &row.Link, &row.Title)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return row, nil
+}
+
+// CreateFeedDeferred inserta un feed sin fetch inicial (import OPML):
+// título provisional = URL y next_update=0 para que el scheduler lo
+// refresque en el próximo ciclo.
+func (s *Store) CreateFeedDeferred(userID int64, url string, folderID *int64) (*Feed, error) {
+	res, err := s.db.Exec(
+		`INSERT INTO feeds (user_id, folder_id, url, url_hash, link, title, favicon, added, next_update)
+		 VALUES (?, ?, ?, ?, '', ?, '', ?, 0)`,
+		userID, folderID, url, md5Hex(url), url, now())
+	if err != nil {
+		return nil, ErrConflict
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+	return s.GetFeed(userID, id)
+}
+
+// UpdaterFeed: fila para la ruta admin /feeds/all de la spec.
+type UpdaterFeed struct {
+	ID     int64  `json:"id"`
+	UserID string `json:"userId"`
+}
+
+func (s *Store) AllFeedsWithUser() ([]UpdaterFeed, error) {
+	rows, err := s.db.Query(
+		`SELECT f.id, u.username FROM feeds f JOIN users u ON u.id = f.user_id ORDER BY f.id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []UpdaterFeed{}
+	for rows.Next() {
+		var f UpdaterFeed
+		if err := rows.Scan(&f.ID, &f.UserID); err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
 }
 
 func (s *Store) DeleteFeed(userID, feedID int64) error {
@@ -182,4 +292,9 @@ func itemInsertSQL() string {
 		(feed_id, user_id, guid, guid_hash, url, title, author, pub_date, body,
 		 enclosure_mime, enclosure_link, media_thumbnail, media_description, fingerprint, last_modified)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+}
+
+func md5Hex(s string) string {
+	sum := md5.Sum([]byte(s))
+	return fmt.Sprintf("%x", sum)
 }

@@ -39,13 +39,14 @@ ship a backend, so the feed engine lives in a separate service.
 
 - **F0** Spike: Go backend with minimal News API v1.3 (folders/feeds/items +
   sync), one test feed, basic auth; validate the Android client sync pattern.
-- **F1** Backend complete: periodic fetch, robust parser, sanitization,
-  multi-user SQLite, full API v1.3 + web routes, favicon, OPML, /status.
+- **F1** Backend complete: periodic fetch (adaptive intervals + backoff),
+  bluemonday sanitization, favicon cache, OPML import/export, retention,
+  app-owned user management endpoints.
 - **F2** OpenCloud Web extension: installable clone of the News web UI.
 - **F3** Material 3 PWA: webapp identical to the news-android client.
 - **F4** Integration + deploy: OpenCloud token auth, CT deploy, demo.
 
-## Running the backend (F0)
+## Running the backend (F0+F1)
 
 ```bash
 cd backend
@@ -56,8 +57,29 @@ OCNEWS_ADDR=:8094 OCNEWS_DATA_DIR=./data AUTH_USER=admin AUTH_PASS=secret \
 ```
 
 API base path (same as Nextcloud News): `/index.php/apps/news/api/v1-3/`.
+App-owned routes: `/api/me*`, `/api/users*` (profile + user management),
+OPML at `/index.php/apps/news/api/v1-3/{import,export}/opml`.
+
 ES/EN error messages negotiated from the user's `language` preference
 (`auto` falls back to `Accept-Language`, then English).
+
+### Environment
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `OCNEWS_ADDR` | `:8094` | listen address |
+| `OCNEWS_DATA_DIR` | `./data` | SQLite + favicon cache location |
+| `AUTH_USER`/`AUTH_PASS` | — | bootstrap first admin (only when user table is empty) |
+| `OCNEWS_FEED_INTERVAL` | `15m` | base refresh interval (doubles when a feed has no news, up to max gap) |
+| `OCNEWS_MAX_GAP` | `6h` | adaptive interval ceiling |
+| `OCNEWS_RETENTION_DAYS` | `90` | purge read non-starred items older than this; `0` disables |
+| `OCNEWS_FETCH_TIMEOUT` | `20s` | per-feed HTTP timeout |
+| `OCNEWS_LOG_LEVEL` | `info` | debug/info/warn/error |
+
+Feeds failing to fetch back off exponentially (up to 24h); all intervals
+carry ±20% jitter so feeds never sync up. Item bodies are sanitized at
+ingest (bluemonday whitelist: no scripts, event handlers, or javascript:
+URLs survive).
 
 ## References
 

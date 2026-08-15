@@ -205,3 +205,14 @@ func (s *Store) MarkAllRead(userID int64, maxID int64, scope string, scopeID int
 	}
 	return res.RowsAffected()
 }
+
+// PurgeOldItems borra items leídos no destacados con last_modified anterior
+// al umbral (retención). Devuelve los borrados.
+func (s *Store) PurgeOldItems(olderThan int64) (int64, error) {
+	res, err := s.db.Exec(
+		`DELETE FROM items WHERE unread = 0 AND starred = 0 AND last_modified < ?`, olderThan)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}

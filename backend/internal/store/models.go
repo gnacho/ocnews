@@ -33,6 +33,9 @@ type Feed struct {
 	Pinned           bool    `json:"pinned"`
 	UpdateErrorCount int     `json:"updateErrorCount"`
 	LastUpdateError  *string `json:"lastUpdateError"`
+	URLHash          string  `json:"-"`
+	UserID           int64   `json:"-"`
+	NoNewStreak      int     `json:"-"` // interno: scheduler adaptativo
 }
 
 // NewItem: item recibido del fetcher, antes de persistir.

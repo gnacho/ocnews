@@ -17,6 +17,9 @@ import (
 	"github.com/gnacho/ocnews/backend/internal/auth"
 	"github.com/gnacho/ocnews/backend/internal/config"
 	"github.com/gnacho/ocnews/backend/internal/feed"
+	"github.com/gnacho/ocnews/backend/internal/favicon"
+	"github.com/gnacho/ocnews/backend/internal/refresher"
+	"github.com/gnacho/ocnews/backend/internal/scheduler"
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
 
@@ -63,14 +66,29 @@ func run() error {
 		}
 	}
 
+	favicons, err := favicon.NewCache(cfg.FaviconsDir(), log)
+	if err != nil {
+		return err
+	}
+	fetcher := feed.NewHTTPFetcher(cfg.FetchTimeout)
+	refresh := refresher.New(st, fetcher, log, cfg.FeedInterval, cfg.MaxGap)
+
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           api.NewServer(st, feed.NewHTTPFetcher(cfg.FetchTimeout), log).Handler(),
+		Handler:           api.NewServer(st, fetcher, refresh, favicons, cfg.Retention, log).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// scheduler: refresco periódico + retención; se drena al cancelar ctx
+	sched := scheduler.New(st, refresh, favicons, log, 30*time.Second, 4, cfg.Retention)
+	go func() {
+		sched.Run(ctx)
+	}()
+	log.Info("scheduler arrancado", "interval", cfg.FeedInterval, "max_gap", cfg.MaxGap,
+		"retencion", cfg.Retention.String())
 
 	errCh := make(chan error, 1)
 	go func() {

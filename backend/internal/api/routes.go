@@ -42,6 +42,30 @@ func (s *Server) routes(mux *http.ServeMux) {
 		mux.HandleFunc(m+" /items/star/multiple", s.markMultiple(true, "starred"))
 		mux.HandleFunc(m+" /items/unstar/multiple", s.markMultiple(false, "starred"))
 	}
+
+	// Favicon (spec v1.3, News 27.2+): hash md5 de la URL del feed.
+	mux.HandleFunc("GET /favicon/{hash}", s.serveFavicon)
+
+	// Updater API (spec): cleanup + feeds/all, solo admin.
+	mux.HandleFunc("GET /cleanup/before-update", s.adminOnly(s.cleanupBefore))
+	mux.HandleFunc("GET /cleanup/after-update", s.adminOnly(s.cleanupAfter))
+	mux.HandleFunc("GET /feeds/all", s.adminOnly(s.allFeedsForUpdater))
+
+	// OPML (ruta propia de la app, no de la spec v1.3): export/import de
+	// suscripciones para la PWA y migración desde otros lectores.
+	mux.HandleFunc("GET /export/opml", s.exportOPML)
+	mux.HandleFunc("POST /import/opml", s.importOPML)
+}
+
+// adminOnly envuelve un handler exigiendo rol admin.
+func (s *Server) adminOnly(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if user(r).Role != "admin" {
+			errorStatus(w, r, http.StatusUnauthorized, "admin_required")
+			return
+		}
+		next(w, r)
+	}
 }
 
 func (s *Server) handleVersion(w http.ResponseWriter, _ *http.Request) {

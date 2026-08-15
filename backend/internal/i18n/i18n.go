@@ -72,6 +72,34 @@ var messages = map[string]map[Lang]string{
 		ES: "no se ha podido leer el feed",
 		EN: "could not read the feed",
 	},
+	"invalid_username": {
+		ES: "nombre de usuario no válido",
+		EN: "invalid username",
+	},
+	"invalid_password": {
+		ES: "contraseña no válida (mínimo 8 caracteres)",
+		EN: "invalid password (minimum 8 characters)",
+	},
+	"invalid_language": {
+		ES: "idioma no válido",
+		EN: "invalid language",
+	},
+	"invalid_role": {
+		ES: "rol no válido",
+		EN: "invalid role",
+	},
+	"user_exists": {
+		ES: "ya existe una usuaria o usuario con ese nombre",
+		EN: "a user with this name already exists",
+	},
+	"cannot_delete_self": {
+		ES: "no puedes eliminar tu propia cuenta",
+		EN: "you cannot delete your own account",
+	},
+	"cannot_delete_last_admin": {
+		ES: "no se puede quitar el último administrador",
+		EN: "cannot remove the last administrator",
+	},
 	"internal_error": {
 		ES: "error interno",
 		EN: "internal error",
