@@ -57,8 +57,9 @@ func (r *Refresher) refresh(ctx context.Context, f *store.Feed) Result {
 	if parsed.Link != "" {
 		link = parsed.Link
 	}
+	fullContent := feed.HasFullContent(items)
 	feed.SanitizeItems(items)
-	inserted, err := r.store.ReplaceFeedItems(f.ID, f.UserID, title, link, items)
+	inserted, err := r.store.ReplaceFeedItems(f.ID, f.UserID, title, link, items, fullContent)
 	if err != nil {
 		return Result{FeedID: f.ID, Err: err}
 	}

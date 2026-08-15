@@ -234,6 +234,7 @@
           </a>
         </h2>
         <oc-button
+          v-if="!detail.feedFullContent"
           variation="passive"
           appearance="raw"
           :aria-label="$gettext('Full article')"

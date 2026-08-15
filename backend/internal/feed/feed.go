@@ -54,6 +54,38 @@ func (h *HTTPFetcher) Fetch(ctx context.Context, url string) (*store.Feed, []sto
 	return Parse(body)
 }
 
+// minFullText: umbral de texto plano para considerar que un item llega
+// completo desde el feed (los resúmenes típicos quedan en 100-600 chars).
+const minFullText = 900
+
+// HasFullContent dice si ALGÚN item de la tanda ya trae el artículo entero
+// (heurística: suficiente texto plano). Se evalúa ANTES de sanitizar.
+func HasFullContent(items []store.NewItem) bool {
+	for _, it := range items {
+		if len(plainTextLen(it.Body)) >= minFullText {
+			return true
+		}
+	}
+	return false
+}
+
+// plainTextLen: longitud aproximada de texto (etiquetas fuera).
+func plainTextLen(html string) string {
+	var b strings.Builder
+	inTag := false
+	for _, r := range html {
+		switch {
+		case r == '<':
+			inTag = true
+		case r == '>':
+			inTag = false
+		case !inTag:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
 // SanitizeItems limpia el HTML de los cuerpos de una tanda de items.
 // ÚNICA vía de entrada a la BD: la llaman la suscripción (API) y el
 // refresher (scheduler) — nunca persistir bodies sin pasar por aquí.

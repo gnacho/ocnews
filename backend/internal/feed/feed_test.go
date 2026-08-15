@@ -2,8 +2,11 @@ package feed
 
 import (
 	"os"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/gnacho/ocnews/backend/internal/store"
 )
 
 func loadFixture(t *testing.T, name string) []byte {
@@ -112,5 +115,19 @@ func TestGUIDHashEstable(t *testing.T) {
 	_, again, _ := Parse(loadFixture(t, "rss.xml"))
 	if items[0].GUIDHash != again[0].GUIDHash {
 		t.Error("guid_hash debe ser determinista")
+	}
+}
+
+func TestHasFullContent(t *testing.T) {
+	summary := "<p>" + strings.Repeat("a", 300) + "</p>"
+	full := "<p>" + strings.Repeat("a", 1200) + "</p>"
+	if HasFullContent([]store.NewItem{{Body: summary}}) {
+		t.Error("resumen corto no debe marcar full")
+	}
+	if !HasFullContent([]store.NewItem{{Body: summary}, {Body: full}}) {
+		t.Error("un item largo basta para marcar full")
+	}
+	if HasFullContent(nil) {
+		t.Error("sin items no marca full")
 	}
 }

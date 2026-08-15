@@ -37,6 +37,7 @@ type Feed struct {
 	URLHash          string  `json:"-"`
 	UserID           int64   `json:"-"`
 	NoNewStreak      int     `json:"-"` // interno: scheduler adaptativo
+	FullContent      bool    `json:"-"` // el feed ya sirve artículos completos
 }
 
 // NewItem: item recibido del fetcher, antes de persistir.
@@ -75,6 +76,7 @@ type Item struct {
 	RTL             bool    `json:"rtl"`
 	LastModified    int64   `json:"lastModified"`
 	Fingerprint     string  `json:"fingerprint"`
+	FeedFullContent bool    `json:"feedFullContent"` // el feed ya sirve el artículo entero
 }
 
 // ItemFilter define los parámetros de GET /items y /items/updated.

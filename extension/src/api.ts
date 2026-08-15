@@ -39,6 +39,7 @@ export interface Item {
   unread: boolean
   starred: boolean
   lastModified: number
+  feedFullContent?: boolean
 }
 
 export interface FeedsResponse {

@@ -80,9 +80,10 @@ func (s *Server) createFeed(w http.ResponseWriter, r *http.Request) {
 	if body.FolderID != nil && *body.FolderID > 0 {
 		f.FolderID = body.FolderID
 	}
+	fullContent := feed.HasFullContent(items)
 	feed.SanitizeItems(items) // los items de la suscripción también se limpian
 
-	created, err := s.store.CreateFeed(user(r).ID, body.URL, f.FolderID, f.Title, f.Link, f.FaviconLink, items)
+	created, err := s.store.CreateFeedFull(user(r).ID, body.URL, f.FolderID, f.Title, f.Link, f.FaviconLink, items, fullContent)
 	if errors.Is(err, store.ErrConflict) {
 		errorStatus(w, r, http.StatusConflict, "feed_exists")
 		return

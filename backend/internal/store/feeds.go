@@ -9,7 +9,7 @@ import (
 
 const feedCols = `f.id, f.url, f.title, f.favicon, f.added, f.next_update, f.folder_id,
 	COALESCE(c.unread, 0), f.ordering, f.link, f.pinned, f.update_error_count,
-	NULLIF(f.last_update_error, ''), f.no_new_streak, f.user_id, f.url_hash`
+	NULLIF(f.last_update_error, ''), f.no_new_streak, f.user_id, f.url_hash, f.full_content`
 
 const feedSelect = `SELECT ` + feedCols + `
 	FROM feeds f
@@ -19,15 +19,16 @@ const feedSelect = `SELECT ` + feedCols + `
 func scanFeed(row interface{ Scan(...any) error }) (*Feed, error) {
 	f := &Feed{}
 	var lastErr *string
-	var pinned int
+	var pinned, full int
 	err := row.Scan(&f.ID, &f.URL, &f.Title, &f.FaviconLink, &f.Added, &f.NextUpdateTime,
 		&f.FolderID, &f.UnreadCount, &f.Ordering, &f.Link, &pinned,
-		&f.UpdateErrorCount, &lastErr, &f.NoNewStreak, &f.UserID, &f.URLHash)
+		&f.UpdateErrorCount, &lastErr, &f.NoNewStreak, &f.UserID, &f.URLHash, &full)
 	if err != nil {
 		return nil, err
 	}
 	f.LastUpdateError = lastErr
 	f.Pinned = pinned != 0
+	f.FullContent = full != 0
 	return f, nil
 }
 
@@ -73,6 +74,15 @@ func (s *Store) FeedExistsByURL(userID int64, url string) (bool, error) {
 // CreateFeed inserta el feed (ya validado y fetcheado) y sus items.
 // Devuelve ErrConflict si la URL ya existe.
 func (s *Store) CreateFeed(userID int64, url string, folderID *int64, title, link, favicon string, items []NewItem) (*Feed, error) {
+	return s.createFeed(userID, url, folderID, title, link, favicon, items, false)
+}
+
+// CreateFeedFull como CreateFeed fijando la detección de contenido completo.
+func (s *Store) CreateFeedFull(userID int64, url string, folderID *int64, title, link, favicon string, items []NewItem, fullContent bool) (*Feed, error) {
+	return s.createFeed(userID, url, folderID, title, link, favicon, items, fullContent)
+}
+
+func (s *Store) createFeed(userID int64, url string, folderID *int64, title, link, favicon string, items []NewItem, fullContent bool) (*Feed, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -80,9 +90,9 @@ func (s *Store) CreateFeed(userID int64, url string, folderID *int64, title, lin
 	defer tx.Rollback()
 
 	res, err := tx.Exec(
-		`INSERT INTO feeds (user_id, folder_id, url, url_hash, link, title, favicon, added, next_update)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		userID, folderID, url, md5Hex(url), link, title, favicon, now(), now()+600)
+		`INSERT INTO feeds (user_id, folder_id, url, url_hash, link, title, favicon, added, next_update, full_content)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		userID, folderID, url, md5Hex(url), link, title, favicon, now(), now()+600, boolInt(fullContent))
 	if err != nil {
 		return nil, ErrConflict
 	}
@@ -111,8 +121,9 @@ func (s *Store) CreateFeed(userID int64, url string, folderID *int64, title, lin
 // ReplaceFeedItems: refresco completo de un feed. Inserta items nuevos
 // (INSERT OR IGNORE por guid_hash) y devuelve cuántos eran nuevos;
 // no_new_streak alimenta el intervalo adaptativo del scheduler.
+// fullContent: si esta tanda ya trae artículos completos (sticky: MAX).
 // Los items desaparecidos del feed NO se borran (igual que News).
-func (s *Store) ReplaceFeedItems(feedID, userID int64, title, link string, items []NewItem) (int64, error) {
+func (s *Store) ReplaceFeedItems(feedID, userID int64, title, link string, items []NewItem, fullContent bool) (int64, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return 0, err
@@ -139,11 +150,19 @@ func (s *Store) ReplaceFeedItems(feedID, userID int64, title, link string, items
 		streak = 1 // señal: sumar 1 a la racha existente (ver UPDATE)
 	}
 	if _, err := tx.Exec(
-		`UPDATE feeds SET no_new_streak = CASE WHEN ? = 1 THEN no_new_streak + 1 ELSE 0 END WHERE id = ?`,
-		streak, feedID); err != nil {
+		`UPDATE feeds SET no_new_streak = CASE WHEN ? = 1 THEN no_new_streak + 1 ELSE 0 END,
+			full_content = MAX(full_content, ?) WHERE id = ?`,
+		streak, boolInt(fullContent), feedID); err != nil {
 		return 0, err
 	}
 	return inserted, tx.Commit()
+}
+
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 func (s *Store) RecordFeedError(feedID int64, msg string) {
