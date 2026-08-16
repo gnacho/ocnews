@@ -220,7 +220,7 @@
           @click="openItem(item)"
         >
           <div style="flex: 1; min-width: 0">
-            <p style="margin: 0; font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+            <p style="margin: 0; font-size: 17px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
               {{ item.title }}
             </p>
             <p
@@ -516,7 +516,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted, ref, watch } from 'vue'
+import { computed, defineComponent, h, onMounted, onUnmounted, ref, watch } from 'vue'
 // useRouter SIEMPRE desde web-pkg (inyecta el router del host); el de
 // vue-router no tiene inyección en el contexto de extensión (issues #002/#004)
 import { useRouter } from '@opencloud-eu/web-pkg'
@@ -1243,7 +1243,49 @@ watch(showAll, () => loadItems())
 watch(oldestFirst, () => loadItems())
 watch(() => route.value.fullPath, () => (detail.value = null))
 
+// Favicon de la app: al abrir News ponemos el icono de la extensión en la
+// pestaña; al salir restauramos el del host. El host aplica el favicon por
+// tema (link[rel~='icon']), así que guardamos el original al montar.
+let savedFavicon = ''
+
+// newsFaviconURL deriva la URL del asset desde la del bundle JS
+// (/assets/apps/news/js/*.mjs -> /assets/apps/news/news-favicon.svg).
+function newsFaviconURL(): string {
+  try {
+    const u = new URL(import.meta.url)
+    const parts = u.pathname.split('/')
+    const assetsIdx = parts.lastIndexOf('assets')
+    if (assetsIdx >= 0) {
+      const base = parts.slice(0, assetsIdx + 2).join('/') // .../assets/<appId>
+      return `${u.origin}${base}/news-favicon.svg`
+    }
+  } catch {
+    /* fallthrough */
+  }
+  return '/assets/apps/news/news-favicon.svg'
+}
+
+function applyNewsFavicon() {
+  const link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']")
+  if (link) {
+    savedFavicon = link.href
+    link.href = newsFaviconURL()
+  } else {
+    const l = document.createElement('link')
+    l.rel = 'icon'
+    l.href = newsFaviconURL()
+    document.head.appendChild(l)
+  }
+}
+
+function restoreHostFavicon() {
+  if (!savedFavicon) return
+  const link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']")
+  if (link) link.href = savedFavicon
+}
+
 onMounted(async () => {
+  applyNewsFavicon()
   try {
     await loadSettings()
     await loadSidebar()
@@ -1252,6 +1294,8 @@ onMounted(async () => {
   }
   await loadItems()
 })
+
+onUnmounted(() => restoreHostFavicon())
 </script>
 
 <style>
