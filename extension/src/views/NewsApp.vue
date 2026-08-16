@@ -208,7 +208,15 @@
         {{ $gettext('No articles') }}
       </p>
 
-      <ul v-else style="flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: 0">
+      <ul
+        v-else
+        ref="listEl"
+        style="flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: 0; user-select: none"
+        @mousedown="dragStart"
+        @mousemove="dragMove"
+        @mouseup="dragEnd"
+        @mouseleave="dragEnd"
+      >
         <li
           v-for="item in items"
           :key="item.id"
@@ -218,6 +226,7 @@
             opacity: item.unread ? 1 : 0.65
           }"
           @click="openItem(item)"
+          :class="{ 'news-dragging': dragging }"
         >
           <div style="flex: 1; min-width: 0">
             <p style="margin: 0; font-size: 20px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
@@ -602,6 +611,35 @@ const moreAvailable = ref(false)
 const opmlInputEl = ref<HTMLInputElement | null>(null)
 const searchQuery = ref('')
 
+// drag-to-scroll de la lista de artículos: arrastrar con el ratón desplaza el
+// scroll vertical; un arrastre >5px cancela el clic (no abre el artículo).
+const listEl = ref<HTMLElement | null>(null)
+const dragStartY = ref(0)
+const dragStartScroll = ref(0)
+const dragging = ref(false)
+
+function dragStart(e: MouseEvent) {
+  if (e.button !== 0) return
+  dragStartY.value = e.clientY
+  dragStartScroll.value = listEl.value?.scrollTop ?? 0
+  dragging.value = false
+}
+
+function dragMove(e: MouseEvent) {
+  const el = listEl.value
+  if (!el || (e.buttons & 1) === 0) return
+  const dy = e.clientY - dragStartY.value
+  if (Math.abs(dy) > 5) dragging.value = true
+  el.scrollTop = dragStartScroll.value - dy
+}
+
+function dragEnd() {
+  dragStartY.value = 0
+  dragStartScroll.value = 0
+  // el clic se cancela en el siguiente tick si hubo arrastre
+  setTimeout(() => (dragging.value = false), 0)
+}
+
 const searchActive = computed(() => searchQuery.value.trim() !== '')
 
 const userTheme = ref('system')
@@ -885,6 +923,7 @@ async function refreshCounts() {
 }
 
 async function openItem(item: Item) {
+  if (dragging.value) return // arrastre del ratón, no clic
   detail.value = item
   fullBody.value = ''
   fullFailed.value = false
