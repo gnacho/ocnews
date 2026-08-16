@@ -21,6 +21,7 @@ export interface Feed {
   pinned: boolean
   updateErrorCount: number
   lastUpdateError: string | null
+  isPodcast: boolean
 }
 
 export interface Item {
@@ -48,12 +49,32 @@ export interface FeedsResponse {
   newestItemId?: number
 }
 
+export interface FeedFilter {
+  feedId: number
+  titleKeywords: string
+  bodyKeywords: string
+  urlKeywords: string
+}
+
+export interface UserSettings {
+  theme: string
+  readerMaxWidth: string
+  feedIntervalMin: string
+}
+
 // type: 0 feed, 1 folder, 2 starred, 3 all
 export type Selection =
   | { kind: 'all' }
   | { kind: 'starred' }
+  | { kind: 'podcasts' }
   | { kind: 'feed'; id: number }
   | { kind: 'folder'; id: number }
+
+export interface DiscoveredFeed {
+  url: string
+  title: string
+  type: string
+}
 
 export function useNewsApi() {
   const client = useClientService()
@@ -89,6 +110,15 @@ export function useNewsApi() {
       if (opts.offset) params.offset = String(opts.offset)
       return get('/items', params) as Promise<{ items: Item[] }>
     },
+    search: (query: string, opts: { batchSize?: number; getRead?: boolean; oldestFirst?: boolean } = {}) => {
+      const params: Record<string, string> = {
+        query,
+        getRead: String(opts.getRead ?? true),
+        batchSize: String(opts.batchSize ?? 100),
+        oldestFirst: String(opts.oldestFirst ?? false)
+      }
+      return get('/items/search', params) as Promise<{ items: Item[] }>
+    },
     markRead: (id: number) => post(`/items/${id}/read`),
     itemFull: (id: number): Promise<{ body: string }> => get(`/items/${id}/full`),
     markUnread: (id: number) => post(`/items/${id}/unread`),
@@ -106,12 +136,34 @@ export function useNewsApi() {
       client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/rename`, { feedTitle: title }),
     moveFeed: (feedId: number, folderId: number | null) =>
       client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/move`, { folderId }),
+    getFilter: (feedId: number): Promise<{ filter: FeedFilter }> => get(`/feeds/${feedId}/filter`),
+    setFilter: (feedId: number, filter: Omit<FeedFilter, 'feedId'>) =>
+      client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/filter`, filter),
+    deleteFilter: (feedId: number) =>
+      client.httpAuthenticated.delete(`${BASE}/feeds/${feedId}/filter`),
+    getRetention: (feedId: number): Promise<{ retentionDays: number }> =>
+      get(`/feeds/${feedId}/retention`),
+    setRetention: (feedId: number, retentionDays: number) =>
+      client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/retention`, { retentionDays }),
+    mySettings: async (): Promise<UserSettings> => {
+      const { data } = await client.httpAuthenticated.get('/api/me/settings')
+      return data as UserSettings
+    },
+    updateSettings: async (patch: Partial<UserSettings>) => {
+      const { data } = await client.httpAuthenticated.put('/api/me/settings', patch)
+      return data as UserSettings
+    },
     addFolder: (name: string) => post('/folders', { name }),
     renameFolder: (folderId: number, name: string) =>
       client.httpAuthenticated.put(`${BASE}/folders/${folderId}`, { name }),
     deleteFolder: (folderId: number) =>
       client.httpAuthenticated.delete(`${BASE}/folders/${folderId}`),
     refresh: () => client.httpAuthenticated.post(`${BASE}/refresh`, {}),
+    discover: async (url: string): Promise<{ feeds: DiscoveredFeed[] }> => {
+      const usp = new URLSearchParams({ url })
+      const { data } = await client.httpAuthenticated.get(`${BASE}/feeds/discover?${usp.toString()}`)
+      return data as { feeds: DiscoveredFeed[] }
+    },
     importOpml: async (file: File) => {
       const body = await file.text()
       return client.httpAuthenticated.post(`${BASE}/import/opml`, body, {

@@ -62,7 +62,16 @@
             @mouseleave="hovered = ''"
             @click="select(entry)"
           >
-            <component :is="entry.icon" style="width: 16px; height: 16px; opacity: 0.7; flex-shrink: 0" />
+            <img
+              v-if="entry.kind === 'feed' && entry.favicon"
+              :src="entry.favicon"
+              alt=""
+              width="16"
+              height="16"
+              loading="lazy"
+              style="width: 16px; height: 16px; border-radius: 4px; object-fit: contain; flex-shrink: 0"
+            />
+            <component v-else :is="entry.icon" style="width: 16px; height: 16px; opacity: 0.7; flex-shrink: 0" />
             <span style="flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
               {{ entry.label }}
             </span>
@@ -76,10 +85,10 @@
               appearance="raw"
               style="flex-shrink: 0"
               :aria-label="$gettext('Options')"
+              :title="$gettext('Options')"
               @click.stop="openMenu = openMenu === entry.key ? '' : entry.key"
             >
-              <MoreHorizontal v-if="hovered === entry.key || openMenu === entry.key" style="width: 16px; height: 16px" />
-              <span v-else style="width: 16px; display: inline-block"></span>
+              <MoreHorizontal style="width: 16px; height: 16px" />
             </oc-button>
           </div>
 
@@ -90,6 +99,8 @@
           >
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Rename')" @click="renameFeed(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Move to folder…')" @click="moveFeed(entry)" />
+            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Filter articles…')" @click="openFilter(entry)" />
+            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Retention…')" @click="openRetention(entry)" />
             <MenuBtn v-if="entry.kind === 'folder'" :label="$gettext('Rename')" @click="renameFolder(entry)" />
             <MenuBtn
               v-if="entry.kind === 'feed' || entry.kind === 'folder'"
@@ -114,6 +125,9 @@
         <oc-button variation="passive" appearance="raw" style="font-size: 13px" @click="opmlInputEl?.click()">
           <Upload style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Import OPML') }}
         </oc-button>
+        <oc-button variation="passive" appearance="raw" style="font-size: 13px" :aria-label="$gettext('Settings')" :title="$gettext('Settings')" @click="openSettings">
+          <Settings style="width: 16px; height: 16px" />
+        </oc-button>
         <input
           ref="opmlInputEl"
           type="file"
@@ -125,7 +139,10 @@
     </aside>
 
     <!-- Lista -->
-    <section style="display: flex; flex-direction: column; flex: 1; min-width: 0">
+    <section
+      style="display: flex; flex-direction: column; flex-shrink: 0; min-width: 0; border-right: 1px solid rgba(125, 125, 125, 0.15)"
+      :style="{ width: listWidth + 'px' }"
+    >
       <header
         style="display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid rgba(125, 125, 125, 0.25); flex-wrap: wrap"
       >
@@ -134,6 +151,26 @@
         >
           {{ currentTitle }}
         </h1>
+        <div style="display: flex; align-items: center; gap: 6px; min-width: 0">
+          <Search style="width: 15px; height: 15px; opacity: 0.5; flex-shrink: 0" />
+          <input
+            v-model="searchQuery"
+            type="search"
+            :placeholder="$gettext('Search articles…')"
+            :aria-label="$gettext('Search articles')"
+            style="width: 200px; max-width: 30vw; font-size: 13px; padding: 4px 8px; border-radius: 6px; border: 1px solid #94a3b8; background: transparent; color: inherit"
+            @keydown.enter="doSearch"
+          />
+          <button
+            v-if="searchQuery"
+            style="background: none; border: 0; cursor: pointer; padding: 2px; display: inline-flex"
+            :aria-label="$gettext('Clear search')"
+            :title="$gettext('Clear search')"
+            @click="clearSearch"
+          >
+            <X style="width: 14px; height: 14px" />
+          </button>
+        </div>
         <label style="font-size: 12px; display: flex; align-items: center; gap: 4px">
           {{ $gettext('Show') }}
           <select v-model="showAll" style="font-size: 12px; padding: 2px 4px" :aria-label="$gettext('Show')">
@@ -186,11 +223,18 @@
           @click="openItem(item)"
         >
           <div style="flex: 1; min-width: 0">
-            <p style="margin: 0; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+            <p style="margin: 0; font-size: 20px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
               {{ item.title }}
             </p>
-            <p style="margin: 2px 0 0; font-size: 12px; opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
-              {{ feedTitle(item.feedId) }}<span v-if="item.author"> · {{ item.author }}</span> · {{ fmtDate(item.pubDate) }}
+            <p
+              v-if="itemSnippet(item)"
+              style="margin: 3px 0 0; font-size: 13px; opacity: 0.75; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden"
+            >
+              {{ itemSnippet(item) }}
+            </p>
+            <p style="margin: 3px 0 0; font-size: 12px; opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+              <img v-if="feedIcon(item.feedId)" :src="feedIcon(item.feedId)" alt="" width="12" height="12" loading="lazy" style="width: 12px; height: 12px; border-radius: 3px; object-fit: contain; vertical-align: -1px; margin-right: 4px" />
+              {{ feedTitle(item.feedId) }}<span v-if="item.author"> · {{ item.author }}</span> · {{ fmtRelative(item.pubDate) }}
             </p>
           </div>
           <button
@@ -218,6 +262,14 @@
         </li>
       </ul>
     </section>
+
+    <!-- Divisor redimensionable de la columna de titulares -->
+    <div
+      ref="resizerEl"
+      style="width: 7px; flex-shrink: 0; cursor: col-resize; background: transparent"
+      :style="{ background: resizing ? 'rgba(0,100,200,0.25)' : 'transparent' }"
+      @mousedown="resizeStart"
+    ></div>
 
     <!-- Detalle -->
     <section
@@ -287,22 +339,195 @@
           preload="metadata"
           style="width: 100%; border-radius: 8px; margin: 0 0 12px; max-height: 60vh; background: #000"
         />
-        <p style="font-size: 12px; opacity: 0.6; margin: 0 0 12px">
-          {{ feedTitle(detail.feedId) }} · {{ fmtDate(detail.pubDate) }}
+        <p style="font-size: 12px; opacity: 0.6; margin: 0 0 12px; display: flex; align-items: center; gap: 4px">
+          <img v-if="feedIcon(detail.feedId)" :src="feedIcon(detail.feedId)" alt="" width="14" height="14" loading="lazy" style="width: 14px; height: 14px; border-radius: 3px; object-fit: contain" />
+          <span>{{ feedTitle(detail.feedId) }} · {{ fmtRelative(detail.pubDate) }}</span>
           <span v-if="fullLoading" style="opacity: 0.7"> · {{ $gettext('loading full article…') }}</span>
           <span v-else-if="fullFailed" style="color: #d97706">
             · {{ $gettext('full article not available — open the original') }}
           </span>
         </p>
         <!-- body sanitizado server-side; imágenes via proxy propio (CSP) -->
-        <div class="oc-prose news-body" style="max-width: 72ch" v-html="detailBody" />
+        <div
+          class="oc-prose news-body"
+          :class="readerClass"
+          :style="{ maxWidth: readerMaxWidth, ['--news-bg' as any]: readerBg, ['--news-fg' as any]: readerFg }"
+          v-html="detailBody"
+        />
       </div>
     </section>
+
+    <!-- Filtro de artículos por feed (News 28.4.0) -->
+    <div
+      v-if="filterOpen"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Filter articles')"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="closeFilter"
+    >
+      <div style="background: #fff; border-radius: 12px; padding: 20px; width: 420px; max-width: 92vw; box-shadow: 0 8px 32px rgba(0,0,0,0.25); color: #1a1a1a">
+        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">
+          {{ $gettext('Filter articles') }}
+        </h3>
+        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.6">
+          {{ $gettext('Hide articles whose title, body or URL contains any keyword (comma-separated, case-insensitive).') }}
+        </p>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Title keywords') }}</label>
+        <input
+          v-model="filterForm.titleKeywords"
+          type="text"
+          placeholder="sponsored,ads,offer"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 10px"
+        />
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Body keywords') }}</label>
+        <input
+          v-model="filterForm.bodyKeywords"
+          type="text"
+          placeholder="tracking,cookie"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 10px"
+        />
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('URL keywords') }}</label>
+        <input
+          v-model="filterForm.urlKeywords"
+          type="text"
+          placeholder="utm_,/tag/"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 16px"
+        />
+        <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center">
+          <oc-button v-if="filterHasFilter" variation="passive" appearance="raw" style="font-size: 13px" @click="clearFilter">
+            {{ $gettext('Clear filter') }}
+          </oc-button>
+          <span style="flex: 1"></span>
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="closeFilter">
+            {{ $gettext('Cancel') }}
+          </oc-button>
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="filterSaving" @click="saveFilter">
+            {{ $gettext('Save') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Retención por feed -->
+    <div
+      v-if="retentionOpen"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Article retention')"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="retentionOpen = false"
+    >
+      <div style="background: #fff; border-radius: 12px; padding: 20px; width: 380px; max-width: 92vw; box-shadow: 0 8px 32px rgba(0,0,0,0.25); color: #1a1a1a">
+        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">{{ $gettext('Article retention') }}</h3>
+        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.6">
+          {{ $gettext('Days to keep read, non-starred articles for this feed. 0 = use the server default.') }}
+        </p>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Retention (days)') }}</label>
+        <input
+          v-model.number="retentionForm"
+          type="number"
+          min="0"
+          max="3650"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 16px"
+        />
+        <div style="display: flex; gap: 8px; justify-content: flex-end">
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="retentionOpen = false">
+            {{ $gettext('Cancel') }}
+          </oc-button>
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="retentionSaving" @click="saveRetention">
+            {{ $gettext('Save') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ajustes de usuario -->
+    <div
+      v-if="settingsOpen"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Settings')"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="settingsOpen = false"
+    >
+      <div style="background: #fff; border-radius: 12px; padding: 20px; width: 400px; max-width: 92vw; box-shadow: 0 8px 32px rgba(0,0,0,0.25); color: #1a1a1a">
+        <h3 style="margin: 0 0 16px; font-size: 15px; font-weight: 600">{{ $gettext('Settings') }}</h3>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Reader theme') }}</label>
+        <select v-model="settingsForm.theme" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 12px">
+          <option value="system">{{ $gettext('System') }}</option>
+          <option value="light">{{ $gettext('Light') }}</option>
+          <option value="dark">{{ $gettext('Dark') }}</option>
+        </select>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Reader width') }}</label>
+        <select v-model="settingsForm.readerMaxWidth" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 12px">
+          <option value="narrow">{{ $gettext('Narrow') }}</option>
+          <option value="normal">{{ $gettext('Normal') }}</option>
+          <option value="wide">{{ $gettext('Wide') }}</option>
+        </select>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Refresh interval (minutes)') }}</label>
+        <input
+          v-model="settingsForm.feedIntervalMin"
+          type="number"
+          min="5"
+          max="1440"
+          placeholder=""
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 16px"
+        />
+        <p style="margin: 0 0 16px; font-size: 11px; opacity: 0.6">{{ $gettext('Leave empty for the server default (15 min).') }}</p>
+        <div style="display: flex; gap: 8px; justify-content: flex-end">
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="settingsOpen = false">
+            {{ $gettext('Cancel') }}
+          </oc-button>
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="settingsSaving" @click="saveSettings">
+            {{ $gettext('Save') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Selector de feeds descubiertos -->
+    <div
+      v-if="discoverPickerOpen"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Select a feed')"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="discoverPickerOpen = false"
+    >
+      <div style="background: #fff; border-radius: 12px; padding: 20px; width: 440px; max-width: 92vw; box-shadow: 0 8px 32px rgba(0,0,0,0.25); color: #1a1a1a">
+        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">{{ $gettext('Select a feed') }}</h3>
+        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.6">
+          {{ $gettext('Multiple feeds were found on this site.') }}
+        </p>
+        <fieldset style="border: 0; margin: 0 0 16px; padding: 0; max-height: 260px; overflow-y: auto">
+          <label
+            v-for="(f, i) in discoverCandidates"
+            :key="f.url"
+            style="display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-radius: 6px; cursor: pointer; font-size: 13px"
+          >
+            <input v-model="discoverSelected" type="radio" name="discover-feed" :value="i" />
+            <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+              {{ f.title || f.url }}
+            </span>
+            <span style="font-size: 11px; opacity: 0.5; text-transform: uppercase">{{ f.type }}</span>
+          </label>
+        </fieldset>
+        <div style="display: flex; gap: 8px; justify-content: flex-end">
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="discoverPickerOpen = false">
+            {{ $gettext('Cancel') }}
+          </oc-button>
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="discoverSubscribing" @click="subscribeDiscovered">
+            {{ $gettext('Subscribe') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
   </main>
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted, ref, watch } from 'vue'
+import { computed, defineComponent, h, onMounted, onUnmounted, ref, watch } from 'vue'
 // useRouter SIEMPRE desde web-pkg (inyecta el router del host); el de
 // vue-router no tiene inyección en el contexto de extensión (issues #002/#004)
 import { useRouter } from '@opencloud-eu/web-pkg'
@@ -324,11 +549,15 @@ import {
   AlertTriangle,
   MailOpen,
   ExternalLink,
-  BookOpenText
+  BookOpenText,
+  Filter,
+  Search,
+  Settings,
+  Podcast
 } from 'lucide-vue-next'
-import { useNewsApi, Item, Feed, Folder, Selection } from '../api'
+import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings, DiscoveredFeed } from '../api'
 
-const { $gettext } = useGettext()
+const { $gettext, $ngettext } = useGettext()
 const router = useRouter()
 const route = computed(() => router.currentRoute.value)
 const api = useNewsApi()
@@ -382,18 +611,114 @@ const showAll = ref(false)
 const oldestFirst = ref(false)
 const moreAvailable = ref(false)
 const opmlInputEl = ref<HTMLInputElement | null>(null)
+const searchQuery = ref('')
+
+// resize de la columna de titulares arrastrando el divisor derecho.
+const resizerEl = ref<HTMLElement | null>(null)
+const listWidth = ref(380)
+const resizing = ref(false)
+const resizeStartX = ref(0)
+const resizeStartW = ref(380)
+
+function resizeStart(e: MouseEvent) {
+  if (e.button !== 0) return
+  resizing.value = true
+  resizeStartX.value = e.clientX
+  resizeStartW.value = listWidth.value
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+  window.addEventListener('mousemove', resizeMove)
+  window.addEventListener('mouseup', resizeEnd)
+}
+
+function resizeMove(e: MouseEvent) {
+  if (!resizing.value) return
+  const dx = e.clientX - resizeStartX.value
+  listWidth.value = Math.max(240, Math.min(700, resizeStartW.value + dx))
+}
+
+function resizeEnd() {
+  resizing.value = false
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+  window.removeEventListener('mousemove', resizeMove)
+  window.removeEventListener('mouseup', resizeEnd)
+}
+
+const searchActive = computed(() => searchQuery.value.trim() !== '')
+
+const userTheme = ref('system')
+const userWidth = ref('wide')
+
+const readerClass = computed(() => `news-theme-${userTheme.value}`)
+const readerMaxWidth = computed(() => ({ narrow: '52ch', normal: '72ch', wide: '100%' })[userWidth.value] ?? '100%')
+const readerBg = computed(() =>
+  userTheme.value === 'dark' ? '#161616' : userTheme.value === 'light' ? '#ffffff' : ''
+)
+const readerFg = computed(() =>
+  userTheme.value === 'dark' ? '#e5e5e5' : userTheme.value === 'light' ? '#1a1a1a' : ''
+)
+
+async function loadSettings() {
+  try {
+    const s = await api.mySettings()
+    userTheme.value = s.theme || 'system'
+    userWidth.value = s.readerMaxWidth || 'wide'
+  } catch {
+    /* defaults */
+  }
+}
+
+function doSearch() {
+  if (searchQuery.value.trim()) {
+    detail.value = null
+    loadItems()
+  }
+}
+
+function clearSearch() {
+  searchQuery.value = ''
+  detail.value = null
+  loadItems()
+}
+const filterOpen = ref(false)
+const filterSaving = ref(false)
+const filterFeedId = ref<number | null>(null)
+const filterForm = ref<Omit<FeedFilter, 'feedId'>>({ titleKeywords: '', bodyKeywords: '', urlKeywords: '' })
+
+const filterHasFilter = computed(
+  () =>
+    filterForm.value.titleKeywords.trim() !== '' ||
+    filterForm.value.bodyKeywords.trim() !== '' ||
+    filterForm.value.urlKeywords.trim() !== ''
+)
+
+const retentionOpen = ref(false)
+const retentionSaving = ref(false)
+const retentionFeedId = ref<number | null>(null)
+const retentionForm = ref(0)
+
+const settingsOpen = ref(false)
+const settingsSaving = ref(false)
+const settingsForm = ref<UserSettings>({ theme: 'system', readerMaxWidth: 'wide', feedIntervalMin: '' })
+
+const discoverPickerOpen = ref(false)
+const discoverCandidates = ref<DiscoveredFeed[]>([])
+const discoverSelected = ref(0)
+const discoverSubscribing = ref(false)
 
 const BATCH = 50
 
 type NavEntry = {
   key: string
-  kind: 'all' | 'starred' | 'folder' | 'feed'
+  kind: 'all' | 'starred' | 'podcasts' | 'folder' | 'feed'
   label: string
   icon: typeof Rss
   sel: Selection
   unread: number
   error?: string
   indent?: boolean
+  favicon?: string
 }
 
 const selection = computed<Selection>(() => {
@@ -401,8 +726,12 @@ const selection = computed<Selection>(() => {
   if (r.name === 'news-feed') return { kind: 'feed', id: Number(r.params.feedId) }
   if (r.name === 'news-folder') return { kind: 'folder', id: Number(r.params.folderId) }
   if (r.name === 'news-starred') return { kind: 'starred' }
+  if (r.name === 'news-podcasts') return { kind: 'podcasts' }
   return { kind: 'all' }
 })
+
+const podcastFeeds = computed(() => feeds.value.filter((f) => f.isPodcast))
+const podcastIds = computed(() => new Set(podcastFeeds.value.map((f) => f.id)))
 
 const navEntries = computed<NavEntry[]>(() => {
   const byFolder = new Map<number, Feed[]>()
@@ -412,7 +741,8 @@ const navEntries = computed<NavEntry[]>(() => {
   }
   const entries: NavEntry[] = [
     { key: 'all', kind: 'all', label: $gettext('All articles'), icon: Newspaper, sel: { kind: 'all' }, unread: totalUnread.value },
-    { key: 'starred', kind: 'starred', label: $gettext('Starred'), icon: Star, sel: { kind: 'starred' }, unread: starredCount.value }
+    { key: 'starred', kind: 'starred', label: $gettext('Starred'), icon: Star, sel: { kind: 'starred' }, unread: starredCount.value },
+    { key: 'podcasts', kind: 'podcasts', label: $gettext('Podcasts'), icon: Podcast, sel: { kind: 'podcasts' }, unread: 0 }
   ]
   for (const folder of folders.value) {
     entries.push({
@@ -432,7 +762,8 @@ const navEntries = computed<NavEntry[]>(() => {
         sel: { kind: 'feed', id: f.id },
         unread: f.unreadCount,
         error: f.updateErrorCount > 0 ? f.lastUpdateError ?? `${f.updateErrorCount} errors` : undefined,
-        indent: true
+        indent: true,
+        favicon: f.faviconLink
       })
     }
   }
@@ -445,7 +776,8 @@ const navEntries = computed<NavEntry[]>(() => {
       sel: { kind: 'feed', id: f.id },
       unread: f.unreadCount,
       error: f.updateErrorCount > 0 ? f.lastUpdateError ?? `${f.updateErrorCount} errors` : undefined,
-      indent: true
+      indent: true,
+      favicon: f.faviconLink
     })
   }
   return entries
@@ -494,6 +826,7 @@ function select(entry: NavEntry) {
   switch (entry.sel.kind) {
     case 'all': router.push('/news/'); break
     case 'starred': router.push('/news/starred'); break
+    case 'podcasts': router.push('/news/podcasts'); break
     case 'feed': router.push(`/news/feed/${entry.sel.id}`); break
     case 'folder': router.push(`/news/folder/${entry.sel.id}`); break
   }
@@ -503,6 +836,26 @@ function feedTitle(feedId: number) {
   return feeds.value.find((f) => f.id === feedId)?.title ?? ''
 }
 
+function feedIcon(feedId: number): string {
+  return feeds.value.find((f) => f.id === feedId)?.faviconLink ?? ''
+}
+
+// itemSnippet: extrae el texto plano del body y lo acota para la previsualización.
+const MAX_SNIPPET = 220
+function itemSnippet(item: Item): string {
+  const raw = item.body || item.title || ''
+  const text = raw
+    .replace(/<[^>]+>/g, ' ') // quitar etiquetas
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (text.length <= MAX_SNIPPET) return text
+  return text.slice(0, MAX_SNIPPET).trimEnd() + '…'
+}
+
 function fmtDate(epoch: number) {
   return new Date(epoch * 1000).toLocaleDateString(undefined, {
     day: 'numeric',
@@ -510,6 +863,24 @@ function fmtDate(epoch: number) {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+// fmtRelative: "hace 3 min", "hace 2 h" para tiempos cortos; fecha completa
+// más allá de un día. i18n con plurales básicos.
+function fmtRelative(epoch: number) {
+  if (!epoch) return ''
+  const now = Date.now() / 1000
+  let secs = Math.round(now - epoch)
+  if (secs < 60) return $gettext('just now')
+  if (secs < 3600) {
+    const m = Math.floor(secs / 60)
+    return $ngettext('%d minute ago', '%d minutes ago', m).replace('%d', String(m))
+  }
+  if (secs < 86400) {
+    const h = Math.floor(secs / 3600)
+    return $ngettext('%d hour ago', '%d hours ago', h).replace('%d', String(h))
+  }
+  return fmtDate(epoch)
 }
 
 async function loadSidebar() {
@@ -524,9 +895,20 @@ async function loadItems(append = false) {
   error.value = ''
   try {
     const getRead = selection.value.kind === 'starred' ? true : showAll.value
+    if (searchActive.value) {
+      const res = await api.search(searchQuery.value.trim(), { getRead, batchSize: 100, oldestFirst: oldestFirst.value })
+      items.value = res.items
+      moreAvailable.value = false
+      return
+    }
+    const selForFetch: Selection = selection.value.kind === 'podcasts' ? { kind: 'all' } : selection.value
     const offset = append ? (oldestFirst.value ? Math.max(...items.value.map((i) => i.id)) : Math.min(...items.value.map((i) => i.id))) : undefined
-    const res = await api.items(selection.value, { getRead, batchSize: BATCH, oldestFirst: oldestFirst.value, offset })
-    items.value = append ? [...items.value, ...res.items] : res.items
+    const res = await api.items(selForFetch, { getRead, batchSize: BATCH, oldestFirst: oldestFirst.value, offset })
+    let fetched = append ? [...items.value, ...res.items] : res.items
+    if (selection.value.kind === 'podcasts') {
+      fetched = fetched.filter((i) => podcastIds.value.has(i.feedId))
+    }
+    items.value = fetched
     moreAvailable.value = res.items.length >= BATCH
   } catch (e) {
     error.value = $gettext('Could not load items: ') + errText(e)
@@ -612,9 +994,54 @@ async function subscribeFeed() {
     await loadSidebar()
     await loadItems()
   } catch (e: unknown) {
-    error.value = extractErrorMessage(e, $gettext('Could not subscribe to the feed'))
+    const status = (e as { response?: { status?: number } })?.response?.status
+    if (status === 422) {
+      // no es un feed directo: probar autodetección en la URL del sitio
+      try {
+        const res = await api.discover(url)
+        if (res.feeds?.length === 1) {
+          await api.addFeed(res.feeds[0].url, null)
+          newFeedUrl.value = ''
+          await loadSidebar()
+          await loadItems()
+          return
+        }
+        if (res.feeds?.length > 1) {
+          discoverCandidates.value = res.feeds
+          discoverSelected.value = 0
+          discoverPickerOpen.value = true
+          return
+        }
+      } catch {
+        /* si discover también falla, caemos al error genérico */
+      }
+      error.value = extractErrorMessage(e, $gettext('Could not subscribe to the feed'))
+    } else {
+      error.value = extractErrorMessage(e, $gettext('Could not subscribe to the feed'))
+    }
   } finally {
     subscribing.value = false
+  }
+}
+
+// subscribeDiscovered: suscribe el feed elegido en el selector de descubrimiento.
+async function subscribeDiscovered() {
+  const feed = discoverCandidates.value[discoverSelected.value]
+  if (!feed) {
+    discoverPickerOpen.value = false
+    return
+  }
+  discoverSubscribing.value = true
+  try {
+    await api.addFeed(feed.url, null)
+    newFeedUrl.value = ''
+    discoverPickerOpen.value = false
+    await loadSidebar()
+    await loadItems()
+  } catch (e) {
+    error.value = extractErrorMessage(e, $gettext('Could not subscribe to the feed'))
+  } finally {
+    discoverSubscribing.value = false
   }
 }
 
@@ -698,6 +1125,117 @@ async function deleteEntry(entry: NavEntry) {
   }
 }
 
+async function openFilter(entry: NavEntry) {
+  openMenu.value = ''
+  const f = entryFeed(entry)
+  if (!f) return
+  filterFeedId.value = f.id
+  filterForm.value = { titleKeywords: '', bodyKeywords: '', urlKeywords: '' }
+  try {
+    const res = await api.getFilter(f.id)
+    filterForm.value = {
+      titleKeywords: res.filter.titleKeywords ?? '',
+      bodyKeywords: res.filter.bodyKeywords ?? '',
+      urlKeywords: res.filter.urlKeywords ?? ''
+    }
+  } catch {
+    /* sin filtro previo: campos vacíos */
+  }
+  filterOpen.value = true
+}
+
+function closeFilter() {
+  filterOpen.value = false
+  filterFeedId.value = null
+}
+
+async function saveFilter() {
+  if (filterFeedId.value == null) return
+  filterSaving.value = true
+  try {
+    await api.setFilter(filterFeedId.value, {
+      titleKeywords: filterForm.value.titleKeywords.trim(),
+      bodyKeywords: filterForm.value.bodyKeywords.trim(),
+      urlKeywords: filterForm.value.urlKeywords.trim()
+    })
+    closeFilter()
+  } catch (e) {
+    error.value = $gettext('Could not save filter: ') + errText(e)
+  } finally {
+    filterSaving.value = false
+  }
+}
+
+async function clearFilter() {
+  if (filterFeedId.value == null) return
+  filterSaving.value = true
+  try {
+    await api.deleteFilter(filterFeedId.value)
+    closeFilter()
+  } catch (e) {
+    error.value = $gettext('Could not clear filter: ') + errText(e)
+  } finally {
+    filterSaving.value = false
+  }
+}
+
+async function openRetention(entry: NavEntry) {
+  openMenu.value = ''
+  const f = entryFeed(entry)
+  if (!f) return
+  retentionFeedId.value = f.id
+  retentionForm.value = 0
+  try {
+    const res = await api.getRetention(f.id)
+    retentionForm.value = res.retentionDays ?? 0
+  } catch {
+    /* usar 0 */
+  }
+  retentionOpen.value = true
+}
+
+async function saveRetention() {
+  if (retentionFeedId.value == null) return
+  retentionSaving.value = true
+  try {
+    const days = Math.max(0, Math.min(3650, retentionForm.value || 0))
+    await api.setRetention(retentionFeedId.value, days)
+    retentionOpen.value = false
+  } catch (e) {
+    error.value = $gettext('Could not save retention: ') + errText(e)
+  } finally {
+    retentionSaving.value = false
+  }
+}
+
+async function openSettings() {
+  settingsOpen.value = true
+  try {
+    const s = await api.mySettings()
+    settingsForm.value = { theme: s.theme || 'system', readerMaxWidth: s.readerMaxWidth || 'wide', feedIntervalMin: s.feedIntervalMin ?? '' }
+  } catch {
+    /* usar defaults */
+  }
+}
+
+async function saveSettings() {
+  settingsSaving.value = true
+  try {
+    const updated = await api.updateSettings({
+      theme: settingsForm.value.theme,
+      readerMaxWidth: settingsForm.value.readerMaxWidth,
+      feedIntervalMin: settingsForm.value.feedIntervalMin.trim()
+    })
+    userTheme.value = updated.theme || 'system'
+    userWidth.value = updated.readerMaxWidth || 'wide'
+    settingsOpen.value = false
+  } catch (e) {
+    error.value = $gettext('Could not save settings: ') + errText(e)
+  } finally {
+    settingsSaving.value = false
+  }
+}
+
 async function exportOpml() {
   try {
     const res: { data: string } = await api.exportOpml()
@@ -748,13 +1286,61 @@ watch(showAll, () => loadItems())
 watch(oldestFirst, () => loadItems())
 watch(() => route.value.fullPath, () => (detail.value = null))
 
-onMounted(async () => {
+// Favicon de la app: al abrir News ponemos el icono de la extensión en la
+// pestaña; al salir restauramos el del host. El host aplica el favicon por
+// tema (link[rel~='icon']), así que guardamos el original al montar.
+let savedFavicon = ''
+
+// newsFaviconURL deriva la URL del asset desde la del bundle JS
+// (/assets/apps/news/js/*.mjs -> /assets/apps/news/news-favicon.svg).
+function newsFaviconURL(): string {
   try {
+    const u = new URL(import.meta.url)
+    const parts = u.pathname.split('/')
+    const assetsIdx = parts.lastIndexOf('assets')
+    if (assetsIdx >= 0) {
+      const base = parts.slice(0, assetsIdx + 2).join('/') // .../assets/<appId>
+      return `${u.origin}${base}/news-favicon.svg`
+    }
+  } catch {
+    /* fallthrough */
+  }
+  return '/assets/apps/news/news-favicon.svg'
+}
+
+function applyNewsFavicon() {
+  const link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']")
+  if (link) {
+    savedFavicon = link.href
+    link.href = newsFaviconURL()
+  } else {
+    const l = document.createElement('link')
+    l.rel = 'icon'
+    l.href = newsFaviconURL()
+    document.head.appendChild(l)
+  }
+}
+
+function restoreHostFavicon() {
+  if (!savedFavicon) return
+  const link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']")
+  if (link) link.href = savedFavicon
+}
+
+onMounted(async () => {
+  applyNewsFavicon()
+  try {
+    await loadSettings()
     await loadSidebar()
   } catch (e) {
     error.value = $gettext('Could not load folders/feeds: ') + errText(e)
   }
   await loadItems()
+})
+
+onUnmounted(() => {
+  restoreHostFavicon()
+  resizeEnd()
 })
 </script>
 
@@ -781,6 +1367,18 @@ onMounted(async () => {
 }
 .news-body a { color: #2563eb; text-decoration: underline; }
 .news-body a:hover { opacity: 0.8; }
+.news-theme-dark {
+  color: var(--news-fg, #e5e5e5);
+  background: var(--news-bg, #161616);
+  border-radius: 8px;
+  padding: 12px;
+}
+.news-theme-light {
+  color: var(--news-fg, #1a1a1a);
+  background: var(--news-bg, #ffffff);
+  border-radius: 8px;
+  padding: 12px;
+}
 .news-body blockquote {
   margin: 0 0 1em;
   padding: 0.4em 1em;

@@ -1,0 +1,52 @@
+version: "2"
+
+run:
+  concurrency: 4
+  timeout: 5m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    # correctness
+    - govet
+    - staticcheck
+    - unused
+    - errcheck
+    - errorlint
+    - ineffassign
+    # security & resources
+    - gosec
+    - bidichk
+    - bodyclose
+    - sqlclosecheck
+    - rowserrcheck
+    # style (bajo ruido)
+    - unconvert
+  settings:
+    errcheck:
+      check-type-assertions: true
+    gosec:
+      excludes:
+        - G401 # md5 para hashes de dedupe/identificación (guid_hash, url_hash, fingerprint), NO crypto
+        - G501 # import crypto/md5: mismo motivo (no es material criptográfico)
+        - G202 # SQL "concatenación": en realidad placeholders parametrizados (IN (...) con args)
+        - G404 # math/rand para jitter del scheduler; NO es crypto (usa crypto/rand para secrets)
+        - G304 # rutas de caché derivadas de sha256/md5 internos, no de input del usuario
+        - G104 # errors unhandled: redundante con errcheck (ya lo cubre)
+        - G704 # SSRF por taint: ya mitigado en transporte por netguard (bloquea IPs privadas)
+        - G703 # path traversal por taint: rutas de caché por hash interno, no input del usuario
+        - G101 # hardcoded credentials: solo en tests (fakes de validator)
+        - G115 # integer overflow int->rune: solo en test helpers (refresher_test)
+  exclusions:
+    rules:
+      # la deuda preexistente de tests (fakes, helpers) no debe bloquear
+      - path: _test\.go
+        linters:
+          - errcheck
+          - bodyclose
+          - ineffassign
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 50

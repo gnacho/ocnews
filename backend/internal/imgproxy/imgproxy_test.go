@@ -13,7 +13,7 @@ import (
 
 func newProxy(t *testing.T) *Proxy {
 	t.Helper()
-	p, err := New(t.TempDir(), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	p, err := NewAllowLocal(t.TempDir(), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}

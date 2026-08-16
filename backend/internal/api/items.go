@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
@@ -61,8 +62,10 @@ func itemFilterFromRequest(r *http.Request, u *store.User, updated bool) (store.
 		}
 		f.GetRead = true // updated informa cambios de estado, leídos incluidos
 		f.BatchSize = -1 // la spec no define batchSize en /items/updated
+		f.IncludeFiltered = true // updated también reporta el estado filtered
 	} else {
 		f.GetRead = boolParam(r, "getRead", true)
+		f.IncludeFiltered = boolParam(r, "getFiltered", false)
 		if v, err := parseID(q.Get("batchSize")); err == nil {
 			f.BatchSize = v
 		} else {
@@ -102,6 +105,34 @@ func (s *Server) updatedItems(w http.ResponseWriter, r *http.Request) {
 	items, err := s.store.ListItems(f)
 	if err != nil {
 		s.logError(w, r, "items actualizados", err)
+		return
+	}
+	s.rewriteAll(items)
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+// searchItems: búsqueda de artículos por query en título/cuerpo/URL.
+// Ruta propia de la app bajo la base v1-3 (la spec v1.3 no define search).
+func (s *Server) searchItems(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	query := strings.TrimSpace(q.Get("query"))
+	if query == "" {
+		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_query")
+		return
+	}
+	u := user(r)
+	f, valid := itemFilterFromRequest(r, u, false)
+	if !valid {
+		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_type")
+		return
+	}
+	// búsqueda: un límite razonable (los clientes paginan a partir de ahí)
+	if f.BatchSize < 0 || f.BatchSize > 200 {
+		f.BatchSize = 100
+	}
+	items, err := s.store.SearchItems(f, query, int(f.BatchSize))
+	if err != nil {
+		s.logError(w, r, "buscar items", err)
 		return
 	}
 	s.rewriteAll(items)

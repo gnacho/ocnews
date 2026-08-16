@@ -103,14 +103,35 @@ func (s *Scheduler) cycle(ctx context.Context) {
 	wg.Wait()
 }
 
-// runRetention purga items leídos no destacados más antiguos que la
-// retención; 0 = desactivada.
+// runRetention purga items leídos no destacados. El global (s.retention) aplica
+// a todos los feeds, pero los que tienen override propio (retention_days>0) se
+// purgan antes (overrides más cortos) y se EXCLUYEN del corte global — un feed
+// con override de retención se purga SOLO con su propia regla. 0 = desactivada.
 func (s *Scheduler) runRetention(ctx context.Context) {
 	if s.retention <= 0 {
 		return
 	}
 	purge := func() {
-		cutoff := time.Now().Add(-s.retention).Unix()
+		now := time.Now()
+		// feeds con override propio
+		over, err := s.store.FeedsWithRetentionOverride()
+		if err != nil {
+			s.log.Error("retención por feed: listar overrides", "err", err)
+		} else {
+			for _, f := range over {
+				cutoff := now.Add(-time.Duration(f.Days) * 24 * time.Hour).Unix()
+				n, err := s.store.PurgeOldItemsByFeed(f.ID, cutoff)
+				if err != nil {
+					s.log.Error("retención por feed", "feed", f.ID, "err", err)
+					continue
+				}
+				if n > 0 {
+					s.log.Info("retención por feed", "feed", f.ID, "días", f.Days, "borrados", n)
+				}
+			}
+		}
+		// feeds sin override: corte global
+		cutoff := now.Add(-s.retention).Unix()
 		n, err := s.store.PurgeOldItems(cutoff)
 		if err != nil {
 			s.log.Error("retención falló", "err", err)

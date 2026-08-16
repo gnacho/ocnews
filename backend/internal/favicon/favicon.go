@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/gnacho/ocnews/backend/internal/netguard"
 )
 
 const (
@@ -33,7 +35,7 @@ func NewCache(dir string, log *slog.Logger) (*Cache, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("crear caché favicons: %w", err)
 	}
-	return &Cache{dir: dir, client: &http.Client{Timeout: fetchTimeout}, log: log}, nil
+	return &Cache{dir: dir, client: netguard.Client(fetchTimeout), log: log}, nil
 }
 
 // Hash devuelve el md5 hex de una URL de feed (identificador del endpoint).

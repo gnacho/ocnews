@@ -34,10 +34,41 @@ type Feed struct {
 	Pinned           bool    `json:"pinned"`
 	UpdateErrorCount int     `json:"updateErrorCount"`
 	LastUpdateError  *string `json:"lastUpdateError"`
-	URLHash          string  `json:"-"`
+	URLHash          string  `json:"urlHash"` // md5(url) para el favicon público
 	UserID           int64   `json:"-"`
 	NoNewStreak      int     `json:"-"` // interno: scheduler adaptativo
 	FullContent      bool    `json:"-"` // el feed ya sirve artículos completos
+	RetentionDays    int     `json:"-"` // override de retención por feed; 0 = global
+	IsPodcast        bool    `json:"isPodcast"` // feed con enclosures de audio/vídeo
+}
+
+// FeedFilter: keywords que descartan artículos de un feed (News 28.4.0).
+// Cada campo es una lista de keywords separadas por coma, matched
+// case-insensitive contra title/body/url del item.
+type FeedFilter struct {
+	FeedID        int64  `json:"feedId"`
+	TitleKeywords string `json:"titleKeywords"`
+	BodyKeywords  string `json:"bodyKeywords"`
+	URLKeywords   string `json:"urlKeywords"`
+}
+
+// Matches evalúa si el item debe ser descartado (filtered) por el filtro.
+func (f FeedFilter) Matches(it NewItem) bool {
+	if f.TitleKeywords != "" && containsAnyFold(it.Title, f.TitleKeywords) {
+		return true
+	}
+	if f.BodyKeywords != "" && containsAnyFold(plain(it.Body), f.BodyKeywords) {
+		return true
+	}
+	if f.URLKeywords != "" && containsAnyFold(it.URL, f.URLKeywords) {
+		return true
+	}
+	return false
+}
+
+// HasFilter dice si el filtro tiene alguna keyword configurada.
+func (f FeedFilter) HasFilter() bool {
+	return f.TitleKeywords != "" || f.BodyKeywords != "" || f.URLKeywords != ""
 }
 
 // NewItem: item recibido del fetcher, antes de persistir.
@@ -54,6 +85,7 @@ type NewItem struct {
 	MediaThumbnail  *string
 	MediaDescription *string
 	Fingerprint     string
+	Filtered        bool
 }
 
 type Item struct {
@@ -89,6 +121,9 @@ type ItemFilter struct {
 	BatchSize   int64 // -1 = sin límite
 	OffsetID    int64 // cursor por id de item; 0 = sin cursor
 	OldestFirst bool
+	// IncludeFiltered: si true, devuelve también los items descartados por
+	// el filtro de keywords del feed (News 28.4.0: filtered=true).
+	IncludeFiltered bool
 	// UpdatedSince: si > 0, solo items con last_modified >= valor.
 	UpdatedSince int64
 }

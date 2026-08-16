@@ -53,6 +53,13 @@ func (f *fakeFetcher) Fetch(_ context.Context, url string) (*store.Feed, []store
 	return fd, items, nil
 }
 
+func (f *fakeFetcher) Discover(_ context.Context, url string) ([]feed.DiscoveredFeed, error) {
+	if f.failURLs != nil && f.failURLs[url] {
+		return nil, fmt.Errorf("discover roto (fake)")
+	}
+	return []feed.DiscoveredFeed{{URL: url + "/rss", Title: "Feed " + url, Type: "rss"}}, nil
+}
+
 type testEnv struct {
 	ts         *httptest.Server
 	client     *http.Client
@@ -98,7 +105,7 @@ func newTestEnv(t *testing.T, fetcher feed.Fetcher) *testEnv {
 		t.Fatal(err)
 	}
 	validator := &auth.LocalValidator{Store: st}
-	ex := extract.New(5 * time.Second)
+	ex := extract.NewAllowLocal(5 * time.Second)
 	srv := NewServer(st, validator, fetcher, refresh, fc, imgs, ex, 90*24*time.Hour, log)
 	h := srv.Handler()
 	ts := httptest.NewServer(h)
@@ -550,3 +557,200 @@ func TestErrorI18n(t *testing.T) {
 		t.Errorf("/user language: %s", body)
 	}
 }
+
+// TestFeedFilterFlow: endpoints /feeds/{id}/filter (News 28.4.0).
+func TestFeedFilterFlow(t *testing.T) {
+	ff := &fakeFetcher{}
+	e := newTestEnv(t, ff)
+
+	// suscribir un feed
+	if code, body := e.do(t, "POST", "/feeds", e.user, e.pass,
+		map[string]string{"url": "https://feed.example/rss"}); code != 200 {
+		t.Fatalf("crear feed: %d %s", code, body)
+	}
+	var feedResp struct {
+		Feeds []struct{ ID int64 }
+	}
+	_, body := e.do(t, "GET", "/feeds", e.user, e.pass, nil)
+	decode(t, body, &feedResp)
+	fid := feedResp.Feeds[0].ID
+
+	// GET sin filtro → vacío
+	code, body := e.do(t, "GET", fmt.Sprintf("/feeds/%d/filter", fid), e.user, e.pass, nil)
+	if code != 200 {
+		t.Fatalf("get filter: %d", code)
+	}
+	var fr struct {
+		Filter store.FeedFilter
+	}
+	decode(t, body, &fr)
+	if fr.Filter.HasFilter() {
+		t.Fatalf("filtro inicial debería estar vacío: %s", body)
+	}
+
+	// POST con keywords → re-aplica y devuelve el filtro
+	code, body = e.do(t, "POST", fmt.Sprintf("/feeds/%d/filter", fid), e.user, e.pass,
+		map[string]any{"titleKeywords": "sponsored", "bodyKeywords": "tracking"})
+	if code != 200 {
+		t.Fatalf("set filter: %d %s", code, body)
+	}
+	decode(t, body, &fr)
+	if fr.Filter.TitleKeywords != "sponsored" || fr.Filter.BodyKeywords != "tracking" {
+		t.Fatalf("filtro guardado: %s", body)
+	}
+
+	// DELETE → se borra y los items se descongelan
+	code, _ = e.do(t, "DELETE", fmt.Sprintf("/feeds/%d/filter", fid), e.user, e.pass, nil)
+	if code != 204 {
+		t.Fatalf("delete filter: %d", code)
+	}
+	code, body = e.do(t, "GET", fmt.Sprintf("/feeds/%d/filter", fid), e.user, e.pass, nil)
+	if code != 200 {
+		t.Fatalf("get filter tras delete: %d %s", code, body)
+	}
+	decode(t, body, &fr)
+	if fr.Filter.HasFilter() {
+		t.Fatalf("filtro debería haberse borrado: %s", body)
+	}
+}
+
+// TestSearchFlow: GET /items/search?query= busca en título/cuerpo/URL.
+func TestSearchFlow(t *testing.T) {
+	ff := &fakeFetcher{}
+	e := newTestEnv(t, ff)
+	if code, body := e.do(t, "POST", "/feeds", e.user, e.pass,
+		map[string]string{"url": "https://feed.example/rss"}); code != 200 {
+		t.Fatalf("crear feed: %d %s", code, body)
+	}
+
+	// el fake genera titles "Item %d de %s"
+	code, body := e.do(t, "GET", "/items/search?query=Item", e.user, e.pass, nil)
+	if code != 200 {
+		t.Fatalf("search: %d", code)
+	}
+	var sr struct {
+		Items []store.Item
+	}
+	decode(t, body, &sr)
+	if len(sr.Items) == 0 {
+		t.Fatalf("búsqueda 'Item' debería devolver resultados: %s", body)
+	}
+
+	// query vacía → 422
+	if code, _ := e.do(t, "GET", "/items/search?query=", e.user, e.pass, nil); code != 422 {
+		t.Fatalf("query vacía esperaba 422: %d", code)
+	}
+	// sin resultados → lista vacía
+	code, body = e.do(t, "GET", "/items/search?query=zzzznada", e.user, e.pass, nil)
+	decode(t, body, &sr)
+	if code != 200 || len(sr.Items) != 0 {
+		t.Fatalf("búsqueda sin resultados: %d %s", code, body)
+	}
+}
+
+// TestSettingsAndRetentionFlow: ajustes de usuario y retención por feed.
+func TestSettingsAndRetentionFlow(t *testing.T) {
+	ff := &fakeFetcher{}
+	e := newTestEnv(t, ff)
+
+	// settings por defecto
+	code, body := e.do(t, "GET", "/api/me/settings", e.user, e.pass, nil)
+	if code != 200 {
+		t.Fatalf("get settings: %d %s", code, body)
+	}
+	var st struct {
+		Theme          string `json:"theme"`
+		ReaderMaxWidth string `json:"readerMaxWidth"`
+	}
+	decode(t, body, &st)
+	if st.Theme != "system" || st.ReaderMaxWidth != "normal" {
+		t.Fatalf("settings default: %s", body)
+	}
+
+	// actualizar tema + intervalo
+	code, body = e.do(t, "PUT", "/api/me/settings", e.user, e.pass,
+		map[string]any{"theme": "dark", "feedIntervalMin": "30"})
+	if code != 200 {
+		t.Fatalf("update settings: %d %s", code, body)
+	}
+	decode(t, body, &st)
+	if st.Theme != "dark" {
+		t.Fatalf("tema tras update: %s", body)
+	}
+	// intervalo inválido → 422
+	if code, _ := e.do(t, "PUT", "/api/me/settings", e.user, e.pass,
+		map[string]any{"feedIntervalMin": "1"}); code != 422 {
+		t.Fatalf("intervalo inválido esperaba 422: %d", code)
+	}
+
+	// crear feed y fijar retención
+	if code, body := e.do(t, "POST", "/feeds", e.user, e.pass,
+		map[string]string{"url": "https://feed.example/rss"}); code != 200 {
+		t.Fatalf("crear feed: %d %s", code, body)
+	}
+	var feedResp struct {
+		Feeds []struct{ ID int64 }
+	}
+	_, body = e.do(t, "GET", "/feeds", e.user, e.pass, nil)
+	decode(t, body, &feedResp)
+	fid := feedResp.Feeds[0].ID
+
+	code, body = e.do(t, "GET", fmt.Sprintf("/feeds/%d/retention", fid), e.user, e.pass, nil)
+	if code != 200 {
+		t.Fatalf("get retention: %d %s", code, body)
+	}
+	var rr struct {
+		RetentionDays int64 `json:"retentionDays"`
+	}
+	decode(t, body, &rr)
+	if rr.RetentionDays != 0 {
+		t.Fatalf("retención default: %d", rr.RetentionDays)
+	}
+	code, body = e.do(t, "POST", fmt.Sprintf("/feeds/%d/retention", fid), e.user, e.pass,
+		map[string]any{"retentionDays": 30})
+	if code != 200 {
+		t.Fatalf("set retention: %d %s", code, body)
+	}
+	decode(t, body, &rr)
+	if rr.RetentionDays != 30 {
+		t.Fatalf("retención tras set: %d", rr.RetentionDays)
+	}
+	// inválida → 422
+	if code, _ := e.do(t, "POST", fmt.Sprintf("/feeds/%d/retention", fid), e.user, e.pass,
+		map[string]any{"retentionDays": 99999}); code != 422 {
+		t.Fatalf("retención inválida esperaba 422: %d", code)
+	}
+}
+
+// TestDiscoverFlow: GET /feeds/discover?url= detecta feeds de un sitio.
+func TestDiscoverFlow(t *testing.T) {
+	ff := &fakeFetcher{}
+	e := newTestEnv(t, ff)
+
+	code, body := e.do(t, "GET", "/feeds/discover?url=https://site.example", e.user, e.pass, nil)
+	if code != 200 {
+		t.Fatalf("discover: %d %s", code, body)
+	}
+	var dr struct {
+		Feeds []feed.DiscoveredFeed
+	}
+	decode(t, body, &dr)
+	if len(dr.Feeds) == 0 {
+		t.Fatalf("discover debería devolver feeds: %s", body)
+	}
+
+	// url vacía → 422
+	if code, _ := e.do(t, "GET", "/feeds/discover?url=", e.user, e.pass, nil); code != 422 {
+		t.Fatalf("discover sin url esperaba 422: %d", code)
+	}
+	// url no http(s) → 422
+	if code, _ := e.do(t, "GET", "/feeds/discover?url=ftp://x", e.user, e.pass, nil); code != 422 {
+		t.Fatalf("discover scheme inválido esperaba 422: %d", code)
+	}
+	// sitio que no tiene feeds → 422
+	ff.failURLs = map[string]bool{"https://nofeeds.example": true}
+	if code, _ := e.do(t, "GET", "/feeds/discover?url=https://nofeeds.example", e.user, e.pass, nil); code != 422 {
+		t.Fatalf("discover sin feeds esperaba 422: %d", code)
+	}
+}
+

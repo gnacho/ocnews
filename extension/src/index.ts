@@ -60,6 +60,15 @@ export default defineWebApplication({
           authContext: 'user',
           title: $gettext('News')
         }
+      },
+      {
+        path: '/podcasts',
+        name: 'news-podcasts',
+        component: () => import('./views/NewsApp.vue'),
+        meta: {
+          authContext: 'user',
+          title: $gettext('News')
+        }
       }
     ]
 

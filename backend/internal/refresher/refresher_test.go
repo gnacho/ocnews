@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gnacho/ocnews/backend/internal/auth"
+	"github.com/gnacho/ocnews/backend/internal/feed"
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
 
@@ -31,6 +32,10 @@ func (f *fakeFetcher) Fetch(_ context.Context, _ string) (*store.Feed, []store.N
 		items = append(items, store.NewItem{GUID: guid, GUIDHash: guid, Title: "n" + guid})
 	}
 	return fd, items, nil
+}
+
+func (f *fakeFetcher) Discover(_ context.Context, _ string) ([]feed.DiscoveredFeed, error) {
+	return nil, nil
 }
 
 type errFetch struct{}
@@ -164,4 +169,8 @@ func (d *dirtyFetcher) Fetch(_ context.Context, _ string) (*store.Feed, []store.
 		Body: `<p>hola</p><script>alert(1)</script><img src="https://x/i.png" onerror="evil()">`,
 	}}
 	return fd, items, nil
+}
+
+func (d *dirtyFetcher) Discover(_ context.Context, _ string) ([]feed.DiscoveredFeed, error) {
+	return nil, nil
 }

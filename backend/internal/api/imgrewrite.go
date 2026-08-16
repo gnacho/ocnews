@@ -54,3 +54,14 @@ func (s *Server) mediaMime(m string) bool {
 	return strings.HasPrefix(m, "audio/") || strings.HasPrefix(m, "video/") ||
 		strings.HasPrefix(m, "image/")
 }
+
+// rewriteFavicon apunta al endpoint público del favicon servido desde el cache
+// del backend (/favicon/{urlHash}) en vez de firmar la URL del origen. Así el
+// cache es la única fuente (no se re-fetchea por instancia) y el <img> del
+// navegador no necesita auth (la ruta es pública, solo lee de disco).
+func (s *Server) rewriteFavicon(urlHash string) string {
+	if urlHash == "" || s.favicons == nil {
+		return ""
+	}
+	return Base + "/favicon/" + urlHash
+}

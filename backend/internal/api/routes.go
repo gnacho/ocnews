@@ -18,6 +18,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	// Feeds
 	mux.HandleFunc("GET /feeds", s.listFeeds)
 	mux.HandleFunc("POST /feeds", s.createFeed)
+	mux.HandleFunc("GET /feeds/discover", s.discoverFeed)
 	mux.HandleFunc("DELETE /feeds/{feedId}", s.deleteFeed)
 	// move/rename: la spec v1.3 dice POST pero news-android usa PUT → ambos
 	for _, m := range []string{http.MethodPost, http.MethodPut} {
@@ -25,11 +26,17 @@ func (s *Server) routes(mux *http.ServeMux) {
 		mux.HandleFunc(m+" /feeds/{feedId}/rename", s.renameFeed)
 	}
 	mux.HandleFunc("POST /feeds/{feedId}/read", s.markFeedRead)
+	mux.HandleFunc("GET /feeds/{feedId}/filter", s.getFeedFilter)
+	mux.HandleFunc("POST /feeds/{feedId}/filter", s.setFeedFilter)
+	mux.HandleFunc("DELETE /feeds/{feedId}/filter", s.deleteFeedFilter)
+	mux.HandleFunc("GET /feeds/{feedId}/retention", s.getFeedRetention)
+	mux.HandleFunc("POST /feeds/{feedId}/retention", s.setFeedRetention)
 	mux.HandleFunc("GET /feeds/update", s.updateFeed) // updater API, solo admin
 
 	// Items
 	mux.HandleFunc("GET /items", s.listItems)
 	mux.HandleFunc("GET /items/updated", s.updatedItems)
+	mux.HandleFunc("GET /items/search", s.searchItems)
 	mux.HandleFunc("GET /items/{itemId}/full", s.itemFull)
 	mux.HandleFunc("POST /items/read", s.markAllRead)
 	mux.HandleFunc("POST /items/{itemId}/read", s.markItem(false, "unread"))
@@ -48,7 +55,8 @@ func (s *Server) routes(mux *http.ServeMux) {
 	}
 
 	// Favicon (spec v1.3, News 27.2+): hash md5 de la URL del feed.
-	mux.HandleFunc("GET /favicon/{hash}", s.serveFavicon)
+	// Se registra como ruta PÚBLICA en Handler() (no requiere auth: solo
+	// lee del cache en disco, sin SSRF).
 
 	// Updater API (spec): cleanup + feeds/all, solo admin.
 	mux.HandleFunc("GET /cleanup/before-update", s.adminOnly(s.cleanupBefore))

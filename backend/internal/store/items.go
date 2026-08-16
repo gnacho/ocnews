@@ -40,10 +40,13 @@ func buildItemQuery(f ItemFilter, countOnly bool) (string, []any, error) {
 		where = append(where, "i.last_modified >= ?")
 		args = append(args, f.UpdatedSince)
 	}
+	if !f.IncludeFiltered {
+		where = append(where, "i.filtered = 0")
+	}
 
 	cols := "i.id, i.guid, i.guid_hash, i.url, i.title, i.author, i.pub_date, i.body, " +
 		"i.enclosure_mime, i.enclosure_link, i.media_thumbnail, i.media_description, " +
-		"i.feed_id, i.unread, i.starred, i.last_modified, i.fingerprint, " +
+		"i.feed_id, i.unread, i.starred, i.last_modified, i.fingerprint, i.filtered, " +
 		"COALESCE(x.full_content, 0)"
 	sel := "SELECT " + cols + " FROM items i LEFT JOIN feeds x ON x.id = i.feed_id"
 	if countOnly {
@@ -66,15 +69,16 @@ func buildItemQuery(f ItemFilter, countOnly bool) (string, []any, error) {
 
 func scanItem(row interface{ Scan(...any) error }) (*Item, error) {
 	it := &Item{}
-	var unread, starred, full int
+	var unread, starred, full, filtered int
 	err := row.Scan(&it.ID, &it.GUID, &it.GUIDHash, &it.URL, &it.Title, &it.Author, &it.PubDate,
 		&it.Body, &it.EnclosureMime, &it.EnclosureLink, &it.MediaThumbnail, &it.MediaDescription,
-		&it.FeedID, &unread, &starred, &it.LastModified, &it.Fingerprint, &full)
+		&it.FeedID, &unread, &starred, &it.LastModified, &it.Fingerprint, &filtered, &full)
 	if err != nil {
 		return nil, err
 	}
 	it.Unread = unread != 0
 	it.Starred = starred != 0
+	it.Filtered = filtered != 0
 	it.FeedFullContent = full != 0
 	return it, nil
 }
@@ -113,6 +117,69 @@ func (s *Store) CountItems(f ItemFilter) (int64, error) {
 		return 0, err
 	}
 	return n, nil
+}
+
+// SearchItems busca artículos del usuario cuyo título, cuerpo o URL contenga
+// la query (case-insensitive). Reutiliza el mismo scoping de ItemFilter
+// (type/id) y excluye los filtered por defecto.
+func (s *Store) SearchItems(f ItemFilter, query string, limit int) ([]Item, error) {
+	like := "%" + strings.ToLower(query) + "%"
+	var where []string
+	var args []any
+	where = append(where, "i.user_id = ?")
+	args = append(args, f.UserID)
+
+	switch f.Type {
+	case 0: // feed
+		where = append(where, "i.feed_id = ?")
+		args = append(args, f.ID)
+	case 1: // folder
+		where = append(where, "i.feed_id IN (SELECT id FROM feeds WHERE user_id = ? AND folder_id = ?)")
+		args = append(args, f.UserID, f.ID)
+	case 2: // starred
+		where = append(where, "i.starred = 1")
+	case 3: // all
+	default:
+		return nil, fmt.Errorf("type inválido: %d", f.Type)
+	}
+	if !f.GetRead {
+		where = append(where, "i.unread = 1")
+	}
+	if !f.IncludeFiltered {
+		where = append(where, "i.filtered = 0")
+	}
+	where = append(where,
+		"(LOWER(i.title) LIKE ? OR LOWER(i.body) LIKE ? OR LOWER(i.url) LIKE ?)")
+	args = append(args, like, like, like)
+
+	cols := "i.id, i.guid, i.guid_hash, i.url, i.title, i.author, i.pub_date, i.body, " +
+		"i.enclosure_mime, i.enclosure_link, i.media_thumbnail, i.media_description, " +
+		"i.feed_id, i.unread, i.starred, i.last_modified, i.fingerprint, i.filtered, " +
+		"COALESCE(x.full_content, 0)"
+	q := "SELECT " + cols + " FROM items i LEFT JOIN feeds x ON x.id = i.feed_id WHERE " +
+		strings.Join(where, " AND ")
+	if f.OldestFirst {
+		q += " ORDER BY i.id ASC"
+	} else {
+		q += " ORDER BY i.id DESC"
+	}
+	if limit > 0 {
+		q += fmt.Sprintf(" LIMIT %d", limit)
+	}
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	out := []Item{}
+	for rows.Next() {
+		it, err := scanItem(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *it)
+	}
+	return out, rows.Err()
 }
 
 // NewestItemID devuelve MAX(id) del usuario (0 si no hay items).
@@ -210,14 +277,68 @@ func (s *Store) MarkAllRead(userID int64, maxID int64, scope string, scopeID int
 }
 
 // PurgeOldItems borra items leídos no destacados con last_modified anterior
-// al umbral (retención). Devuelve los borrados.
+// al umbral (retención global), EXCEPTO los feeds que tienen override propio
+// (esos se gestionan en PurgeOldItemsByFeed). Devuelve los borrados.
 func (s *Store) PurgeOldItems(olderThan int64) (int64, error) {
 	res, err := s.db.Exec(
-		`DELETE FROM items WHERE unread = 0 AND starred = 0 AND last_modified < ?`, olderThan)
+		`DELETE FROM items WHERE unread = 0 AND starred = 0 AND last_modified < ? AND
+		 feed_id NOT IN (SELECT id FROM feeds WHERE retention_days > 0)`, olderThan)
 	if err != nil {
 		return 0, err
 	}
 	return res.RowsAffected()
+}
+
+// PurgeOldItemsByFeed borra items leídos no destacados de un feed concreto con
+// last_modified anterior al umbral (retención por feed). Devuelve los borrados.
+func (s *Store) PurgeOldItemsByFeed(feedID, olderThan int64) (int64, error) {
+	res, err := s.db.Exec(
+		`DELETE FROM items WHERE feed_id = ? AND unread = 0 AND starred = 0 AND last_modified < ?`,
+		feedID, olderThan)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+// SetFeedRetentionDays fija el override de retención del feed (0 = usar la global).
+func (s *Store) SetFeedRetentionDays(feedID, userID, days int64) error {
+	res, err := s.db.Exec(`UPDATE feeds SET retention_days = ? WHERE id = ? AND user_id = ?`,
+		days, feedID, userID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// FeedsWithRetentionOverride devuelve los ids de feeds con retención propia.
+func (s *Store) FeedsWithRetentionOverride() ([]struct {
+	ID   int64
+	Days int64
+}, error) {
+	rows, err := s.db.Query(`SELECT id, retention_days FROM feeds WHERE retention_days > 0`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	out := []struct {
+		ID   int64
+		Days int64
+	}{}
+	for rows.Next() {
+		var r struct {
+			ID   int64
+			Days int64
+		}
+		if err := rows.Scan(&r.ID, &r.Days); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
 
 // GetItemFull devuelve el cuerpo completo cacheado ("" si no hay).

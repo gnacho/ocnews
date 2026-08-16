@@ -3,6 +3,7 @@ backend/bin/
 backend/*.exe
 backend/data/
 backend/*.db
+backend/results.sarif
 
 # Node / Vite
 node_modules/

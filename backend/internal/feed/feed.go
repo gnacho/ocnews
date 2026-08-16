@@ -8,11 +8,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	urlpkg "net/url"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/mmcdole/gofeed"
 
+	"github.com/gnacho/ocnews/backend/internal/netguard"
 	"github.com/gnacho/ocnews/backend/internal/sanitize"
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
@@ -22,6 +25,8 @@ const maxBodyBytes = 10 << 20 // 10 MB de techo por feed
 type Fetcher interface {
 	// Fetch descarga y parsea el feed; error si no se puede leer.
 	Fetch(ctx context.Context, url string) (*store.Feed, []store.NewItem, error)
+	// Discover autodetecta feeds RSS/Atom en una página web.
+	Discover(ctx context.Context, url string) ([]DiscoveredFeed, error)
 }
 
 type HTTPFetcher struct {
@@ -29,7 +34,13 @@ type HTTPFetcher struct {
 }
 
 func NewHTTPFetcher(timeout time.Duration) *HTTPFetcher {
-	return &HTTPFetcher{Client: &http.Client{Timeout: timeout}}
+	return &HTTPFetcher{Client: netguard.Client(timeout)}
+}
+
+// NewHTTPFetcherAllowLocal crea un fetcher cuyo transporte permite loopback.
+// SOLO para tests (httptest escucha en 127.0.0.1).
+func NewHTTPFetcherAllowLocal(timeout time.Duration) *HTTPFetcher {
+	return &HTTPFetcher{Client: netguard.ClientAllowLocal(timeout)}
 }
 
 func (h *HTTPFetcher) Fetch(ctx context.Context, url string) (*store.Feed, []store.NewItem, error) {
@@ -214,4 +225,98 @@ func fingerprint(ni store.NewItem) string {
 	}
 	sum := md5.Sum([]byte(ni.Title + "\x00" + ni.Body + "\x00" + ni.URL + "\x00" + enc))
 	return fmt.Sprintf("%x", sum)
+}
+
+// DiscoveredFeed: un feed candidato detectado en la página de un sitio.
+type DiscoveredFeed struct {
+	URL   string `json:"url"`
+	Title string `json:"title"`
+	Type  string `json:"type"` // rss | atom
+}
+
+var feedLinkRe = regexp.MustCompile(`(?i)<link[^>]*rel=["']\s*alternate\s*["'][^>]*>`)
+
+// Discover descarga una página y detecta sus feeds RSS/Atom (autodetección).
+// Descarga UNA sola vez: primero intenta parsear el cuerpo como feed; si no
+// es un feed, extrae los <link rel="alternate" type="rss|atom"> del HTML.
+func (h *HTTPFetcher) Discover(ctx context.Context, url string) ([]DiscoveredFeed, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("url inválida: %w", err)
+	}
+	req.Header.Set("User-Agent", "ocnews/0.5 (+https://github.com/gnacho/ocnews)")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/rss+xml,application/atom+xml,application/xml,*/*")
+	resp, err := h.Client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("descargar: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("descargar: HTTP %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("leer: %w", err)
+	}
+
+	// ¿Es un feed? Lo intentamos primero para no rascar HTML.
+	if f, items, err := Parse(body); err == nil {
+		_ = items
+		return []DiscoveredFeed{{URL: url, Title: f.Title, Type: feedKind(f.URL)}}, nil
+	}
+
+	// No es un feed: extraer los feeds de los <link rel="alternate">.
+	base, _ := urlpkg.Parse(url)
+	out := []DiscoveredFeed{}
+	seen := map[string]bool{}
+	for _, m := range feedLinkRe.FindAll(body, -1) {
+		link := linkAttr(string(m), "href")
+		typ := strings.ToLower(linkAttr(string(m), "type"))
+		if link == "" {
+			continue
+		}
+		if !strings.Contains(typ, "rss") && !strings.Contains(typ, "atom") && !strings.HasSuffix(link, ".xml") {
+			continue
+		}
+		abs, err := base.Parse(link)
+		if err != nil {
+			continue
+		}
+		kind := "rss"
+		if strings.Contains(typ, "atom") {
+			kind = "atom"
+		}
+		if seen[abs.String()] {
+			continue
+		}
+		seen[abs.String()] = true
+		out = append(out, DiscoveredFeed{URL: abs.String(), Title: titleFromFeedLink(string(m)), Type: kind})
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no se encontraron feeds en la página")
+	}
+	return out, nil
+}
+
+func feedKind(u string) string {
+	if strings.Contains(strings.ToLower(u), "atom") {
+		return "atom"
+	}
+	return "rss"
+}
+
+func linkAttr(tag, attr string) string {
+	re := regexp.MustCompile(`(?i)` + attr + `\s*=\s*["']([^"']*)["']`)
+	m := re.FindStringSubmatch(tag)
+	if len(m) == 2 {
+		return m[1]
+	}
+	return ""
+}
+
+func titleFromFeedLink(tag string) string {
+	if t := linkAttr(tag, "title"); t != "" {
+		return t
+	}
+	return ""
 }

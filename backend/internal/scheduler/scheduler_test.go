@@ -59,7 +59,7 @@ func TestSchedulerPicksUpNewItems(t *testing.T) {
 	uid, _ := st.CreateUser("u", hash, "u", "user")
 
 	// suscripción con fetch inicial vía API de store (2 items)
-	f, items, err := feed.NewHTTPFetcher(5*time.Second).Fetch(context.Background(), ts.URL)
+	f, items, err := feed.NewHTTPFetcherAllowLocal(5*time.Second).Fetch(context.Background(), ts.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestSchedulerPicksUpNewItems(t *testing.T) {
 	st.SetNextUpdate(created.ID, time.Now().Unix()-1)
 
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	refresh := refresher.New(st, feed.NewHTTPFetcher(5*time.Second), log, 200*time.Millisecond, time.Hour)
+	refresh := refresher.New(st, feed.NewHTTPFetcherAllowLocal(5*time.Second), log, 200*time.Millisecond, time.Hour)
 	fc, _ := favicon.NewCache(filepath.Join(dir, "fav"), log)
 	s := New(st, refresh, fc, log, 100*time.Millisecond, 2, 0)
 

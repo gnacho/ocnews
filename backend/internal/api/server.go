@@ -64,6 +64,10 @@ func (s *Server) Handler() http.Handler {
 // no chocar con el patrón OPTIONS de preflight.
 mux.Handle("GET "+Base+"/img", http.StripPrefix(Base, withCORS(http.HandlerFunc(s.imgs.Serve))))
 
+// Favicon PÚBLICO: el <img> del navegador no lleva auth. Solo sirve desde el
+// cache en disco (sin fetch en demanda), así que no hay superficie SSRF.
+mux.Handle("GET "+Base+"/favicon/", http.StripPrefix(Base, withCORS(s.faviconRouter())))
+
 	mux.Handle(Base+"/", http.StripPrefix(Base, authed))
 	// API propia de la app (perfil/usuarios) bajo /api/, misma Basic auth
 	mux.Handle("/api/", auth.Middleware(s.validator, withCORS(s.userAPI())))
