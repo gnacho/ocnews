@@ -250,7 +250,7 @@ func (h *HTTPFetcher) Discover(ctx context.Context, url string) ([]DiscoveredFee
 	if err != nil {
 		return nil, fmt.Errorf("descargar: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("descargar: HTTP %d", resp.StatusCode)
 	}

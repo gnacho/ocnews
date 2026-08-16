@@ -61,7 +61,7 @@ func (s *Store) ReapplyFeedFilter(feedID int64, f FeedFilter) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	type row struct {
 		id int64
 		ni NewItem

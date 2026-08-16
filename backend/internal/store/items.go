@@ -170,7 +170,7 @@ func (s *Store) SearchItems(f ItemFilter, query string, limit int) ([]Item, erro
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := []Item{}
 	for rows.Next() {
 		it, err := scanItem(rows)
@@ -323,7 +323,7 @@ func (s *Store) FeedsWithRetentionOverride() ([]struct {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := []struct {
 		ID   int64
 		Days int64

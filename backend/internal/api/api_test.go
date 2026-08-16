@@ -605,6 +605,9 @@ func TestFeedFilterFlow(t *testing.T) {
 		t.Fatalf("delete filter: %d", code)
 	}
 	code, body = e.do(t, "GET", fmt.Sprintf("/feeds/%d/filter", fid), e.user, e.pass, nil)
+	if code != 200 {
+		t.Fatalf("get filter tras delete: %d %s", code, body)
+	}
 	decode(t, body, &fr)
 	if fr.Filter.HasFilter() {
 		t.Fatalf("filtro debería haberse borrado: %s", body)
