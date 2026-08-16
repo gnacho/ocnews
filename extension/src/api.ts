@@ -21,6 +21,7 @@ export interface Feed {
   pinned: boolean
   updateErrorCount: number
   lastUpdateError: string | null
+  isPodcast: boolean
 }
 
 export interface Item {
@@ -65,6 +66,7 @@ export interface UserSettings {
 export type Selection =
   | { kind: 'all' }
   | { kind: 'starred' }
+  | { kind: 'podcasts' }
   | { kind: 'feed'; id: number }
   | { kind: 'folder'; id: number }
 

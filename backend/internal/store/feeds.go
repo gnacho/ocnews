@@ -5,11 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 const feedCols = `f.id, f.url, f.title, f.favicon, f.added, f.next_update, f.folder_id,
 	COALESCE(c.unread, 0), f.ordering, f.link, f.pinned, f.update_error_count,
-	NULLIF(f.last_update_error, ''), f.no_new_streak, f.user_id, f.url_hash, f.full_content, f.retention_days`
+	NULLIF(f.last_update_error, ''), f.no_new_streak, f.user_id, f.url_hash, f.full_content, f.retention_days, f.is_podcast`
 
 const feedSelect = `SELECT ` + feedCols + `
 	FROM feeds f
@@ -19,10 +20,10 @@ const feedSelect = `SELECT ` + feedCols + `
 func scanFeed(row interface{ Scan(...any) error }) (*Feed, error) {
 	f := &Feed{}
 	var lastErr *string
-	var pinned, full, retention int
+	var pinned, full, retention, podcast int
 	err := row.Scan(&f.ID, &f.URL, &f.Title, &f.FaviconLink, &f.Added, &f.NextUpdateTime,
 		&f.FolderID, &f.UnreadCount, &f.Ordering, &f.Link, &pinned,
-		&f.UpdateErrorCount, &lastErr, &f.NoNewStreak, &f.UserID, &f.URLHash, &full, &retention)
+		&f.UpdateErrorCount, &lastErr, &f.NoNewStreak, &f.UserID, &f.URLHash, &full, &retention, &podcast)
 	if err != nil {
 		return nil, err
 	}
@@ -30,6 +31,7 @@ func scanFeed(row interface{ Scan(...any) error }) (*Feed, error) {
 	f.Pinned = pinned != 0
 	f.FullContent = full != 0
 	f.RetentionDays = retention
+	f.IsPodcast = podcast != 0
 	return f, nil
 }
 
@@ -91,9 +93,10 @@ func (s *Store) createFeed(userID int64, url string, folderID *int64, title, lin
 	defer tx.Rollback()
 
 	res, err := tx.Exec(
-		`INSERT INTO feeds (user_id, folder_id, url, url_hash, link, title, favicon, added, next_update, full_content)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		userID, folderID, url, md5Hex(url), link, title, favicon, now(), now()+600, boolInt(fullContent))
+		`INSERT INTO feeds (user_id, folder_id, url, url_hash, link, title, favicon, added, next_update, full_content, is_podcast)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		userID, folderID, url, md5Hex(url), link, title, favicon, now(), now()+600,
+		boolInt(fullContent), boolInt(hasMediaEnclosure(items)))
 	if err != nil {
 		return nil, ErrConflict
 	}
@@ -159,11 +162,25 @@ func (s *Store) ReplaceFeedItems(feedID, userID int64, title, link string, items
 	}
 	if _, err := tx.Exec(
 		`UPDATE feeds SET no_new_streak = CASE WHEN ? = 1 THEN no_new_streak + 1 ELSE 0 END,
-			full_content = MAX(full_content, ?) WHERE id = ?`,
-		streak, boolInt(fullContent), feedID); err != nil {
+			full_content = MAX(full_content, ?), is_podcast = MAX(is_podcast, ?) WHERE id = ?`,
+		streak, boolInt(fullContent), boolInt(hasMediaEnclosure(items)), feedID); err != nil {
 		return 0, err
 	}
 	return inserted, tx.Commit()
+}
+
+// hasMediaEnclosure: true si algún item de la tanda trae un enclosure de
+// audio o vídeo (indica que el feed es un podcast).
+func hasMediaEnclosure(items []NewItem) bool {
+	for _, it := range items {
+		if it.EnclosureMime != nil {
+			m := *it.EnclosureMime
+			if strings.HasPrefix(m, "audio/") || strings.HasPrefix(m, "video/") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func boolInt(b bool) int {

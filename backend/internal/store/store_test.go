@@ -278,3 +278,23 @@ func TestUserSettings(t *testing.T) {
 	}
 }
 
+// TestPodcastDetection: un feed con enclosure de audio se marca is_podcast.
+func TestPodcastDetection(t *testing.T) {
+	st, uid := newTestStore(t)
+	mime := "audio/mpeg"
+	link := "https://pod.example/ep1.mp3"
+	f, _ := st.CreateFeed(uid, "https://pod.example/feed", nil, "pod", "", "", []NewItem{
+		{GUID: "a", GUIDHash: "ha", Title: "Ep 1", URL: "https://pod.example/1", EnclosureMime: &mime, EnclosureLink: &link},
+	})
+	if !f.IsPodcast {
+		t.Fatalf("feed con audio debería ser podcast: %+v", f)
+	}
+	// feed sin enclosures no es podcast
+	f2, _ := st.CreateFeed(uid, "https://txt.example/feed", nil, "txt", "", "", []NewItem{
+		{GUID: "b", GUIDHash: "hb", Title: "post", URL: "https://txt.example/1"},
+	})
+	if f2.IsPodcast {
+		t.Fatalf("feed sin audio no debería ser podcast: %+v", f2)
+	}
+}
+

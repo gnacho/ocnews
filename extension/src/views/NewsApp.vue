@@ -477,7 +477,8 @@ import {
   BookOpenText,
   Filter,
   Search,
-  Settings
+  Settings,
+  Podcast
 } from 'lucide-vue-next'
 import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings } from '../api'
 
@@ -598,7 +599,7 @@ const BATCH = 50
 
 type NavEntry = {
   key: string
-  kind: 'all' | 'starred' | 'folder' | 'feed'
+  kind: 'all' | 'starred' | 'podcasts' | 'folder' | 'feed'
   label: string
   icon: typeof Rss
   sel: Selection
@@ -612,8 +613,12 @@ const selection = computed<Selection>(() => {
   if (r.name === 'news-feed') return { kind: 'feed', id: Number(r.params.feedId) }
   if (r.name === 'news-folder') return { kind: 'folder', id: Number(r.params.folderId) }
   if (r.name === 'news-starred') return { kind: 'starred' }
+  if (r.name === 'news-podcasts') return { kind: 'podcasts' }
   return { kind: 'all' }
 })
+
+const podcastFeeds = computed(() => feeds.value.filter((f) => f.isPodcast))
+const podcastIds = computed(() => new Set(podcastFeeds.value.map((f) => f.id)))
 
 const navEntries = computed<NavEntry[]>(() => {
   const byFolder = new Map<number, Feed[]>()
@@ -623,7 +628,8 @@ const navEntries = computed<NavEntry[]>(() => {
   }
   const entries: NavEntry[] = [
     { key: 'all', kind: 'all', label: $gettext('All articles'), icon: Newspaper, sel: { kind: 'all' }, unread: totalUnread.value },
-    { key: 'starred', kind: 'starred', label: $gettext('Starred'), icon: Star, sel: { kind: 'starred' }, unread: starredCount.value }
+    { key: 'starred', kind: 'starred', label: $gettext('Starred'), icon: Star, sel: { kind: 'starred' }, unread: starredCount.value },
+    { key: 'podcasts', kind: 'podcasts', label: $gettext('Podcasts'), icon: Podcast, sel: { kind: 'podcasts' }, unread: 0 }
   ]
   for (const folder of folders.value) {
     entries.push({
@@ -705,6 +711,7 @@ function select(entry: NavEntry) {
   switch (entry.sel.kind) {
     case 'all': router.push('/news/'); break
     case 'starred': router.push('/news/starred'); break
+    case 'podcasts': router.push('/news/podcasts'); break
     case 'feed': router.push(`/news/feed/${entry.sel.id}`); break
     case 'folder': router.push(`/news/folder/${entry.sel.id}`); break
   }
@@ -741,9 +748,14 @@ async function loadItems(append = false) {
       moreAvailable.value = false
       return
     }
+    const selForFetch: Selection = selection.value.kind === 'podcasts' ? { kind: 'all' } : selection.value
     const offset = append ? (oldestFirst.value ? Math.max(...items.value.map((i) => i.id)) : Math.min(...items.value.map((i) => i.id))) : undefined
-    const res = await api.items(selection.value, { getRead, batchSize: BATCH, oldestFirst: oldestFirst.value, offset })
-    items.value = append ? [...items.value, ...res.items] : res.items
+    const res = await api.items(selForFetch, { getRead, batchSize: BATCH, oldestFirst: oldestFirst.value, offset })
+    let fetched = append ? [...items.value, ...res.items] : res.items
+    if (selection.value.kind === 'podcasts') {
+      fetched = fetched.filter((i) => podcastIds.value.has(i.feedId))
+    }
+    items.value = fetched
     moreAvailable.value = res.items.length >= BATCH
   } catch (e) {
     error.value = $gettext('Could not load items: ') + errText(e)

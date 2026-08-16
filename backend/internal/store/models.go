@@ -39,6 +39,7 @@ type Feed struct {
 	NoNewStreak      int     `json:"-"` // interno: scheduler adaptativo
 	FullContent      bool    `json:"-"` // el feed ya sirve artículos completos
 	RetentionDays    int     `json:"-"` // override de retención por feed; 0 = global
+	IsPodcast        bool    `json:"isPodcast"` // feed con enclosures de audio/vídeo
 }
 
 // FeedFilter: keywords que descartan artículos de un feed (News 28.4.0).
