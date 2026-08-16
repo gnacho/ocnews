@@ -48,6 +48,13 @@ export interface FeedsResponse {
   newestItemId?: number
 }
 
+export interface FeedFilter {
+  feedId: number
+  titleKeywords: string
+  bodyKeywords: string
+  urlKeywords: string
+}
+
 // type: 0 feed, 1 folder, 2 starred, 3 all
 export type Selection =
   | { kind: 'all' }
@@ -106,6 +113,11 @@ export function useNewsApi() {
       client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/rename`, { feedTitle: title }),
     moveFeed: (feedId: number, folderId: number | null) =>
       client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/move`, { folderId }),
+    getFilter: (feedId: number): Promise<{ filter: FeedFilter }> => get(`/feeds/${feedId}/filter`),
+    setFilter: (feedId: number, filter: Omit<FeedFilter, 'feedId'>) =>
+      client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/filter`, filter),
+    deleteFilter: (feedId: number) =>
+      client.httpAuthenticated.delete(`${BASE}/feeds/${feedId}/filter`),
     addFolder: (name: string) => post('/folders', { name }),
     renameFolder: (folderId: number, name: string) =>
       client.httpAuthenticated.put(`${BASE}/folders/${folderId}`, { name }),

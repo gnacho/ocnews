@@ -40,10 +40,13 @@ func buildItemQuery(f ItemFilter, countOnly bool) (string, []any, error) {
 		where = append(where, "i.last_modified >= ?")
 		args = append(args, f.UpdatedSince)
 	}
+	if !f.IncludeFiltered {
+		where = append(where, "i.filtered = 0")
+	}
 
 	cols := "i.id, i.guid, i.guid_hash, i.url, i.title, i.author, i.pub_date, i.body, " +
 		"i.enclosure_mime, i.enclosure_link, i.media_thumbnail, i.media_description, " +
-		"i.feed_id, i.unread, i.starred, i.last_modified, i.fingerprint, " +
+		"i.feed_id, i.unread, i.starred, i.last_modified, i.fingerprint, i.filtered, " +
 		"COALESCE(x.full_content, 0)"
 	sel := "SELECT " + cols + " FROM items i LEFT JOIN feeds x ON x.id = i.feed_id"
 	if countOnly {
@@ -66,15 +69,16 @@ func buildItemQuery(f ItemFilter, countOnly bool) (string, []any, error) {
 
 func scanItem(row interface{ Scan(...any) error }) (*Item, error) {
 	it := &Item{}
-	var unread, starred, full int
+	var unread, starred, full, filtered int
 	err := row.Scan(&it.ID, &it.GUID, &it.GUIDHash, &it.URL, &it.Title, &it.Author, &it.PubDate,
 		&it.Body, &it.EnclosureMime, &it.EnclosureLink, &it.MediaThumbnail, &it.MediaDescription,
-		&it.FeedID, &unread, &starred, &it.LastModified, &it.Fingerprint, &full)
+		&it.FeedID, &unread, &starred, &it.LastModified, &it.Fingerprint, &filtered, &full)
 	if err != nil {
 		return nil, err
 	}
 	it.Unread = unread != 0
 	it.Starred = starred != 0
+	it.Filtered = filtered != 0
 	it.FeedFullContent = full != 0
 	return it, nil
 }

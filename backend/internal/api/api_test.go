@@ -550,3 +550,57 @@ func TestErrorI18n(t *testing.T) {
 		t.Errorf("/user language: %s", body)
 	}
 }
+
+// TestFeedFilterFlow: endpoints /feeds/{id}/filter (News 28.4.0).
+func TestFeedFilterFlow(t *testing.T) {
+	ff := &fakeFetcher{}
+	e := newTestEnv(t, ff)
+
+	// suscribir un feed
+	if code, body := e.do(t, "POST", "/feeds", e.user, e.pass,
+		map[string]string{"url": "https://feed.example/rss"}); code != 200 {
+		t.Fatalf("crear feed: %d %s", code, body)
+	}
+	var feedResp struct {
+		Feeds []struct{ ID int64 }
+	}
+	_, body := e.do(t, "GET", "/feeds", e.user, e.pass, nil)
+	decode(t, body, &feedResp)
+	fid := feedResp.Feeds[0].ID
+
+	// GET sin filtro → vacío
+	code, body := e.do(t, "GET", fmt.Sprintf("/feeds/%d/filter", fid), e.user, e.pass, nil)
+	if code != 200 {
+		t.Fatalf("get filter: %d", code)
+	}
+	var fr struct {
+		Filter store.FeedFilter
+	}
+	decode(t, body, &fr)
+	if fr.Filter.HasFilter() {
+		t.Fatalf("filtro inicial debería estar vacío: %s", body)
+	}
+
+	// POST con keywords → re-aplica y devuelve el filtro
+	code, body = e.do(t, "POST", fmt.Sprintf("/feeds/%d/filter", fid), e.user, e.pass,
+		map[string]any{"titleKeywords": "sponsored", "bodyKeywords": "tracking"})
+	if code != 200 {
+		t.Fatalf("set filter: %d %s", code, body)
+	}
+	decode(t, body, &fr)
+	if fr.Filter.TitleKeywords != "sponsored" || fr.Filter.BodyKeywords != "tracking" {
+		t.Fatalf("filtro guardado: %s", body)
+	}
+
+	// DELETE → se borra y los items se descongelan
+	code, _ = e.do(t, "DELETE", fmt.Sprintf("/feeds/%d/filter", fid), e.user, e.pass, nil)
+	if code != 204 {
+		t.Fatalf("delete filter: %d", code)
+	}
+	code, body = e.do(t, "GET", fmt.Sprintf("/feeds/%d/filter", fid), e.user, e.pass, nil)
+	decode(t, body, &fr)
+	if fr.Filter.HasFilter() {
+		t.Fatalf("filtro debería haberse borrado: %s", body)
+	}
+}
+

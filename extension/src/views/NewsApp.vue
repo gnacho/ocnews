@@ -90,6 +90,7 @@
           >
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Rename')" @click="renameFeed(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Move to folder…')" @click="moveFeed(entry)" />
+            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Filter articles…')" @click="openFilter(entry)" />
             <MenuBtn v-if="entry.kind === 'folder'" :label="$gettext('Rename')" @click="renameFolder(entry)" />
             <MenuBtn
               v-if="entry.kind === 'feed' || entry.kind === 'folder'"
@@ -298,6 +299,55 @@
         <div class="oc-prose news-body" style="max-width: 72ch" v-html="detailBody" />
       </div>
     </section>
+
+    <!-- Filtro de artículos por feed (News 28.4.0) -->
+    <div
+      v-if="filterOpen"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="closeFilter"
+    >
+      <div style="background: #fff; border-radius: 12px; padding: 20px; width: 420px; max-width: 92vw; box-shadow: 0 8px 32px rgba(0,0,0,0.25); color: #1a1a1a">
+        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">
+          {{ $gettext('Filter articles') }}
+        </h3>
+        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.6">
+          {{ $gettext('Hide articles whose title, body or URL contains any keyword (comma-separated, case-insensitive).') }}
+        </p>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Title keywords') }}</label>
+        <input
+          v-model="filterForm.titleKeywords"
+          type="text"
+          placeholder="sponsored,ads,offer"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 10px"
+        />
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Body keywords') }}</label>
+        <input
+          v-model="filterForm.bodyKeywords"
+          type="text"
+          placeholder="tracking,cookie"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 10px"
+        />
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('URL keywords') }}</label>
+        <input
+          v-model="filterForm.urlKeywords"
+          type="text"
+          placeholder="utm_,/tag/"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 16px"
+        />
+        <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center">
+          <oc-button v-if="filterHasFilter" variation="passive" appearance="raw" style="font-size: 13px" @click="clearFilter">
+            {{ $gettext('Clear filter') }}
+          </oc-button>
+          <span style="flex: 1"></span>
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="closeFilter">
+            {{ $gettext('Cancel') }}
+          </oc-button>
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="filterSaving" @click="saveFilter">
+            {{ $gettext('Save') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -324,9 +374,10 @@ import {
   AlertTriangle,
   MailOpen,
   ExternalLink,
-  BookOpenText
+  BookOpenText,
+  Filter
 } from 'lucide-vue-next'
-import { useNewsApi, Item, Feed, Folder, Selection } from '../api'
+import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter } from '../api'
 
 const { $gettext } = useGettext()
 const router = useRouter()
@@ -382,6 +433,17 @@ const showAll = ref(false)
 const oldestFirst = ref(false)
 const moreAvailable = ref(false)
 const opmlInputEl = ref<HTMLInputElement | null>(null)
+const filterOpen = ref(false)
+const filterSaving = ref(false)
+const filterFeedId = ref<number | null>(null)
+const filterForm = ref<Omit<FeedFilter, 'feedId'>>({ titleKeywords: '', bodyKeywords: '', urlKeywords: '' })
+
+const filterHasFilter = computed(
+  () =>
+    filterForm.value.titleKeywords.trim() !== '' ||
+    filterForm.value.bodyKeywords.trim() !== '' ||
+    filterForm.value.urlKeywords.trim() !== ''
+)
 
 const BATCH = 50
 
@@ -695,6 +757,60 @@ async function deleteEntry(entry: NavEntry) {
     await loadItems()
   } catch (e) {
     error.value = $gettext('Delete failed: ') + errText(e)
+  }
+}
+
+async function openFilter(entry: NavEntry) {
+  openMenu.value = ''
+  const f = entryFeed(entry)
+  if (!f) return
+  filterFeedId.value = f.id
+  filterForm.value = { titleKeywords: '', bodyKeywords: '', urlKeywords: '' }
+  try {
+    const res = await api.getFilter(f.id)
+    filterForm.value = {
+      titleKeywords: res.filter.titleKeywords ?? '',
+      bodyKeywords: res.filter.bodyKeywords ?? '',
+      urlKeywords: res.filter.urlKeywords ?? ''
+    }
+  } catch {
+    /* sin filtro previo: campos vacíos */
+  }
+  filterOpen.value = true
+}
+
+function closeFilter() {
+  filterOpen.value = false
+  filterFeedId.value = null
+}
+
+async function saveFilter() {
+  if (filterFeedId.value == null) return
+  filterSaving.value = true
+  try {
+    await api.setFilter(filterFeedId.value, {
+      titleKeywords: filterForm.value.titleKeywords.trim(),
+      bodyKeywords: filterForm.value.bodyKeywords.trim(),
+      urlKeywords: filterForm.value.urlKeywords.trim()
+    })
+    closeFilter()
+  } catch (e) {
+    error.value = $gettext('Could not save filter: ') + errText(e)
+  } finally {
+    filterSaving.value = false
+  }
+}
+
+async function clearFilter() {
+  if (filterFeedId.value == null) return
+  filterSaving.value = true
+  try {
+    await api.deleteFilter(filterFeedId.value)
+    closeFilter()
+  } catch (e) {
+    error.value = $gettext('Could not clear filter: ') + errText(e)
+  } finally {
+    filterSaving.value = false
   }
 }
 

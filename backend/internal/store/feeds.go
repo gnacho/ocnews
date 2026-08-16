@@ -100,11 +100,13 @@ func (s *Store) createFeed(userID int64, url string, folderID *int64, title, lin
 	if err != nil {
 		return nil, err
 	}
+	// Un feed recién creado no tiene filtro (tabla feed_filter vacía para él),
+	// así que no hace falta aplicar keywords aquí.
 	var newest int64
 	for _, it := range items {
 		r, err := tx.Exec(itemInsertSQL(), feedID, userID, it.GUID, it.GUIDHash, it.URL, it.Title,
 			it.Author, it.PubDate, it.Body, it.EnclosureMime, it.EnclosureLink,
-			it.MediaThumbnail, it.MediaDescription, it.Fingerprint, now())
+			it.MediaThumbnail, it.MediaDescription, it.Fingerprint, now(), boolInt(it.Filtered))
 		if err != nil {
 			return nil, err
 		}
@@ -124,6 +126,11 @@ func (s *Store) createFeed(userID int64, url string, folderID *int64, title, lin
 // fullContent: si esta tanda ya trae artículos completos (sticky: MAX).
 // Los items desaparecidos del feed NO se borran (igual que News).
 func (s *Store) ReplaceFeedItems(feedID, userID int64, title, link string, items []NewItem, fullContent bool) (int64, error) {
+	// Aplicar el filtro ANTES de abrir la tx: el Store usa una única conexión y
+	// consultar el filtro dentro de la tx causaría deadlock (MaxOpenConns=1).
+	if err := s.ApplyFilterToItems(feedID, items); err != nil {
+		return 0, err
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return 0, err
@@ -137,7 +144,7 @@ func (s *Store) ReplaceFeedItems(feedID, userID int64, title, link string, items
 	for _, it := range items {
 		r, err := tx.Exec(itemInsertSQL(), feedID, userID, it.GUID, it.GUIDHash, it.URL, it.Title,
 			it.Author, it.PubDate, it.Body, it.EnclosureMime, it.EnclosureLink,
-			it.MediaThumbnail, it.MediaDescription, it.Fingerprint, now())
+			it.MediaThumbnail, it.MediaDescription, it.Fingerprint, now(), boolInt(it.Filtered))
 		if err != nil {
 			return 0, err
 		}
@@ -309,8 +316,8 @@ func (s *Store) RenameFeed(userID, feedID int64, title string) error {
 func itemInsertSQL() string {
 	return `INSERT OR IGNORE INTO items
 		(feed_id, user_id, guid, guid_hash, url, title, author, pub_date, body,
-		 enclosure_mime, enclosure_link, media_thumbnail, media_description, fingerprint, last_modified)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		 enclosure_mime, enclosure_link, media_thumbnail, media_description, fingerprint, last_modified, filtered)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 }
 
 func md5Hex(s string) string {

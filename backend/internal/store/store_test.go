@@ -110,3 +110,70 @@ func TestFeedByURLHash(t *testing.T) {
 		t.Fatalf("esperaba ErrNotFound, tengo %v", err)
 	}
 }
+
+// TestFeedFilter: guarda/lee/borra el filtro y filtra items nuevos y reaplica.
+func TestFeedFilter(t *testing.T) {
+	st, uid := newTestStore(t)
+	f, _ := st.CreateFeed(uid, "https://fl.example/f", nil, "fl", "", "", nil)
+	fid := f.ID
+
+	// sin filtro: GetFeedFilter devuelve vacío
+	ff, err := st.GetFeedFilter(fid)
+	if err != nil || ff.HasFilter() {
+		t.Fatalf("filtro inicial: %+v err=%v", ff, err)
+	}
+
+	// guardar filtro
+	filter := FeedFilter{FeedID: fid, TitleKeywords: "sponsored,ADs", BodyKeywords: "tracking", URLKeywords: "utm_"}
+	if err := st.SaveFeedFilter(filter); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := st.GetFeedFilter(fid)
+	if got.TitleKeywords != "sponsored,ADs" || !got.HasFilter() {
+		t.Fatalf("filtro guardado: %+v", got)
+	}
+
+	// items nuevos: el refresco marca filtered los que casan
+	newItems := []NewItem{
+		{GUID: "a", GUIDHash: "ha", Title: "normal", URL: "https://x.example/a", Body: "texto"},
+		{GUID: "b", GUIDHash: "hb", Title: "SPONSORED post", URL: "https://x.example/b", Body: "otro"},
+		{GUID: "c", GUIDHash: "hc", Title: "normal", URL: "https://x.example/c?utm_source=rss", Body: "texto"},
+		{GUID: "d", GUIDHash: "hd", Title: "normal", URL: "https://x.example/d", Body: "con tracking"},
+	}
+	if _, err := st.ReplaceFeedItems(fid, uid, "fl", "", newItems, false); err != nil {
+		t.Fatal(err)
+	}
+	listed, _ := st.ListItems(ItemFilter{UserID: uid, Type: 0, ID: fid, GetRead: true, BatchSize: -1})
+	if len(listed) != 1 {
+		t.Fatalf("sin IncludeFiltered deberían quedar 1 (solo 'a'), quedan %d", len(listed))
+	}
+	if listed[0].GUID != "a" {
+		t.Fatalf("item no filtrado esperado: %s", listed[0].GUID)
+	}
+	all, _ := st.ListItems(ItemFilter{UserID: uid, Type: 0, ID: fid, GetRead: true, BatchSize: -1, IncludeFiltered: true})
+	if len(all) != 4 {
+		t.Fatalf("con IncludeFiltered deberían estar los 4, hay %d", len(all))
+	}
+	filteredCount := 0
+	for _, it := range all {
+		if it.Filtered {
+			filteredCount++
+		}
+	}
+	if filteredCount != 3 {
+		t.Fatalf("filtered esperados 3 (b,c,d), hay %d", filteredCount)
+	}
+
+	// quitar keywords → descongela (ReapplyFeedFilter con filtro vacío)
+	if err := st.SaveFeedFilter(FeedFilter{FeedID: fid}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.ReapplyFeedFilter(fid, FeedFilter{FeedID: fid}); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := st.ListItems(ItemFilter{UserID: uid, Type: 0, ID: fid, GetRead: true, BatchSize: -1})
+	if len(after) != 4 {
+		t.Fatalf("tras descongelar deberían verse 4, hay %d", len(after))
+	}
+}
+

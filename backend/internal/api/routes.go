@@ -25,6 +25,9 @@ func (s *Server) routes(mux *http.ServeMux) {
 		mux.HandleFunc(m+" /feeds/{feedId}/rename", s.renameFeed)
 	}
 	mux.HandleFunc("POST /feeds/{feedId}/read", s.markFeedRead)
+	mux.HandleFunc("GET /feeds/{feedId}/filter", s.getFeedFilter)
+	mux.HandleFunc("POST /feeds/{feedId}/filter", s.setFeedFilter)
+	mux.HandleFunc("DELETE /feeds/{feedId}/filter", s.deleteFeedFilter)
 	mux.HandleFunc("GET /feeds/update", s.updateFeed) // updater API, solo admin
 
 	// Items

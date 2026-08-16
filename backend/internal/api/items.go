@@ -61,8 +61,10 @@ func itemFilterFromRequest(r *http.Request, u *store.User, updated bool) (store.
 		}
 		f.GetRead = true // updated informa cambios de estado, leídos incluidos
 		f.BatchSize = -1 // la spec no define batchSize en /items/updated
+		f.IncludeFiltered = true // updated también reporta el estado filtered
 	} else {
 		f.GetRead = boolParam(r, "getRead", true)
+		f.IncludeFiltered = boolParam(r, "getFiltered", false)
 		if v, err := parseID(q.Get("batchSize")); err == nil {
 			f.BatchSize = v
 		} else {
