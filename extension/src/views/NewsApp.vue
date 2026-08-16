@@ -220,10 +220,16 @@
           @click="openItem(item)"
         >
           <div style="flex: 1; min-width: 0">
-            <p style="margin: 0; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+            <p style="margin: 0; font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
               {{ item.title }}
             </p>
-            <p style="margin: 2px 0 0; font-size: 12px; opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+            <p
+              v-if="itemSnippet(item)"
+              style="margin: 3px 0 0; font-size: 13px; opacity: 0.75; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden"
+            >
+              {{ itemSnippet(item) }}
+            </p>
+            <p style="margin: 3px 0 0; font-size: 12px; opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
               <img v-if="feedIcon(item.feedId)" :src="feedIcon(item.feedId)" alt="" width="12" height="12" loading="lazy" style="width: 12px; height: 12px; border-radius: 3px; object-fit: contain; vertical-align: -1px; margin-right: 4px" />
               {{ feedTitle(item.feedId) }}<span v-if="item.author"> · {{ item.author }}</span> · {{ fmtRelative(item.pubDate) }}
             </p>
@@ -789,6 +795,22 @@ function feedTitle(feedId: number) {
 
 function feedIcon(feedId: number): string {
   return feeds.value.find((f) => f.id === feedId)?.faviconLink ?? ''
+}
+
+// itemSnippet: extrae el texto plano del body y lo acota para la previsualización.
+const MAX_SNIPPET = 220
+function itemSnippet(item: Item): string {
+  const raw = item.body || item.title || ''
+  const text = raw
+    .replace(/<[^>]+>/g, ' ') // quitar etiquetas
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (text.length <= MAX_SNIPPET) return text
+  return text.slice(0, MAX_SNIPPET).trimEnd() + '…'
 }
 
 function fmtDate(epoch: number) {
