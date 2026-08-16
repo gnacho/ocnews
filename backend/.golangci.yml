@@ -1,0 +1,43 @@
+run:
+  timeout: 5m
+  concurrency: 4
+  tests: true
+
+linters:
+  enable:
+    # correctness
+    - govet
+    - staticcheck
+    - unused
+    - errcheck
+    - errorlint
+    - ineffassign
+    # security & resources
+    - gosec
+    - bidichk
+    - bodyclose
+    - sqlclosecheck
+    - rowserrcheck
+    # style (bajo ruido)
+    - unconvert
+  disable-all: true
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+  gosec:
+    excludes:
+      - G401 # md5 para hashes de dedupe/identificación (guid_hash, url_hash, fingerprint), NO crypto
+      - G501 # import crypto/md5: mismo motivo (no es material criptográfico)
+      - G202 # SQL "concatenación": en realidad placeholders parametrizados (IN (...) con args)
+      - G404 # math/rand para jitter del scheduler; NO es crypto (usa crypto/rand para secrets)
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 50
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - bodyclose
+        - ineffassign
