@@ -540,7 +540,7 @@ import {
 } from 'lucide-vue-next'
 import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings, DiscoveredFeed } from '../api'
 
-const { $gettext } = useGettext()
+const { $gettext, $ngettext } = useGettext()
 const router = useRouter()
 const route = computed(() => router.currentRoute.value)
 const api = useNewsApi()
@@ -809,11 +809,11 @@ function fmtRelative(epoch: number) {
   if (secs < 60) return $gettext('just now')
   if (secs < 3600) {
     const m = Math.floor(secs / 60)
-    return $gettextn('%d min ago', '%d min ago', m).replace('%d', String(m))
+    return $ngettext('%d minute ago', '%d minutes ago', m).replace('%d', String(m))
   }
   if (secs < 86400) {
     const h = Math.floor(secs / 3600)
-    return $gettextn('%d h ago', '%d h ago', h).replace('%d', String(h))
+    return $ngettext('%d hour ago', '%d hours ago', h).replace('%d', String(h))
   }
   return fmtDate(epoch)
 }
