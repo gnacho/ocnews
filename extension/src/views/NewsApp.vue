@@ -220,7 +220,7 @@
           @click="openItem(item)"
         >
           <div style="flex: 1; min-width: 0">
-            <p style="margin: 0; font-size: 17px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+            <p style="margin: 0; font-size: 20px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
               {{ item.title }}
             </p>
             <p
@@ -605,10 +605,10 @@ const searchQuery = ref('')
 const searchActive = computed(() => searchQuery.value.trim() !== '')
 
 const userTheme = ref('system')
-const userWidth = ref('normal')
+const userWidth = ref('wide')
 
 const readerClass = computed(() => `news-theme-${userTheme.value}`)
-const readerMaxWidth = computed(() => ({ narrow: '52ch', normal: '72ch', wide: '100%' })[userWidth.value] ?? '72ch')
+const readerMaxWidth = computed(() => ({ narrow: '52ch', normal: '72ch', wide: '100%' })[userWidth.value] ?? '100%')
 const readerBg = computed(() =>
   userTheme.value === 'dark' ? '#161616' : userTheme.value === 'light' ? '#ffffff' : ''
 )
@@ -620,7 +620,7 @@ async function loadSettings() {
   try {
     const s = await api.mySettings()
     userTheme.value = s.theme || 'system'
-    userWidth.value = s.readerMaxWidth || 'normal'
+    userWidth.value = s.readerMaxWidth || 'wide'
   } catch {
     /* defaults */
   }
@@ -657,7 +657,7 @@ const retentionForm = ref(0)
 
 const settingsOpen = ref(false)
 const settingsSaving = ref(false)
-const settingsForm = ref<UserSettings>({ theme: 'system', readerMaxWidth: 'normal', feedIntervalMin: '' })
+const settingsForm = ref<UserSettings>({ theme: 'system', readerMaxWidth: 'wide', feedIntervalMin: '' })
 
 const discoverPickerOpen = ref(false)
 const discoverCandidates = ref<DiscoveredFeed[]>([])
@@ -1169,7 +1169,7 @@ async function openSettings() {
   settingsOpen.value = true
   try {
     const s = await api.mySettings()
-    settingsForm.value = { theme: s.theme || 'system', readerMaxWidth: s.readerMaxWidth || 'normal', feedIntervalMin: s.feedIntervalMin ?? '' }
+    settingsForm.value = { theme: s.theme || 'system', readerMaxWidth: s.readerMaxWidth || 'wide', feedIntervalMin: s.feedIntervalMin ?? '' }
   } catch {
     /* usar defaults */
   }
@@ -1184,7 +1184,7 @@ async function saveSettings() {
       feedIntervalMin: settingsForm.value.feedIntervalMin.trim()
     })
     userTheme.value = updated.theme || 'system'
-    userWidth.value = updated.readerMaxWidth || 'normal'
+    userWidth.value = updated.readerMaxWidth || 'wide'
     settingsOpen.value = false
   } catch (e) {
     error.value = $gettext('Could not save settings: ') + errText(e)
