@@ -38,6 +38,7 @@ type Feed struct {
 	UserID           int64   `json:"-"`
 	NoNewStreak      int     `json:"-"` // interno: scheduler adaptativo
 	FullContent      bool    `json:"-"` // el feed ya sirve artículos completos
+	RetentionDays    int     `json:"-"` // override de retención por feed; 0 = global
 }
 
 // FeedFilter: keywords que descartan artículos de un feed (News 28.4.0).

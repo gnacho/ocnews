@@ -9,7 +9,7 @@ import (
 
 const feedCols = `f.id, f.url, f.title, f.favicon, f.added, f.next_update, f.folder_id,
 	COALESCE(c.unread, 0), f.ordering, f.link, f.pinned, f.update_error_count,
-	NULLIF(f.last_update_error, ''), f.no_new_streak, f.user_id, f.url_hash, f.full_content`
+	NULLIF(f.last_update_error, ''), f.no_new_streak, f.user_id, f.url_hash, f.full_content, f.retention_days`
 
 const feedSelect = `SELECT ` + feedCols + `
 	FROM feeds f
@@ -19,16 +19,17 @@ const feedSelect = `SELECT ` + feedCols + `
 func scanFeed(row interface{ Scan(...any) error }) (*Feed, error) {
 	f := &Feed{}
 	var lastErr *string
-	var pinned, full int
+	var pinned, full, retention int
 	err := row.Scan(&f.ID, &f.URL, &f.Title, &f.FaviconLink, &f.Added, &f.NextUpdateTime,
 		&f.FolderID, &f.UnreadCount, &f.Ordering, &f.Link, &pinned,
-		&f.UpdateErrorCount, &lastErr, &f.NoNewStreak, &f.UserID, &f.URLHash, &full)
+		&f.UpdateErrorCount, &lastErr, &f.NoNewStreak, &f.UserID, &f.URLHash, &full, &retention)
 	if err != nil {
 		return nil, err
 	}
 	f.LastUpdateError = lastErr
 	f.Pinned = pinned != 0
 	f.FullContent = full != 0
+	f.RetentionDays = retention
 	return f, nil
 }
 

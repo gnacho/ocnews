@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -20,6 +21,8 @@ func (s *Server) userAPI() http.Handler {
 	mux.HandleFunc("GET /api/me", s.me)
 	mux.HandleFunc("PUT /api/me", s.updateMe)
 	mux.HandleFunc("PUT /api/me/password", s.changeMyPassword)
+	mux.HandleFunc("GET /api/me/settings", s.mySettings)
+	mux.HandleFunc("PUT /api/me/settings", s.updateMySettings)
 	mux.HandleFunc("GET /api/users", s.adminOnly(s.listUsers))
 	mux.HandleFunc("POST /api/users", s.adminOnly(s.createUser))
 	mux.HandleFunc("PUT /api/users/{id}", s.adminOnly(s.updateUser))
@@ -143,6 +146,90 @@ func (s *Server) changeMyPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeEmpty(w)
+}
+
+// userSettings: preferencias de la app persistidas por usuario. La fuente de
+// verdad del idioma sigue siendo users.language; el resto va en user_settings.
+type userSettings struct {
+	Theme            string `json:"theme"`            // system|light|dark
+	ReaderMaxWidth   string `json:"readerMaxWidth"`   // narrow|normal|wide
+	FeedIntervalMin  string `json:"feedIntervalMin"`  // minutos; vacío = default global
+}
+
+func (s *Server) mySettings(w http.ResponseWriter, r *http.Request) {
+	u := user(r)
+	theme, _ := s.store.GetUserSetting(u.ID, "theme")
+	width, _ := s.store.GetUserSetting(u.ID, "reader_max_width")
+	interval, _ := s.store.GetUserSetting(u.ID, "feed_interval_min")
+	if theme == "" {
+		theme = "system"
+	}
+	if width == "" {
+		width = "normal"
+	}
+	writeJSON(w, http.StatusOK, userSettings{theme, width, interval})
+}
+
+func (s *Server) updateMySettings(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Theme           *string `json:"theme"`
+		ReaderMaxWidth  *string `json:"readerMaxWidth"`
+		FeedIntervalMin *string `json:"feedIntervalMin"`
+	}
+	if err := decodeBody(r, &body); err != nil {
+		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_body")
+		return
+	}
+	u := user(r)
+	if body.Theme != nil {
+		if !validTheme(*body.Theme) {
+			errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_theme")
+			return
+		}
+		v := *body.Theme
+		if v == "system" {
+			v = ""
+		}
+		if err := s.store.SetUserSetting(u.ID, "theme", v); err != nil {
+			s.logError(w, r, "guardar tema", err)
+			return
+		}
+	}
+	if body.ReaderMaxWidth != nil {
+		if !validWidth(*body.ReaderMaxWidth) {
+			errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_reader_width")
+			return
+		}
+		v := *body.ReaderMaxWidth
+		if v == "normal" {
+			v = ""
+		}
+		if err := s.store.SetUserSetting(u.ID, "reader_max_width", v); err != nil {
+			s.logError(w, r, "guardar ancho lector", err)
+			return
+		}
+	}
+	if body.FeedIntervalMin != nil {
+		v := *body.FeedIntervalMin
+		if v != "" {
+			if !validInterval(v) {
+				errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_feed_interval")
+				return
+			}
+		}
+		if err := s.store.SetUserSetting(u.ID, "feed_interval_min", v); err != nil {
+			s.logError(w, r, "guardar intervalo", err)
+			return
+		}
+	}
+	s.mySettings(w, r)
+}
+
+func validTheme(t string) bool   { return t == "system" || t == "light" || t == "dark" }
+func validWidth(w string) bool   { return w == "narrow" || w == "normal" || w == "wide" }
+func validInterval(v string) bool {
+	n, err := strconv.Atoi(v)
+	return err == nil && n >= 5 && n <= 1440
 }
 
 func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {

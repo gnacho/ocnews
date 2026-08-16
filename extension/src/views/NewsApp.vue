@@ -91,6 +91,7 @@
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Rename')" @click="renameFeed(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Move to folder…')" @click="moveFeed(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Filter articles…')" @click="openFilter(entry)" />
+            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Retention…')" @click="openRetention(entry)" />
             <MenuBtn v-if="entry.kind === 'folder'" :label="$gettext('Rename')" @click="renameFolder(entry)" />
             <MenuBtn
               v-if="entry.kind === 'feed' || entry.kind === 'folder'"
@@ -114,6 +115,9 @@
         </oc-button>
         <oc-button variation="passive" appearance="raw" style="font-size: 13px" @click="opmlInputEl?.click()">
           <Upload style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Import OPML') }}
+        </oc-button>
+        <oc-button variation="passive" appearance="raw" style="font-size: 13px" :aria-label="$gettext('Settings')" :title="$gettext('Settings')" @click="openSettings">
+          <Settings style="width: 16px; height: 16px" />
         </oc-button>
         <input
           ref="opmlInputEl"
@@ -316,7 +320,12 @@
           </span>
         </p>
         <!-- body sanitizado server-side; imágenes via proxy propio (CSP) -->
-        <div class="oc-prose news-body" style="max-width: 72ch" v-html="detailBody" />
+        <div
+          class="oc-prose news-body"
+          :class="readerClass"
+          :style="{ maxWidth: readerMaxWidth, ['--news-bg' as any]: readerBg, ['--news-fg' as any]: readerFg }"
+          v-html="detailBody"
+        />
       </div>
     </section>
 
@@ -368,6 +377,77 @@
         </div>
       </div>
     </div>
+
+    <!-- Retención por feed -->
+    <div
+      v-if="retentionOpen"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="retentionOpen = false"
+    >
+      <div style="background: #fff; border-radius: 12px; padding: 20px; width: 380px; max-width: 92vw; box-shadow: 0 8px 32px rgba(0,0,0,0.25); color: #1a1a1a">
+        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">{{ $gettext('Article retention') }}</h3>
+        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.6">
+          {{ $gettext('Days to keep read, non-starred articles for this feed. 0 = use the server default.') }}
+        </p>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Retention (days)') }}</label>
+        <input
+          v-model.number="retentionForm"
+          type="number"
+          min="0"
+          max="3650"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 16px"
+        />
+        <div style="display: flex; gap: 8px; justify-content: flex-end">
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="retentionOpen = false">
+            {{ $gettext('Cancel') }}
+          </oc-button>
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="retentionSaving" @click="saveRetention">
+            {{ $gettext('Save') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ajustes de usuario -->
+    <div
+      v-if="settingsOpen"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="settingsOpen = false"
+    >
+      <div style="background: #fff; border-radius: 12px; padding: 20px; width: 400px; max-width: 92vw; box-shadow: 0 8px 32px rgba(0,0,0,0.25); color: #1a1a1a">
+        <h3 style="margin: 0 0 16px; font-size: 15px; font-weight: 600">{{ $gettext('Settings') }}</h3>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Reader theme') }}</label>
+        <select v-model="settingsForm.theme" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 12px">
+          <option value="system">{{ $gettext('System') }}</option>
+          <option value="light">{{ $gettext('Light') }}</option>
+          <option value="dark">{{ $gettext('Dark') }}</option>
+        </select>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Reader width') }}</label>
+        <select v-model="settingsForm.readerMaxWidth" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 12px">
+          <option value="narrow">{{ $gettext('Narrow') }}</option>
+          <option value="normal">{{ $gettext('Normal') }}</option>
+          <option value="wide">{{ $gettext('Wide') }}</option>
+        </select>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Refresh interval (minutes)') }}</label>
+        <input
+          v-model="settingsForm.feedIntervalMin"
+          type="number"
+          min="5"
+          max="1440"
+          placeholder=""
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 16px"
+        />
+        <p style="margin: 0 0 16px; font-size: 11px; opacity: 0.6">{{ $gettext('Leave empty for the server default (15 min).') }}</p>
+        <div style="display: flex; gap: 8px; justify-content: flex-end">
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="settingsOpen = false">
+            {{ $gettext('Cancel') }}
+          </oc-button>
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="settingsSaving" @click="saveSettings">
+            {{ $gettext('Save') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -396,9 +476,10 @@ import {
   ExternalLink,
   BookOpenText,
   Filter,
-  Search
+  Search,
+  Settings
 } from 'lucide-vue-next'
-import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter } from '../api'
+import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings } from '../api'
 
 const { $gettext } = useGettext()
 const router = useRouter()
@@ -458,6 +539,28 @@ const searchQuery = ref('')
 
 const searchActive = computed(() => searchQuery.value.trim() !== '')
 
+const userTheme = ref('system')
+const userWidth = ref('normal')
+
+const readerClass = computed(() => `news-theme-${userTheme.value}`)
+const readerMaxWidth = computed(() => ({ narrow: '52ch', normal: '72ch', wide: '100%' })[userWidth.value] ?? '72ch')
+const readerBg = computed(() =>
+  userTheme.value === 'dark' ? '#161616' : userTheme.value === 'light' ? '#ffffff' : ''
+)
+const readerFg = computed(() =>
+  userTheme.value === 'dark' ? '#e5e5e5' : userTheme.value === 'light' ? '#1a1a1a' : ''
+)
+
+async function loadSettings() {
+  try {
+    const s = await api.mySettings()
+    userTheme.value = s.theme || 'system'
+    userWidth.value = s.readerMaxWidth || 'normal'
+  } catch {
+    /* defaults */
+  }
+}
+
 function doSearch() {
   if (searchQuery.value.trim()) {
     detail.value = null
@@ -481,6 +584,15 @@ const filterHasFilter = computed(
     filterForm.value.bodyKeywords.trim() !== '' ||
     filterForm.value.urlKeywords.trim() !== ''
 )
+
+const retentionOpen = ref(false)
+const retentionSaving = ref(false)
+const retentionFeedId = ref<number | null>(null)
+const retentionForm = ref(0)
+
+const settingsOpen = ref(false)
+const settingsSaving = ref(false)
+const settingsForm = ref<UserSettings>({ theme: 'system', readerMaxWidth: 'normal', feedIntervalMin: '' })
 
 const BATCH = 50
 
@@ -857,6 +969,63 @@ async function clearFilter() {
   }
 }
 
+async function openRetention(entry: NavEntry) {
+  openMenu.value = ''
+  const f = entryFeed(entry)
+  if (!f) return
+  retentionFeedId.value = f.id
+  retentionForm.value = 0
+  try {
+    const res = await api.getRetention(f.id)
+    retentionForm.value = res.retentionDays ?? 0
+  } catch {
+    /* usar 0 */
+  }
+  retentionOpen.value = true
+}
+
+async function saveRetention() {
+  if (retentionFeedId.value == null) return
+  retentionSaving.value = true
+  try {
+    const days = Math.max(0, Math.min(3650, retentionForm.value || 0))
+    await api.setRetention(retentionFeedId.value, days)
+    retentionOpen.value = false
+  } catch (e) {
+    error.value = $gettext('Could not save retention: ') + errText(e)
+  } finally {
+    retentionSaving.value = false
+  }
+}
+
+async function openSettings() {
+  settingsOpen.value = true
+  try {
+    const s = await api.mySettings()
+    settingsForm.value = { theme: s.theme || 'system', readerMaxWidth: s.readerMaxWidth || 'normal', feedIntervalMin: s.feedIntervalMin ?? '' }
+  } catch {
+    /* usar defaults */
+  }
+}
+
+async function saveSettings() {
+  settingsSaving.value = true
+  try {
+    const updated = await api.updateSettings({
+      theme: settingsForm.value.theme,
+      readerMaxWidth: settingsForm.value.readerMaxWidth,
+      feedIntervalMin: settingsForm.value.feedIntervalMin.trim()
+    })
+    userTheme.value = updated.theme || 'system'
+    userWidth.value = updated.readerMaxWidth || 'normal'
+    settingsOpen.value = false
+  } catch (e) {
+    error.value = $gettext('Could not save settings: ') + errText(e)
+  } finally {
+    settingsSaving.value = false
+  }
+}
+
 async function exportOpml() {
   try {
     const res: { data: string } = await api.exportOpml()
@@ -909,6 +1078,7 @@ watch(() => route.value.fullPath, () => (detail.value = null))
 
 onMounted(async () => {
   try {
+    await loadSettings()
     await loadSidebar()
   } catch (e) {
     error.value = $gettext('Could not load folders/feeds: ') + errText(e)
@@ -940,6 +1110,18 @@ onMounted(async () => {
 }
 .news-body a { color: #2563eb; text-decoration: underline; }
 .news-body a:hover { opacity: 0.8; }
+.news-theme-dark {
+  color: var(--news-fg, #e5e5e5);
+  background: var(--news-bg, #161616);
+  border-radius: 8px;
+  padding: 12px;
+}
+.news-theme-light {
+  color: var(--news-fg, #1a1a1a);
+  background: var(--news-bg, #ffffff);
+  border-radius: 8px;
+  padding: 12px;
+}
 .news-body blockquote {
   margin: 0 0 1em;
   padding: 0.4em 1em;

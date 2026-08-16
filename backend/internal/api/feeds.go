@@ -216,3 +216,50 @@ func normFolderID(id *int64) *int64 {
 	}
 	return id
 }
+
+// getFeedRetention devuelve el override de retención del feed (0 = global).
+func (s *Server) getFeedRetention(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(r, "feedId")
+	if !ok {
+		errorStatus(w, r, http.StatusNotFound, "feed_not_found")
+		return
+	}
+	f, err := s.store.GetFeed(user(r).ID, id)
+	if errors.Is(err, store.ErrNotFound) {
+		errorStatus(w, r, http.StatusNotFound, "feed_not_found")
+		return
+	}
+	if err != nil {
+		s.logError(w, r, "leer feed", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"feedId": id, "retentionDays": f.RetentionDays})
+}
+
+// setFeedRetention fija el override de retención (POST /feeds/{id}/retention).
+func (s *Server) setFeedRetention(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(r, "feedId")
+	if !ok {
+		errorStatus(w, r, http.StatusNotFound, "feed_not_found")
+		return
+	}
+	var body struct {
+		RetentionDays int64 `json:"retentionDays"`
+	}
+	if err := decodeBody(r, &body); err != nil {
+		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_body")
+		return
+	}
+	if body.RetentionDays < 0 || body.RetentionDays > 3650 {
+		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_retention")
+		return
+	}
+	if err := s.store.SetFeedRetentionDays(id, user(r).ID, body.RetentionDays); errors.Is(err, store.ErrNotFound) {
+		errorStatus(w, r, http.StatusNotFound, "feed_not_found")
+		return
+	} else if err != nil {
+		s.logError(w, r, "fijar retención", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"feedId": id, "retentionDays": body.RetentionDays})
+}

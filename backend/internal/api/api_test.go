@@ -638,3 +638,77 @@ func TestSearchFlow(t *testing.T) {
 	}
 }
 
+// TestSettingsAndRetentionFlow: ajustes de usuario y retención por feed.
+func TestSettingsAndRetentionFlow(t *testing.T) {
+	ff := &fakeFetcher{}
+	e := newTestEnv(t, ff)
+
+	// settings por defecto
+	code, body := e.do(t, "GET", "/api/me/settings", e.user, e.pass, nil)
+	if code != 200 {
+		t.Fatalf("get settings: %d %s", code, body)
+	}
+	var st struct {
+		Theme          string `json:"theme"`
+		ReaderMaxWidth string `json:"readerMaxWidth"`
+	}
+	decode(t, body, &st)
+	if st.Theme != "system" || st.ReaderMaxWidth != "normal" {
+		t.Fatalf("settings default: %s", body)
+	}
+
+	// actualizar tema + intervalo
+	code, body = e.do(t, "PUT", "/api/me/settings", e.user, e.pass,
+		map[string]any{"theme": "dark", "feedIntervalMin": "30"})
+	if code != 200 {
+		t.Fatalf("update settings: %d %s", code, body)
+	}
+	decode(t, body, &st)
+	if st.Theme != "dark" {
+		t.Fatalf("tema tras update: %s", body)
+	}
+	// intervalo inválido → 422
+	if code, _ := e.do(t, "PUT", "/api/me/settings", e.user, e.pass,
+		map[string]any{"feedIntervalMin": "1"}); code != 422 {
+		t.Fatalf("intervalo inválido esperaba 422: %d", code)
+	}
+
+	// crear feed y fijar retención
+	if code, body := e.do(t, "POST", "/feeds", e.user, e.pass,
+		map[string]string{"url": "https://feed.example/rss"}); code != 200 {
+		t.Fatalf("crear feed: %d %s", code, body)
+	}
+	var feedResp struct {
+		Feeds []struct{ ID int64 }
+	}
+	_, body = e.do(t, "GET", "/feeds", e.user, e.pass, nil)
+	decode(t, body, &feedResp)
+	fid := feedResp.Feeds[0].ID
+
+	code, body = e.do(t, "GET", fmt.Sprintf("/feeds/%d/retention", fid), e.user, e.pass, nil)
+	if code != 200 {
+		t.Fatalf("get retention: %d %s", code, body)
+	}
+	var rr struct {
+		RetentionDays int64 `json:"retentionDays"`
+	}
+	decode(t, body, &rr)
+	if rr.RetentionDays != 0 {
+		t.Fatalf("retención default: %d", rr.RetentionDays)
+	}
+	code, body = e.do(t, "POST", fmt.Sprintf("/feeds/%d/retention", fid), e.user, e.pass,
+		map[string]any{"retentionDays": 30})
+	if code != 200 {
+		t.Fatalf("set retention: %d %s", code, body)
+	}
+	decode(t, body, &rr)
+	if rr.RetentionDays != 30 {
+		t.Fatalf("retención tras set: %d", rr.RetentionDays)
+	}
+	// inválida → 422
+	if code, _ := e.do(t, "POST", fmt.Sprintf("/feeds/%d/retention", fid), e.user, e.pass,
+		map[string]any{"retentionDays": 99999}); code != 422 {
+		t.Fatalf("retención inválida esperaba 422: %d", code)
+	}
+}
+

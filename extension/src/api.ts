@@ -55,6 +55,12 @@ export interface FeedFilter {
   urlKeywords: string
 }
 
+export interface UserSettings {
+  theme: string
+  readerMaxWidth: string
+  feedIntervalMin: string
+}
+
 // type: 0 feed, 1 folder, 2 starred, 3 all
 export type Selection =
   | { kind: 'all' }
@@ -127,6 +133,18 @@ export function useNewsApi() {
       client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/filter`, filter),
     deleteFilter: (feedId: number) =>
       client.httpAuthenticated.delete(`${BASE}/feeds/${feedId}/filter`),
+    getRetention: (feedId: number): Promise<{ retentionDays: number }> =>
+      get(`/feeds/${feedId}/retention`),
+    setRetention: (feedId: number, retentionDays: number) =>
+      client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/retention`, { retentionDays }),
+    mySettings: async (): Promise<UserSettings> => {
+      const { data } = await client.httpAuthenticated.get('/api/me/settings')
+      return data as UserSettings
+    },
+    updateSettings: async (patch: Partial<UserSettings>) => {
+      const { data } = await client.httpAuthenticated.put('/api/me/settings', patch)
+      return data as UserSettings
+    },
     addFolder: (name: string) => post('/folders', { name }),
     renameFolder: (folderId: number, name: string) =>
       client.httpAuthenticated.put(`${BASE}/folders/${folderId}`, { name }),

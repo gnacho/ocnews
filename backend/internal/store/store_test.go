@@ -210,3 +210,71 @@ func TestSearchItems(t *testing.T) {
 	}
 }
 
+// TestFeedRetention: override por feed excluye del purge global y purga solo.
+func TestFeedRetention(t *testing.T) {
+	st, uid := newTestStore(t)
+	f1, _ := st.CreateFeed(uid, "https://r1.example/f", nil, "r1", "", "", []NewItem{
+		{GUID: "a", GUIDHash: "ha", Title: "a", URL: "https://r1.example/a"},
+	})
+	f2, _ := st.CreateFeed(uid, "https://r2.example/f", nil, "r2", "", "", []NewItem{
+		{GUID: "b", GUIDHash: "hb", Title: "b", URL: "https://r2.example/b"},
+	})
+	// marcar leídos y envejecer
+	for _, g := range []string{"a", "b"} {
+		id := 0
+		st.db.QueryRow(`SELECT id FROM items WHERE guid = ?`, g).Scan(&id)
+		st.MarkItemsUnreadFlag(uid, []int64{int64(id)}, false)
+		st.db.Exec(`UPDATE items SET last_modified = ? WHERE id = ?`, time.Now().Add(-48*time.Hour).Unix(), id)
+	}
+	// f1 con override de 1 día → se purga solo; f2 sin override → usa global
+	if err := st.SetFeedRetentionDays(f1.ID, uid, 1); err != nil {
+		t.Fatal(err)
+	}
+	over, err := st.FeedsWithRetentionOverride()
+	if err != nil || len(over) != 1 || over[0].ID != f1.ID || over[0].Days != 1 {
+		t.Fatalf("overrides: %+v err=%v", over, err)
+	}
+	// purge por feed (override 1 día, corte 24h) → borra el item de f1
+	n, err := st.PurgeOldItemsByFeed(f1.ID, time.Now().Add(-24*time.Hour).Unix())
+	if err != nil || n != 1 {
+		t.Fatalf("purge por feed: n=%d err=%v", n, err)
+	}
+	// el purge global NO toca f2 (su item sigue siendo viejo pero f2 no tiene override
+	// y el corte global 7 días no lo alcanza con 48h)
+	n, err = st.PurgeOldItems(time.Now().Add(-7 * 24 * time.Hour).Unix())
+	if err != nil || n != 0 {
+		t.Fatalf("purge global no debería borrar: n=%d err=%v", n, err)
+	}
+	// verificar que f1 quedó vacío y f2 conserva su item
+	if c, _ := st.CountItems(ItemFilter{UserID: uid, Type: 0, ID: f1.ID, GetRead: true}); c != 0 {
+		t.Fatalf("f1 debería estar vacío, hay %d", c)
+	}
+	if c, _ := st.CountItems(ItemFilter{UserID: uid, Type: 0, ID: f2.ID, GetRead: true}); c != 1 {
+		t.Fatalf("f2 debería conservar 1 item, hay %d", c)
+	}
+}
+
+// TestUserSettings: UPSERT de ajustes clave-valor por usuario.
+func TestUserSettings(t *testing.T) {
+	st, uid := newTestStore(t)
+	if v, _ := st.GetUserSetting(uid, "theme"); v != "" {
+		t.Fatalf("ajuste inicial debería estar vacío: %q", v)
+	}
+	if err := st.SetUserSetting(uid, "theme", "dark"); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ := st.GetUserSetting(uid, "theme"); v != "dark" {
+		t.Fatalf("theme: %q", v)
+	}
+	// upsert
+	st.SetUserSetting(uid, "theme", "light")
+	if v, _ := st.GetUserSetting(uid, "theme"); v != "light" {
+		t.Fatalf("theme tras upsert: %q", v)
+	}
+	// borrar con valor vacío
+	st.SetUserSetting(uid, "theme", "")
+	if v, _ := st.GetUserSetting(uid, "theme"); v != "" {
+		t.Fatalf("theme tras borrar: %q", v)
+	}
+}
+

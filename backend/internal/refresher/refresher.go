@@ -8,6 +8,7 @@ import (
 	"context"
 	"log/slog"
 	"math/rand/v2"
+	"strconv"
 	"time"
 
 	"github.com/gnacho/ocnews/backend/internal/feed"
@@ -77,26 +78,39 @@ func (r *Refresher) refresh(ctx context.Context, f *store.Feed) Result {
 //   - con novedades: intervalo base
 //
 // Todo con jitter ±20% para no sincronizar feeds entre sí.
+// El intervalo base puede ser un override por usuario (user_settings[feed_interval_min]).
 func (r *Refresher) scheduleNext(f *store.Feed, res Result) {
+	interval := r.feedInterval(f)
 	var gap time.Duration
 	switch {
 	case res.Err != nil:
 		errCount := f.UpdateErrorCount + 1 // RecordFeedError ya lo incrementó
-		gap = r.interval << min(errCount, 5)
+		gap = interval << min(errCount, 5)
 		if gap > 24*time.Hour {
 			gap = 24 * time.Hour
 		}
 	case res.Inserted == 0:
 		streak := f.NoNewStreak + 1 // racha tras este refresh sin novedades
-		gap = r.interval << min(streak, 3)
+		gap = interval << min(streak, 3)
 		if gap > r.maxGap {
 			gap = r.maxGap
 		}
 	default:
-		gap = r.interval
+		gap = interval
 	}
 	gap = jitter(gap, 0.2)
 	r.store.SetNextUpdate(f.ID, time.Now().Add(gap).Unix())
+}
+
+// feedInterval devuelve el intervalo base del feed: el override del usuario
+// (minutos, 0 si no está) o el global.
+func (r *Refresher) feedInterval(f *store.Feed) time.Duration {
+	if v, err := r.store.GetUserSetting(f.UserID, "feed_interval_min"); err == nil && v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return time.Duration(n) * time.Minute
+		}
+	}
+	return r.interval
 }
 
 func jitter(d time.Duration, frac float64) time.Duration {

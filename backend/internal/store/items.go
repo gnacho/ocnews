@@ -277,14 +277,68 @@ func (s *Store) MarkAllRead(userID int64, maxID int64, scope string, scopeID int
 }
 
 // PurgeOldItems borra items leídos no destacados con last_modified anterior
-// al umbral (retención). Devuelve los borrados.
+// al umbral (retención global), EXCEPTO los feeds que tienen override propio
+// (esos se gestionan en PurgeOldItemsByFeed). Devuelve los borrados.
 func (s *Store) PurgeOldItems(olderThan int64) (int64, error) {
 	res, err := s.db.Exec(
-		`DELETE FROM items WHERE unread = 0 AND starred = 0 AND last_modified < ?`, olderThan)
+		`DELETE FROM items WHERE unread = 0 AND starred = 0 AND last_modified < ? AND
+		 feed_id NOT IN (SELECT id FROM feeds WHERE retention_days > 0)`, olderThan)
 	if err != nil {
 		return 0, err
 	}
 	return res.RowsAffected()
+}
+
+// PurgeOldItemsByFeed borra items leídos no destacados de un feed concreto con
+// last_modified anterior al umbral (retención por feed). Devuelve los borrados.
+func (s *Store) PurgeOldItemsByFeed(feedID, olderThan int64) (int64, error) {
+	res, err := s.db.Exec(
+		`DELETE FROM items WHERE feed_id = ? AND unread = 0 AND starred = 0 AND last_modified < ?`,
+		feedID, olderThan)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+// SetFeedRetentionDays fija el override de retención del feed (0 = usar la global).
+func (s *Store) SetFeedRetentionDays(feedID, userID, days int64) error {
+	res, err := s.db.Exec(`UPDATE feeds SET retention_days = ? WHERE id = ? AND user_id = ?`,
+		days, feedID, userID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// FeedsWithRetentionOverride devuelve los ids de feeds con retención propia.
+func (s *Store) FeedsWithRetentionOverride() ([]struct {
+	ID   int64
+	Days int64
+}, error) {
+	rows, err := s.db.Query(`SELECT id, retention_days FROM feeds WHERE retention_days > 0`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []struct {
+		ID   int64
+		Days int64
+	}{}
+	for rows.Next() {
+		var r struct {
+			ID   int64
+			Days int64
+		}
+		if err := rows.Scan(&r.ID, &r.Days); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
 
 // GetItemFull devuelve el cuerpo completo cacheado ("" si no hay).
