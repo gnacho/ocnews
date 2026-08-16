@@ -42,7 +42,7 @@ jobs:
       - name: golangci-lint (new issues only)
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.0.2
+          version: v2.12.2
           working-directory: backend
           only-new-issues: true
 

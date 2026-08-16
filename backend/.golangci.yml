@@ -34,6 +34,10 @@ linters:
         - G404 # math/rand para jitter del scheduler; NO es crypto (usa crypto/rand para secrets)
         - G304 # rutas de caché derivadas de sha256/md5 internos, no de input del usuario
         - G104 # errors unhandled: redundante con errcheck (ya lo cubre)
+        - G704 # SSRF por taint: ya mitigado en transporte por netguard (bloquea IPs privadas)
+        - G703 # path traversal por taint: rutas de caché por hash interno, no input del usuario
+        - G101 # hardcoded credentials: solo en tests (fakes de validator)
+        - G115 # integer overflow int->rune: solo en test helpers (refresher_test)
   exclusions:
     rules:
       # la deuda preexistente de tests (fakes, helpers) no debe bloquear
