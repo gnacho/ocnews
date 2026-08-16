@@ -119,6 +119,69 @@ func (s *Store) CountItems(f ItemFilter) (int64, error) {
 	return n, nil
 }
 
+// SearchItems busca artículos del usuario cuyo título, cuerpo o URL contenga
+// la query (case-insensitive). Reutiliza el mismo scoping de ItemFilter
+// (type/id) y excluye los filtered por defecto.
+func (s *Store) SearchItems(f ItemFilter, query string, limit int) ([]Item, error) {
+	like := "%" + strings.ToLower(query) + "%"
+	var where []string
+	var args []any
+	where = append(where, "i.user_id = ?")
+	args = append(args, f.UserID)
+
+	switch f.Type {
+	case 0: // feed
+		where = append(where, "i.feed_id = ?")
+		args = append(args, f.ID)
+	case 1: // folder
+		where = append(where, "i.feed_id IN (SELECT id FROM feeds WHERE user_id = ? AND folder_id = ?)")
+		args = append(args, f.UserID, f.ID)
+	case 2: // starred
+		where = append(where, "i.starred = 1")
+	case 3: // all
+	default:
+		return nil, fmt.Errorf("type inválido: %d", f.Type)
+	}
+	if !f.GetRead {
+		where = append(where, "i.unread = 1")
+	}
+	if !f.IncludeFiltered {
+		where = append(where, "i.filtered = 0")
+	}
+	where = append(where,
+		"(LOWER(i.title) LIKE ? OR LOWER(i.body) LIKE ? OR LOWER(i.url) LIKE ?)")
+	args = append(args, like, like, like)
+
+	cols := "i.id, i.guid, i.guid_hash, i.url, i.title, i.author, i.pub_date, i.body, " +
+		"i.enclosure_mime, i.enclosure_link, i.media_thumbnail, i.media_description, " +
+		"i.feed_id, i.unread, i.starred, i.last_modified, i.fingerprint, i.filtered, " +
+		"COALESCE(x.full_content, 0)"
+	q := "SELECT " + cols + " FROM items i LEFT JOIN feeds x ON x.id = i.feed_id WHERE " +
+		strings.Join(where, " AND ")
+	if f.OldestFirst {
+		q += " ORDER BY i.id ASC"
+	} else {
+		q += " ORDER BY i.id DESC"
+	}
+	if limit > 0 {
+		q += fmt.Sprintf(" LIMIT %d", limit)
+	}
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Item{}
+	for rows.Next() {
+		it, err := scanItem(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *it)
+	}
+	return out, rows.Err()
+}
+
 // NewestItemID devuelve MAX(id) del usuario (0 si no hay items).
 func (s *Store) NewestItemID(userID int64) (int64, error) {
 	var n sql.NullInt64

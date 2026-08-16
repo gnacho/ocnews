@@ -135,6 +135,26 @@
         >
           {{ currentTitle }}
         </h1>
+        <div style="display: flex; align-items: center; gap: 6px; min-width: 0">
+          <Search style="width: 15px; height: 15px; opacity: 0.5; flex-shrink: 0" />
+          <input
+            v-model="searchQuery"
+            type="search"
+            :placeholder="$gettext('Search articles…')"
+            :aria-label="$gettext('Search articles')"
+            style="width: 200px; max-width: 30vw; font-size: 13px; padding: 4px 8px; border-radius: 6px; border: 1px solid #94a3b8; background: transparent; color: inherit"
+            @keydown.enter="doSearch"
+          />
+          <button
+            v-if="searchQuery"
+            style="background: none; border: 0; cursor: pointer; padding: 2px; display: inline-flex"
+            :aria-label="$gettext('Clear search')"
+            :title="$gettext('Clear search')"
+            @click="clearSearch"
+          >
+            <X style="width: 14px; height: 14px" />
+          </button>
+        </div>
         <label style="font-size: 12px; display: flex; align-items: center; gap: 4px">
           {{ $gettext('Show') }}
           <select v-model="showAll" style="font-size: 12px; padding: 2px 4px" :aria-label="$gettext('Show')">
@@ -375,7 +395,8 @@ import {
   MailOpen,
   ExternalLink,
   BookOpenText,
-  Filter
+  Filter,
+  Search
 } from 'lucide-vue-next'
 import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter } from '../api'
 
@@ -433,6 +454,22 @@ const showAll = ref(false)
 const oldestFirst = ref(false)
 const moreAvailable = ref(false)
 const opmlInputEl = ref<HTMLInputElement | null>(null)
+const searchQuery = ref('')
+
+const searchActive = computed(() => searchQuery.value.trim() !== '')
+
+function doSearch() {
+  if (searchQuery.value.trim()) {
+    detail.value = null
+    loadItems()
+  }
+}
+
+function clearSearch() {
+  searchQuery.value = ''
+  detail.value = null
+  loadItems()
+}
 const filterOpen = ref(false)
 const filterSaving = ref(false)
 const filterFeedId = ref<number | null>(null)
@@ -586,6 +623,12 @@ async function loadItems(append = false) {
   error.value = ''
   try {
     const getRead = selection.value.kind === 'starred' ? true : showAll.value
+    if (searchActive.value) {
+      const res = await api.search(searchQuery.value.trim(), { getRead, batchSize: 100, oldestFirst: oldestFirst.value })
+      items.value = res.items
+      moreAvailable.value = false
+      return
+    }
     const offset = append ? (oldestFirst.value ? Math.max(...items.value.map((i) => i.id)) : Math.min(...items.value.map((i) => i.id))) : undefined
     const res = await api.items(selection.value, { getRead, batchSize: BATCH, oldestFirst: oldestFirst.value, offset })
     items.value = append ? [...items.value, ...res.items] : res.items

@@ -604,3 +604,37 @@ func TestFeedFilterFlow(t *testing.T) {
 	}
 }
 
+// TestSearchFlow: GET /items/search?query= busca en título/cuerpo/URL.
+func TestSearchFlow(t *testing.T) {
+	ff := &fakeFetcher{}
+	e := newTestEnv(t, ff)
+	if code, body := e.do(t, "POST", "/feeds", e.user, e.pass,
+		map[string]string{"url": "https://feed.example/rss"}); code != 200 {
+		t.Fatalf("crear feed: %d %s", code, body)
+	}
+
+	// el fake genera titles "Item %d de %s"
+	code, body := e.do(t, "GET", "/items/search?query=Item", e.user, e.pass, nil)
+	if code != 200 {
+		t.Fatalf("search: %d", code)
+	}
+	var sr struct {
+		Items []store.Item
+	}
+	decode(t, body, &sr)
+	if len(sr.Items) == 0 {
+		t.Fatalf("búsqueda 'Item' debería devolver resultados: %s", body)
+	}
+
+	// query vacía → 422
+	if code, _ := e.do(t, "GET", "/items/search?query=", e.user, e.pass, nil); code != 422 {
+		t.Fatalf("query vacía esperaba 422: %d", code)
+	}
+	// sin resultados → lista vacía
+	code, body = e.do(t, "GET", "/items/search?query=zzzznada", e.user, e.pass, nil)
+	decode(t, body, &sr)
+	if code != 200 || len(sr.Items) != 0 {
+		t.Fatalf("búsqueda sin resultados: %d %s", code, body)
+	}
+}
+

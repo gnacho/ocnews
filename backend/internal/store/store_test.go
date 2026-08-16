@@ -177,3 +177,36 @@ func TestFeedFilter(t *testing.T) {
 	}
 }
 
+// TestSearchItems: búsqueda por query en título/cuerpo/URL, con scoping.
+func TestSearchItems(t *testing.T) {
+	st, uid := newTestStore(t)
+	st.CreateFeed(uid, "https://s.example/f", nil, "s", "", "", []NewItem{
+		{GUID: "a", GUIDHash: "ha", Title: "How to bake bread", URL: "https://s.example/bread", Body: "flour and water"},
+		{GUID: "b", GUIDHash: "hb", Title: "Go vs Rust", URL: "https://s.example/go", Body: "performance"},
+		{GUID: "c", GUIDHash: "hc", Title: "Tennis news", URL: "https://s.example/tennis", Body: "rafa nadal"},
+	})
+
+	res, err := st.SearchItems(ItemFilter{UserID: uid, Type: 3, GetRead: true}, "bake", 10)
+	if err != nil || len(res) != 1 || res[0].GUID != "a" {
+		t.Fatalf("buscar 'bake': %v %+v", err, res)
+	}
+	res, _ = st.SearchItems(ItemFilter{UserID: uid, Type: 3, GetRead: true}, "performance", 10)
+	if len(res) != 1 || res[0].GUID != "b" {
+		t.Fatalf("buscar en body: %+v", res)
+	}
+	res, _ = st.SearchItems(ItemFilter{UserID: uid, Type: 3, GetRead: true}, "tennis", 10)
+	if len(res) != 1 || res[0].GUID != "c" {
+		t.Fatalf("buscar por URL: %+v", res)
+	}
+	// case-insensitive y múltiples
+	res, _ = st.SearchItems(ItemFilter{UserID: uid, Type: 3, GetRead: true}, "RUST", 10)
+	if len(res) != 1 {
+		t.Fatalf("case-insensitive: %+v", res)
+	}
+	// sin resultados
+	res, _ = st.SearchItems(ItemFilter{UserID: uid, Type: 3, GetRead: true}, "zzz", 10)
+	if len(res) != 0 {
+		t.Fatalf("sin resultados esperado: %+v", res)
+	}
+}
+

@@ -96,6 +96,15 @@ export function useNewsApi() {
       if (opts.offset) params.offset = String(opts.offset)
       return get('/items', params) as Promise<{ items: Item[] }>
     },
+    search: (query: string, opts: { batchSize?: number; getRead?: boolean; oldestFirst?: boolean } = {}) => {
+      const params: Record<string, string> = {
+        query,
+        getRead: String(opts.getRead ?? true),
+        batchSize: String(opts.batchSize ?? 100),
+        oldestFirst: String(opts.oldestFirst ?? false)
+      }
+      return get('/items/search', params) as Promise<{ items: Item[] }>
+    },
     markRead: (id: number) => post(`/items/${id}/read`),
     itemFull: (id: number): Promise<{ body: string }> => get(`/items/${id}/full`),
     markUnread: (id: number) => post(`/items/${id}/unread`),
