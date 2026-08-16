@@ -139,7 +139,10 @@
     </aside>
 
     <!-- Lista -->
-    <section style="display: flex; flex-direction: column; width: 380px; flex-shrink: 0; min-width: 0; border-right: 1px solid rgba(125, 125, 125, 0.15)">
+    <section
+      style="display: flex; flex-direction: column; flex-shrink: 0; min-width: 0; border-right: 1px solid rgba(125, 125, 125, 0.15)"
+      :style="{ width: listWidth + 'px' }"
+    >
       <header
         style="display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid rgba(125, 125, 125, 0.25); flex-wrap: wrap"
       >
@@ -208,15 +211,7 @@
         {{ $gettext('No articles') }}
       </p>
 
-      <ul
-        v-else
-        ref="listEl"
-        style="flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: 0; user-select: none"
-        @mousedown="dragStart"
-        @mousemove="dragMove"
-        @mouseup="dragEnd"
-        @mouseleave="dragEnd"
-      >
+      <ul v-else style="flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: 0">
         <li
           v-for="item in items"
           :key="item.id"
@@ -226,7 +221,6 @@
             opacity: item.unread ? 1 : 0.65
           }"
           @click="openItem(item)"
-          :class="{ 'news-dragging': dragging }"
         >
           <div style="flex: 1; min-width: 0">
             <p style="margin: 0; font-size: 20px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
@@ -268,6 +262,14 @@
         </li>
       </ul>
     </section>
+
+    <!-- Divisor redimensionable de la columna de titulares -->
+    <div
+      ref="resizerEl"
+      style="width: 7px; flex-shrink: 0; cursor: col-resize; background: transparent"
+      :style="{ background: resizing ? 'rgba(0,100,200,0.25)' : 'transparent' }"
+      @mousedown="resizeStart"
+    ></div>
 
     <!-- Detalle -->
     <section
@@ -611,33 +613,36 @@ const moreAvailable = ref(false)
 const opmlInputEl = ref<HTMLInputElement | null>(null)
 const searchQuery = ref('')
 
-// drag-to-scroll de la lista de artículos: arrastrar con el ratón desplaza el
-// scroll vertical; un arrastre >5px cancela el clic (no abre el artículo).
-const listEl = ref<HTMLElement | null>(null)
-const dragStartY = ref(0)
-const dragStartScroll = ref(0)
-const dragging = ref(false)
+// resize de la columna de titulares arrastrando el divisor derecho.
+const resizerEl = ref<HTMLElement | null>(null)
+const listWidth = ref(380)
+const resizing = ref(false)
+const resizeStartX = ref(0)
+const resizeStartW = ref(380)
 
-function dragStart(e: MouseEvent) {
+function resizeStart(e: MouseEvent) {
   if (e.button !== 0) return
-  dragStartY.value = e.clientY
-  dragStartScroll.value = listEl.value?.scrollTop ?? 0
-  dragging.value = false
+  resizing.value = true
+  resizeStartX.value = e.clientX
+  resizeStartW.value = listWidth.value
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+  window.addEventListener('mousemove', resizeMove)
+  window.addEventListener('mouseup', resizeEnd)
 }
 
-function dragMove(e: MouseEvent) {
-  const el = listEl.value
-  if (!el || (e.buttons & 1) === 0) return
-  const dy = e.clientY - dragStartY.value
-  if (Math.abs(dy) > 5) dragging.value = true
-  el.scrollTop = dragStartScroll.value - dy
+function resizeMove(e: MouseEvent) {
+  if (!resizing.value) return
+  const dx = e.clientX - resizeStartX.value
+  listWidth.value = Math.max(240, Math.min(700, resizeStartW.value + dx))
 }
 
-function dragEnd() {
-  dragStartY.value = 0
-  dragStartScroll.value = 0
-  // el clic se cancela en el siguiente tick si hubo arrastre
-  setTimeout(() => (dragging.value = false), 0)
+function resizeEnd() {
+  resizing.value = false
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+  window.removeEventListener('mousemove', resizeMove)
+  window.removeEventListener('mouseup', resizeEnd)
 }
 
 const searchActive = computed(() => searchQuery.value.trim() !== '')
@@ -923,7 +928,6 @@ async function refreshCounts() {
 }
 
 async function openItem(item: Item) {
-  if (dragging.value) return // arrastre del ratón, no clic
   detail.value = item
   fullBody.value = ''
   fullFailed.value = false
@@ -1334,7 +1338,10 @@ onMounted(async () => {
   await loadItems()
 })
 
-onUnmounted(() => restoreHostFavicon())
+onUnmounted(() => {
+  restoreHostFavicon()
+  resizeEnd()
+})
 </script>
 
 <style>
