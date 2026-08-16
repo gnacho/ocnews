@@ -1,9 +1,12 @@
+version: "2"
+
 run:
-  timeout: 5m
   concurrency: 4
+  timeout: 5m
   tests: true
 
 linters:
+  default: none
   enable:
     # correctness
     - govet
@@ -20,24 +23,26 @@ linters:
     - rowserrcheck
     # style (bajo ruido)
     - unconvert
-  disable-all: true
-
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-  gosec:
-    excludes:
-      - G401 # md5 para hashes de dedupe/identificación (guid_hash, url_hash, fingerprint), NO crypto
-      - G501 # import crypto/md5: mismo motivo (no es material criptográfico)
-      - G202 # SQL "concatenación": en realidad placeholders parametrizados (IN (...) con args)
-      - G404 # math/rand para jitter del scheduler; NO es crypto (usa crypto/rand para secrets)
+  settings:
+    errcheck:
+      check-type-assertions: true
+    gosec:
+      excludes:
+        - G401 # md5 para hashes de dedupe/identificación (guid_hash, url_hash, fingerprint), NO crypto
+        - G501 # import crypto/md5: mismo motivo (no es material criptográfico)
+        - G202 # SQL "concatenación": en realidad placeholders parametrizados (IN (...) con args)
+        - G404 # math/rand para jitter del scheduler; NO es crypto (usa crypto/rand para secrets)
+        - G304 # rutas de caché derivadas de sha256/md5 internos, no de input del usuario
+        - G104 # errors unhandled: redundante con errcheck (ya lo cubre)
+  exclusions:
+    rules:
+      # la deuda preexistente de tests (fakes, helpers) no debe bloquear
+      - path: _test\.go
+        linters:
+          - errcheck
+          - bodyclose
+          - ineffassign
 
 issues:
   max-issues-per-linter: 0
   max-same-issues: 50
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-        - bodyclose
-        - ineffassign
