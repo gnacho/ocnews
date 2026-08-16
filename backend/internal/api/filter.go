@@ -81,7 +81,11 @@ func (s *Server) setFeedFilter(w http.ResponseWriter, r *http.Request) {
 		s.logError(w, r, "re-aplicar filtro", err)
 		return
 	}
-	saved, _ := s.store.GetFeedFilter(id)
+	saved, err := s.store.GetFeedFilter(id)
+	if err != nil {
+		s.logError(w, r, "leer filtro guardado", err)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"filter": saved})
 }
 

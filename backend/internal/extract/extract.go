@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-shiori/go-readability"
 
+	"github.com/gnacho/ocnews/backend/internal/netguard"
 	"github.com/gnacho/ocnews/backend/internal/sanitize"
 )
 
@@ -28,7 +29,12 @@ type Extractor struct {
 }
 
 func New(timeout time.Duration) *Extractor {
-	return &Extractor{Client: &http.Client{Timeout: timeout}}
+	return &Extractor{Client: netguard.Client(timeout)}
+}
+
+// NewAllowLocal es como New pero el transporte permite loopback. SOLO tests.
+func NewAllowLocal(timeout time.Duration) *Extractor {
+	return &Extractor{Client: netguard.ClientAllowLocal(timeout)}
 }
 
 // Article descarga la página y extrae el contenido principal.

@@ -34,7 +34,7 @@ type Feed struct {
 	Pinned           bool    `json:"pinned"`
 	UpdateErrorCount int     `json:"updateErrorCount"`
 	LastUpdateError  *string `json:"lastUpdateError"`
-	URLHash          string  `json:"-"`
+	URLHash          string  `json:"urlHash"` // md5(url) para el favicon público
 	UserID           int64   `json:"-"`
 	NoNewStreak      int     `json:"-"` // interno: scheduler adaptativo
 	FullContent      bool    `json:"-"` // el feed ya sirve artículos completos

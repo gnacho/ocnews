@@ -26,7 +26,7 @@ func (s *Server) listFeeds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for i := range feeds {
-		feeds[i].FaviconLink = s.rewriteFavicon(feeds[i].FaviconLink)
+		feeds[i].FaviconLink = s.rewriteFavicon(feeds[i].URLHash)
 	}
 	starred, _ := s.store.StarredCount(u.ID)
 	newest, _ := s.store.NewestItemID(u.ID)
@@ -99,7 +99,7 @@ func (s *Server) createFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	newest, _ := s.store.NewestItemID(user(r).ID)
-	created.FaviconLink = s.rewriteFavicon(created.FaviconLink)
+	created.FaviconLink = s.rewriteFavicon(created.URLHash)
 	s.log.Info("feed suscrito", "url", body.URL, "items", len(items))
 	writeJSON(w, http.StatusOK, feedsResponse{[]store.Feed{*created}, 0, newest})
 }

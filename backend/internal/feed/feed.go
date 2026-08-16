@@ -15,6 +15,7 @@ import (
 
 	"github.com/mmcdole/gofeed"
 
+	"github.com/gnacho/ocnews/backend/internal/netguard"
 	"github.com/gnacho/ocnews/backend/internal/sanitize"
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
@@ -33,7 +34,13 @@ type HTTPFetcher struct {
 }
 
 func NewHTTPFetcher(timeout time.Duration) *HTTPFetcher {
-	return &HTTPFetcher{Client: &http.Client{Timeout: timeout}}
+	return &HTTPFetcher{Client: netguard.Client(timeout)}
+}
+
+// NewHTTPFetcherAllowLocal crea un fetcher cuyo transporte permite loopback.
+// SOLO para tests (httptest escucha en 127.0.0.1).
+func NewHTTPFetcherAllowLocal(timeout time.Duration) *HTTPFetcher {
+	return &HTTPFetcher{Client: netguard.ClientAllowLocal(timeout)}
 }
 
 func (h *HTTPFetcher) Fetch(ctx context.Context, url string) (*store.Feed, []store.NewItem, error) {
@@ -229,33 +236,36 @@ type DiscoveredFeed struct {
 
 var feedLinkRe = regexp.MustCompile(`(?i)<link[^>]*rel=["']\s*alternate\s*["'][^>]*>`)
 
-// Discover descarga una página web y extrae los enlaces de feed RSS/Atom
-// (autodetección de suscripciones, feature de la extensión). Devuelve los
-// feeds encontrados; si la URL ES un feed válido, devuelve ese único feed.
+// Discover descarga una página y detecta sus feeds RSS/Atom (autodetección).
+// Descarga UNA sola vez: primero intenta parsear el cuerpo como feed; si no
+// es un feed, extrae los <link rel="alternate" type="rss|atom"> del HTML.
 func (h *HTTPFetcher) Discover(ctx context.Context, url string) ([]DiscoveredFeed, error) {
-	if f, items, err := h.Fetch(ctx, url); err == nil && len(items) >= 0 {
-		_ = f
-		// es un feed ya → lo devolvemos tal cual
-		return []DiscoveredFeed{{URL: url, Title: f.Title, Type: feedKind(f.URL)}}, nil
-	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("url inválida: %w", err)
 	}
 	req.Header.Set("User-Agent", "ocnews/0.5 (+https://github.com/gnacho/ocnews)")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,*/*")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/rss+xml,application/atom+xml,application/xml,*/*")
 	resp, err := h.Client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("descargar página: %w", err)
+		return nil, fmt.Errorf("descargar: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("descargar página: HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf("descargar: HTTP %d", resp.StatusCode)
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodyBytes))
 	if err != nil {
-		return nil, fmt.Errorf("leer página: %w", err)
+		return nil, fmt.Errorf("leer: %w", err)
 	}
+
+	// ¿Es un feed? Lo intentamos primero para no rascar HTML.
+	if f, items, err := Parse(body); err == nil {
+		_ = items
+		return []DiscoveredFeed{{URL: url, Title: f.Title, Type: feedKind(f.URL)}}, nil
+	}
+
+	// No es un feed: extraer los feeds de los <link rel="alternate">.
 	base, _ := urlpkg.Parse(url)
 	out := []DiscoveredFeed{}
 	seen := map[string]bool{}

@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/gnacho/ocnews/backend/internal/netguard"
 )
 
 func newRand() io.Reader { return rand.Reader }
@@ -58,9 +60,19 @@ func New(dataDir string, log *slog.Logger) (*Proxy, error) {
 	return &Proxy{
 		secret: secret,
 		dir:    dir,
-		client: &http.Client{Timeout: fetchTimeout},
+		client: netguard.Client(fetchTimeout),
 		log:    log,
 	}, nil
+}
+
+// NewAllowLocal es como New pero el transporte permite loopback. SOLO tests.
+func NewAllowLocal(dataDir string, log *slog.Logger) (*Proxy, error) {
+	p, err := New(dataDir, log)
+	if err != nil {
+		return nil, err
+	}
+	p.client = netguard.ClientAllowLocal(fetchTimeout)
+	return p, nil
 }
 
 // Sign devuelve la firma HMAC (hex, 32 chars) de una URL de imagen.

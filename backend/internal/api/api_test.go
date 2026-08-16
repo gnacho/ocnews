@@ -105,7 +105,7 @@ func newTestEnv(t *testing.T, fetcher feed.Fetcher) *testEnv {
 		t.Fatal(err)
 	}
 	validator := &auth.LocalValidator{Store: st}
-	ex := extract.New(5 * time.Second)
+	ex := extract.NewAllowLocal(5 * time.Second)
 	srv := NewServer(st, validator, fetcher, refresh, fc, imgs, ex, 90*24*time.Hour, log)
 	h := srv.Handler()
 	ts := httptest.NewServer(h)

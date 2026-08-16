@@ -55,16 +55,13 @@ func (s *Server) mediaMime(m string) bool {
 		strings.HasPrefix(m, "image/")
 }
 
-// rewriteFavicon proxifica la URL del favicon de un feed hacia el proxy
-// firmado (el <img> del navegador no lleva auth y la CSP del host bloquea
-// dominios externos). Devuelve la URL firmada, o la original si no hay proxy.
-func (s *Server) rewriteFavicon(faviconLink string) string {
-	if faviconLink == "" || s.imgs == nil {
-		return faviconLink
+// rewriteFavicon apunta al endpoint público del favicon servido desde el cache
+// del backend (/favicon/{urlHash}) en vez de firmar la URL del origen. Así el
+// cache es la única fuente (no se re-fetchea por instancia) y el <img> del
+// navegador no necesita auth (la ruta es pública, solo lee de disco).
+func (s *Server) rewriteFavicon(urlHash string) string {
+	if urlHash == "" || s.favicons == nil {
+		return ""
 	}
-	if !strings.HasPrefix(faviconLink, "http") {
-		return faviconLink
-	}
-	u := html.UnescapeString(faviconLink)
-	return Base + "/img?u=" + url.QueryEscape(u) + "&t=" + s.imgs.Sign(u)
+	return Base + "/favicon/" + urlHash
 }

@@ -25,6 +25,14 @@ func (s *Server) serveFavicon(w http.ResponseWriter, r *http.Request) {
 	s.favicons.Serve(w, hash)
 }
 
+// faviconRouter sirve el favicon por ruta pública (sin auth). El <img> del
+// navegador no lleva credenciales; solo se lee del cache en disco.
+func (s *Server) faviconRouter() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /favicon/{hash}", s.serveFavicon)
+	return mux
+}
+
 // cleanupBefore: spec — borra carpetas/feeds marcados para borrar. En nuestra
 // implementación los DELETE ya son inmediatos; queda como no-op de contrato.
 func (s *Server) cleanupBefore(w http.ResponseWriter, _ *http.Request) {

@@ -55,7 +55,8 @@ func (s *Server) routes(mux *http.ServeMux) {
 	}
 
 	// Favicon (spec v1.3, News 27.2+): hash md5 de la URL del feed.
-	mux.HandleFunc("GET /favicon/{hash}", s.serveFavicon)
+	// Se registra como ruta PÚBLICA en Handler() (no requiere auth: solo
+	// lee del cache en disco, sin SSRF).
 
 	// Updater API (spec): cleanup + feeds/all, solo admin.
 	mux.HandleFunc("GET /cleanup/before-update", s.adminOnly(s.cleanupBefore))

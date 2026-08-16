@@ -153,7 +153,7 @@ func TestDiscover(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	h := NewHTTPFetcher(5 * time.Second)
+	h := NewHTTPFetcherAllowLocal(5 * time.Second)
 	feeds, err := h.Discover(context.Background(), srv.URL)
 	if err != nil {
 		t.Fatalf("discover: %v", err)
