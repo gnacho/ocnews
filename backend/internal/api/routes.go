@@ -18,6 +18,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	// Feeds
 	mux.HandleFunc("GET /feeds", s.listFeeds)
 	mux.HandleFunc("POST /feeds", s.createFeed)
+	mux.HandleFunc("GET /feeds/discover", s.discoverFeed)
 	mux.HandleFunc("DELETE /feeds/{feedId}", s.deleteFeed)
 	// move/rename: la spec v1.3 dice POST pero news-android usa PUT → ambos
 	for _, m := range []string{http.MethodPost, http.MethodPut} {

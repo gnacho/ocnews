@@ -829,7 +829,40 @@ async function subscribeFeed() {
     await loadSidebar()
     await loadItems()
   } catch (e: unknown) {
-    error.value = extractErrorMessage(e, $gettext('Could not subscribe to the feed'))
+    const status = (e as { response?: { status?: number } })?.response?.status
+    if (status === 422) {
+      // no es un feed directo: probar autodetección en la URL del sitio
+      try {
+        const res = await api.discover(url)
+        if (res.feeds?.length === 1) {
+          await api.addFeed(res.feeds[0].url, null)
+          newFeedUrl.value = ''
+          await loadSidebar()
+          await loadItems()
+          return
+        }
+        if (res.feeds?.length > 1) {
+          const names = res.feeds.map((f) => f.title || f.url).join('\n')
+          const choice = window.prompt(
+            $gettext('Multiple feeds found on this site. Enter the number to subscribe (1-indexed):') + '\n' + names,
+            '1'
+          )
+          const idx = parseInt(choice ?? '', 10)
+          if (idx >= 1 && idx <= res.feeds.length) {
+            await api.addFeed(res.feeds[idx - 1].url, null)
+            newFeedUrl.value = ''
+            await loadSidebar()
+            await loadItems()
+            return
+          }
+        }
+      } catch {
+        /* si discover también falla, caemos al error genérico */
+      }
+      error.value = extractErrorMessage(e, $gettext('Could not subscribe to the feed'))
+    } else {
+      error.value = extractErrorMessage(e, $gettext('Could not subscribe to the feed'))
+    }
   } finally {
     subscribing.value = false
   }

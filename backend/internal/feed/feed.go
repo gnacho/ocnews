@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	urlpkg "net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -22,6 +24,8 @@ const maxBodyBytes = 10 << 20 // 10 MB de techo por feed
 type Fetcher interface {
 	// Fetch descarga y parsea el feed; error si no se puede leer.
 	Fetch(ctx context.Context, url string) (*store.Feed, []store.NewItem, error)
+	// Discover autodetecta feeds RSS/Atom en una página web.
+	Discover(ctx context.Context, url string) ([]DiscoveredFeed, error)
 }
 
 type HTTPFetcher struct {
@@ -214,4 +218,95 @@ func fingerprint(ni store.NewItem) string {
 	}
 	sum := md5.Sum([]byte(ni.Title + "\x00" + ni.Body + "\x00" + ni.URL + "\x00" + enc))
 	return fmt.Sprintf("%x", sum)
+}
+
+// DiscoveredFeed: un feed candidato detectado en la página de un sitio.
+type DiscoveredFeed struct {
+	URL   string `json:"url"`
+	Title string `json:"title"`
+	Type  string `json:"type"` // rss | atom
+}
+
+var feedLinkRe = regexp.MustCompile(`(?i)<link[^>]*rel=["']\s*alternate\s*["'][^>]*>`)
+
+// Discover descarga una página web y extrae los enlaces de feed RSS/Atom
+// (autodetección de suscripciones, feature de la extensión). Devuelve los
+// feeds encontrados; si la URL ES un feed válido, devuelve ese único feed.
+func (h *HTTPFetcher) Discover(ctx context.Context, url string) ([]DiscoveredFeed, error) {
+	if f, items, err := h.Fetch(ctx, url); err == nil && len(items) >= 0 {
+		_ = f
+		// es un feed ya → lo devolvemos tal cual
+		return []DiscoveredFeed{{URL: url, Title: f.Title, Type: feedKind(f.URL)}}, nil
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("url inválida: %w", err)
+	}
+	req.Header.Set("User-Agent", "ocnews/0.5 (+https://github.com/gnacho/ocnews)")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,*/*")
+	resp, err := h.Client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("descargar página: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("descargar página: HTTP %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("leer página: %w", err)
+	}
+	base, _ := urlpkg.Parse(url)
+	out := []DiscoveredFeed{}
+	seen := map[string]bool{}
+	for _, m := range feedLinkRe.FindAll(body, -1) {
+		link := linkAttr(string(m), "href")
+		typ := strings.ToLower(linkAttr(string(m), "type"))
+		if link == "" {
+			continue
+		}
+		if !strings.Contains(typ, "rss") && !strings.Contains(typ, "atom") && !strings.HasSuffix(link, ".xml") {
+			continue
+		}
+		abs, err := base.Parse(link)
+		if err != nil {
+			continue
+		}
+		kind := "rss"
+		if strings.Contains(typ, "atom") {
+			kind = "atom"
+		}
+		if seen[abs.String()] {
+			continue
+		}
+		seen[abs.String()] = true
+		out = append(out, DiscoveredFeed{URL: abs.String(), Title: titleFromFeedLink(string(m)), Type: kind})
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no se encontraron feeds en la página")
+	}
+	return out, nil
+}
+
+func feedKind(u string) string {
+	if strings.Contains(strings.ToLower(u), "atom") {
+		return "atom"
+	}
+	return "rss"
+}
+
+func linkAttr(tag, attr string) string {
+	re := regexp.MustCompile(`(?i)` + attr + `\s*=\s*["']([^"']*)["']`)
+	m := re.FindStringSubmatch(tag)
+	if len(m) == 2 {
+		return m[1]
+	}
+	return ""
+}
+
+func titleFromFeedLink(tag string) string {
+	if t := linkAttr(tag, "title"); t != "" {
+		return t
+	}
+	return ""
 }

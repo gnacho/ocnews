@@ -1,9 +1,12 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
+	urlpkg "net/url"
+	"time"
 
 	"github.com/gnacho/ocnews/backend/internal/feed"
 	"github.com/gnacho/ocnews/backend/internal/store"
@@ -207,6 +210,30 @@ func (s *Server) updateFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeEmpty(w)
+}
+
+// discoverFeed: autodetección de feeds en un sitio (GET /feeds/discover?url=).
+// Ruta propia de la extensión (la spec v1.3 no la define).
+func (s *Server) discoverFeed(w http.ResponseWriter, r *http.Request) {
+	u := r.URL.Query().Get("url")
+	if u == "" {
+		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_url")
+		return
+	}
+	parsed, err := urlpkg.Parse(u)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_url")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	feeds, err := s.fetcher.Discover(ctx, u)
+	if err != nil {
+		s.log.Warn("discover falló", "url", u, "err", err)
+		errorStatus(w, r, http.StatusUnprocessableEntity, "no_feeds_found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"feeds": feeds})
 }
 
 // normFolderID normaliza folderId 0 → nil (raíz).

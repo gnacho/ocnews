@@ -53,6 +53,13 @@ func (f *fakeFetcher) Fetch(_ context.Context, url string) (*store.Feed, []store
 	return fd, items, nil
 }
 
+func (f *fakeFetcher) Discover(_ context.Context, url string) ([]feed.DiscoveredFeed, error) {
+	if f.failURLs != nil && f.failURLs[url] {
+		return nil, fmt.Errorf("discover roto (fake)")
+	}
+	return []feed.DiscoveredFeed{{URL: url + "/rss", Title: "Feed " + url, Type: "rss"}}, nil
+}
+
 type testEnv struct {
 	ts         *httptest.Server
 	client     *http.Client
@@ -709,6 +716,38 @@ func TestSettingsAndRetentionFlow(t *testing.T) {
 	if code, _ := e.do(t, "POST", fmt.Sprintf("/feeds/%d/retention", fid), e.user, e.pass,
 		map[string]any{"retentionDays": 99999}); code != 422 {
 		t.Fatalf("retención inválida esperaba 422: %d", code)
+	}
+}
+
+// TestDiscoverFlow: GET /feeds/discover?url= detecta feeds de un sitio.
+func TestDiscoverFlow(t *testing.T) {
+	ff := &fakeFetcher{}
+	e := newTestEnv(t, ff)
+
+	code, body := e.do(t, "GET", "/feeds/discover?url=https://site.example", e.user, e.pass, nil)
+	if code != 200 {
+		t.Fatalf("discover: %d %s", code, body)
+	}
+	var dr struct {
+		Feeds []feed.DiscoveredFeed
+	}
+	decode(t, body, &dr)
+	if len(dr.Feeds) == 0 {
+		t.Fatalf("discover debería devolver feeds: %s", body)
+	}
+
+	// url vacía → 422
+	if code, _ := e.do(t, "GET", "/feeds/discover?url=", e.user, e.pass, nil); code != 422 {
+		t.Fatalf("discover sin url esperaba 422: %d", code)
+	}
+	// url no http(s) → 422
+	if code, _ := e.do(t, "GET", "/feeds/discover?url=ftp://x", e.user, e.pass, nil); code != 422 {
+		t.Fatalf("discover scheme inválido esperaba 422: %d", code)
+	}
+	// sitio que no tiene feeds → 422
+	ff.failURLs = map[string]bool{"https://nofeeds.example": true}
+	if code, _ := e.do(t, "GET", "/feeds/discover?url=https://nofeeds.example", e.user, e.pass, nil); code != 422 {
+		t.Fatalf("discover sin feeds esperaba 422: %d", code)
 	}
 }
 

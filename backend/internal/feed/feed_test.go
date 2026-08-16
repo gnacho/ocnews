@@ -1,6 +1,9 @@
 package feed
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -130,4 +133,58 @@ func TestHasFullContent(t *testing.T) {
 	if HasFullContent(nil) {
 		t.Error("sin items no marca full")
 	}
+}
+
+// TestDiscover: autodetección de feeds RSS/Atom en una página HTML.
+func TestDiscover(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rss.xml" {
+			w.Header().Set("Content-Type", "application/rss+xml")
+			w.Write(loadFixture(t, "rss.xml"))
+			return
+		}
+		html := `<!doctype html><html><head>
+			<link rel="alternate" type="application/rss+xml" title="Blog RSS" href="/rss.xml">
+			<link rel="alternate" type="application/atom+xml" href="/atom.xml">
+			<link rel="icon" href="/favicon.ico">
+			</head><body>hola</body></html>`
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(html))
+	}))
+	defer srv.Close()
+
+	h := NewHTTPFetcher(5 * time.Second)
+	feeds, err := h.Discover(context.Background(), srv.URL)
+	if err != nil {
+		t.Fatalf("discover: %v", err)
+	}
+	if len(feeds) != 2 {
+		t.Fatalf("esperaba 2 feeds, tengo %d: %+v", len(feeds), feeds)
+	}
+	var kinds []string
+	for _, f := range feeds {
+		kinds = append(kinds, f.Type)
+	}
+	if !containsStr(kinds, "rss") || !containsStr(kinds, "atom") {
+		t.Fatalf("tipos: %v", kinds)
+	}
+	// url absoluta resuelta contra el base
+	found := false
+	for _, f := range feeds {
+		if strings.HasSuffix(f.URL, "/rss.xml") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no resolvió rss.xml relativo: %+v", feeds)
+	}
+}
+
+func containsStr(s []string, want string) bool {
+	for _, v := range s {
+		if v == want {
+			return true
+		}
+	}
+	return false
 }

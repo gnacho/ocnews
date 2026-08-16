@@ -68,6 +68,12 @@ export type Selection =
   | { kind: 'feed'; id: number }
   | { kind: 'folder'; id: number }
 
+export interface DiscoveredFeed {
+  url: string
+  title: string
+  type: string
+}
+
 export function useNewsApi() {
   const client = useClientService()
 
@@ -151,6 +157,11 @@ export function useNewsApi() {
     deleteFolder: (folderId: number) =>
       client.httpAuthenticated.delete(`${BASE}/folders/${folderId}`),
     refresh: () => client.httpAuthenticated.post(`${BASE}/refresh`, {}),
+    discover: async (url: string): Promise<{ feeds: DiscoveredFeed[] }> => {
+      const usp = new URLSearchParams({ url })
+      const { data } = await client.httpAuthenticated.get(`${BASE}/feeds/discover?${usp.toString()}`)
+      return data as { feeds: DiscoveredFeed[] }
+    },
     importOpml: async (file: File) => {
       const body = await file.text()
       return client.httpAuthenticated.post(`${BASE}/import/opml`, body, {
