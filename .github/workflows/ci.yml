@@ -42,7 +42,7 @@ jobs:
       - name: golangci-lint (new issues only)
         uses: golangci/golangci-lint-action@v9
         with:
-          version: latest
+          version: v1.64.8
           working-directory: backend
           only-new-issues: true
 
@@ -61,9 +61,8 @@ jobs:
           go-version-file: backend/go.mod
           cache: true
       - name: gosec (SARIF, no bloquea)
-        uses: securego/gosec@v2.28.0
-        with:
-          args: -no-fail -fmt sarif -out results.sarif -exclude=G104 ./...
+        run: |
+          go run github.com/securego/gosec/v2/cmd/gosec@v2.28.0 -no-fail -fmt sarif -out results.sarif -exclude=G104 ./...
       - name: Upload gosec SARIF
         uses: github/codeql-action/upload-sarif@v3
         with:
