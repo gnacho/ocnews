@@ -85,10 +85,10 @@
               appearance="raw"
               style="flex-shrink: 0"
               :aria-label="$gettext('Options')"
+              :title="$gettext('Options')"
               @click.stop="openMenu = openMenu === entry.key ? '' : entry.key"
             >
-              <MoreHorizontal v-if="hovered === entry.key || openMenu === entry.key" style="width: 16px; height: 16px" />
-              <span v-else style="width: 16px; display: inline-block"></span>
+              <MoreHorizontal style="width: 16px; height: 16px" />
             </oc-button>
           </div>
 
@@ -343,6 +343,9 @@
     <!-- Filtro de artículos por feed (News 28.4.0) -->
     <div
       v-if="filterOpen"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Filter articles')"
       style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
       @click.self="closeFilter"
     >
@@ -392,6 +395,9 @@
     <!-- Retención por feed -->
     <div
       v-if="retentionOpen"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Article retention')"
       style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
       @click.self="retentionOpen = false"
     >
@@ -422,6 +428,9 @@
     <!-- Ajustes de usuario -->
     <div
       v-if="settingsOpen"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Settings')"
       style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
       @click.self="settingsOpen = false"
     >
@@ -459,6 +468,44 @@
         </div>
       </div>
     </div>
+
+    <!-- Selector de feeds descubiertos -->
+    <div
+      v-if="discoverPickerOpen"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Select a feed')"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="discoverPickerOpen = false"
+    >
+      <div style="background: #fff; border-radius: 12px; padding: 20px; width: 440px; max-width: 92vw; box-shadow: 0 8px 32px rgba(0,0,0,0.25); color: #1a1a1a">
+        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">{{ $gettext('Select a feed') }}</h3>
+        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.6">
+          {{ $gettext('Multiple feeds were found on this site.') }}
+        </p>
+        <fieldset style="border: 0; margin: 0 0 16px; padding: 0; max-height: 260px; overflow-y: auto">
+          <label
+            v-for="(f, i) in discoverCandidates"
+            :key="f.url"
+            style="display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-radius: 6px; cursor: pointer; font-size: 13px"
+          >
+            <input v-model="discoverSelected" type="radio" name="discover-feed" :value="i" />
+            <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+              {{ f.title || f.url }}
+            </span>
+            <span style="font-size: 11px; opacity: 0.5; text-transform: uppercase">{{ f.type }}</span>
+          </label>
+        </fieldset>
+        <div style="display: flex; gap: 8px; justify-content: flex-end">
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="discoverPickerOpen = false">
+            {{ $gettext('Cancel') }}
+          </oc-button>
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="discoverSubscribing" @click="subscribeDiscovered">
+            {{ $gettext('Subscribe') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -491,7 +538,7 @@ import {
   Settings,
   Podcast
 } from 'lucide-vue-next'
-import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings } from '../api'
+import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings, DiscoveredFeed } from '../api'
 
 const { $gettext } = useGettext()
 const router = useRouter()
@@ -605,6 +652,11 @@ const retentionForm = ref(0)
 const settingsOpen = ref(false)
 const settingsSaving = ref(false)
 const settingsForm = ref<UserSettings>({ theme: 'system', readerMaxWidth: 'normal', feedIntervalMin: '' })
+
+const discoverPickerOpen = ref(false)
+const discoverCandidates = ref<DiscoveredFeed[]>([])
+const discoverSelected = ref(0)
+const discoverSubscribing = ref(false)
 
 const BATCH = 50
 
@@ -890,19 +942,10 @@ async function subscribeFeed() {
           return
         }
         if (res.feeds?.length > 1) {
-          const names = res.feeds.map((f) => f.title || f.url).join('\n')
-          const choice = window.prompt(
-            $gettext('Multiple feeds found on this site. Enter the number to subscribe (1-indexed):') + '\n' + names,
-            '1'
-          )
-          const idx = parseInt(choice ?? '', 10)
-          if (idx >= 1 && idx <= res.feeds.length) {
-            await api.addFeed(res.feeds[idx - 1].url, null)
-            newFeedUrl.value = ''
-            await loadSidebar()
-            await loadItems()
-            return
-          }
+          discoverCandidates.value = res.feeds
+          discoverSelected.value = 0
+          discoverPickerOpen.value = true
+          return
         }
       } catch {
         /* si discover también falla, caemos al error genérico */
@@ -913,6 +956,27 @@ async function subscribeFeed() {
     }
   } finally {
     subscribing.value = false
+  }
+}
+
+// subscribeDiscovered: suscribe el feed elegido en el selector de descubrimiento.
+async function subscribeDiscovered() {
+  const feed = discoverCandidates.value[discoverSelected.value]
+  if (!feed) {
+    discoverPickerOpen.value = false
+    return
+  }
+  discoverSubscribing.value = true
+  try {
+    await api.addFeed(feed.url, null)
+    newFeedUrl.value = ''
+    discoverPickerOpen.value = false
+    await loadSidebar()
+    await loadItems()
+  } catch (e) {
+    error.value = extractErrorMessage(e, $gettext('Could not subscribe to the feed'))
+  } finally {
+    discoverSubscribing.value = false
   }
 }
 
