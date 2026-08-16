@@ -62,7 +62,16 @@
             @mouseleave="hovered = ''"
             @click="select(entry)"
           >
-            <component :is="entry.icon" style="width: 16px; height: 16px; opacity: 0.7; flex-shrink: 0" />
+            <img
+              v-if="entry.kind === 'feed' && entry.favicon"
+              :src="entry.favicon"
+              alt=""
+              width="16"
+              height="16"
+              loading="lazy"
+              style="width: 16px; height: 16px; border-radius: 4px; object-fit: contain; flex-shrink: 0"
+            />
+            <component v-else :is="entry.icon" style="width: 16px; height: 16px; opacity: 0.7; flex-shrink: 0" />
             <span style="flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
               {{ entry.label }}
             </span>
@@ -130,7 +139,7 @@
     </aside>
 
     <!-- Lista -->
-    <section style="display: flex; flex-direction: column; flex: 1; min-width: 0">
+    <section style="display: flex; flex-direction: column; width: 380px; flex-shrink: 0; min-width: 0; border-right: 1px solid rgba(125, 125, 125, 0.15)">
       <header
         style="display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid rgba(125, 125, 125, 0.25); flex-wrap: wrap"
       >
@@ -215,7 +224,8 @@
               {{ item.title }}
             </p>
             <p style="margin: 2px 0 0; font-size: 12px; opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
-              {{ feedTitle(item.feedId) }}<span v-if="item.author"> · {{ item.author }}</span> · {{ fmtDate(item.pubDate) }}
+              <img v-if="feedIcon(item.feedId)" :src="feedIcon(item.feedId)" alt="" width="12" height="12" loading="lazy" style="width: 12px; height: 12px; border-radius: 3px; object-fit: contain; vertical-align: -1px; margin-right: 4px" />
+              {{ feedTitle(item.feedId) }}<span v-if="item.author"> · {{ item.author }}</span> · {{ fmtRelative(item.pubDate) }}
             </p>
           </div>
           <button
@@ -312,8 +322,9 @@
           preload="metadata"
           style="width: 100%; border-radius: 8px; margin: 0 0 12px; max-height: 60vh; background: #000"
         />
-        <p style="font-size: 12px; opacity: 0.6; margin: 0 0 12px">
-          {{ feedTitle(detail.feedId) }} · {{ fmtDate(detail.pubDate) }}
+        <p style="font-size: 12px; opacity: 0.6; margin: 0 0 12px; display: flex; align-items: center; gap: 4px">
+          <img v-if="feedIcon(detail.feedId)" :src="feedIcon(detail.feedId)" alt="" width="14" height="14" loading="lazy" style="width: 14px; height: 14px; border-radius: 3px; object-fit: contain" />
+          <span>{{ feedTitle(detail.feedId) }} · {{ fmtRelative(detail.pubDate) }}</span>
           <span v-if="fullLoading" style="opacity: 0.7"> · {{ $gettext('loading full article…') }}</span>
           <span v-else-if="fullFailed" style="color: #d97706">
             · {{ $gettext('full article not available — open the original') }}
@@ -606,6 +617,7 @@ type NavEntry = {
   unread: number
   error?: string
   indent?: boolean
+  favicon?: string
 }
 
 const selection = computed<Selection>(() => {
@@ -649,7 +661,8 @@ const navEntries = computed<NavEntry[]>(() => {
         sel: { kind: 'feed', id: f.id },
         unread: f.unreadCount,
         error: f.updateErrorCount > 0 ? f.lastUpdateError ?? `${f.updateErrorCount} errors` : undefined,
-        indent: true
+        indent: true,
+        favicon: f.faviconLink
       })
     }
   }
@@ -662,7 +675,8 @@ const navEntries = computed<NavEntry[]>(() => {
       sel: { kind: 'feed', id: f.id },
       unread: f.unreadCount,
       error: f.updateErrorCount > 0 ? f.lastUpdateError ?? `${f.updateErrorCount} errors` : undefined,
-      indent: true
+      indent: true,
+      favicon: f.faviconLink
     })
   }
   return entries
@@ -721,6 +735,10 @@ function feedTitle(feedId: number) {
   return feeds.value.find((f) => f.id === feedId)?.title ?? ''
 }
 
+function feedIcon(feedId: number): string {
+  return feeds.value.find((f) => f.id === feedId)?.faviconLink ?? ''
+}
+
 function fmtDate(epoch: number) {
   return new Date(epoch * 1000).toLocaleDateString(undefined, {
     day: 'numeric',
@@ -728,6 +746,24 @@ function fmtDate(epoch: number) {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+// fmtRelative: "hace 3 min", "hace 2 h" para tiempos cortos; fecha completa
+// más allá de un día. i18n con plurales básicos.
+function fmtRelative(epoch: number) {
+  if (!epoch) return ''
+  const now = Date.now() / 1000
+  let secs = Math.round(now - epoch)
+  if (secs < 60) return $gettext('just now')
+  if (secs < 3600) {
+    const m = Math.floor(secs / 60)
+    return $gettextn('%d min ago', '%d min ago', m).replace('%d', String(m))
+  }
+  if (secs < 86400) {
+    const h = Math.floor(secs / 3600)
+    return $gettextn('%d h ago', '%d h ago', h).replace('%d', String(h))
+  }
+  return fmtDate(epoch)
 }
 
 async function loadSidebar() {

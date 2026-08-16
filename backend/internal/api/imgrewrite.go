@@ -54,3 +54,17 @@ func (s *Server) mediaMime(m string) bool {
 	return strings.HasPrefix(m, "audio/") || strings.HasPrefix(m, "video/") ||
 		strings.HasPrefix(m, "image/")
 }
+
+// rewriteFavicon proxifica la URL del favicon de un feed hacia el proxy
+// firmado (el <img> del navegador no lleva auth y la CSP del host bloquea
+// dominios externos). Devuelve la URL firmada, o la original si no hay proxy.
+func (s *Server) rewriteFavicon(faviconLink string) string {
+	if faviconLink == "" || s.imgs == nil {
+		return faviconLink
+	}
+	if !strings.HasPrefix(faviconLink, "http") {
+		return faviconLink
+	}
+	u := html.UnescapeString(faviconLink)
+	return Base + "/img?u=" + url.QueryEscape(u) + "&t=" + s.imgs.Sign(u)
+}
