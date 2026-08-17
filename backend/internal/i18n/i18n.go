@@ -104,6 +104,34 @@ var messages = map[string]map[Lang]string{
 		ES: "error interno",
 		EN: "internal error",
 	},
+	"full_unavailable": {
+		ES: "no se ha podido extraer el artículo completo",
+		EN: "full article extraction unavailable",
+	},
+	"no_feeds_found": {
+		ES: "no se han encontrado feeds en esa página",
+		EN: "no feeds found on that page",
+	},
+	"invalid_query": {
+		ES: "búsqueda no válida",
+		EN: "invalid search query",
+	},
+	"invalid_theme": {
+		ES: "tema no válido",
+		EN: "invalid theme",
+	},
+	"invalid_reader_width": {
+		ES: "ancho del lector no válido",
+		EN: "invalid reader width",
+	},
+	"invalid_feed_interval": {
+		ES: "intervalo de refresco no válido (5-1440 minutos)",
+		EN: "invalid refresh interval (5-1440 minutes)",
+	},
+	"invalid_retention": {
+		ES: "retención no válida (0-3650 días)",
+		EN: "invalid retention (0-3650 days)",
+	},
 }
 
 // T devuelve el mensaje traducido; claves desconocidas caen en internal_error.

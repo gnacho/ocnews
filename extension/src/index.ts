@@ -9,6 +9,7 @@ import '@opencloud-eu/extension-sdk/tailwind.css'
 import { RouteRecordRaw } from 'vue-router'
 import { computed } from 'vue'
 import { useGettext } from 'vue3-gettext'
+import translations from '../l10n/translations.json'
 
 export default defineWebApplication({
   setup(args) {
@@ -91,7 +92,8 @@ export default defineWebApplication({
     return {
       appInfo,
       routes,
-      extensions: extensions(args)
+      extensions: extensions(args),
+      translations
     }
   }
 })
