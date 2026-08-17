@@ -110,8 +110,9 @@ func TestRefreshNoNewItemsDoubles(t *testing.T) {
 	if after.NoNewStreak != 1 {
 		t.Errorf("racha debe ser 1: %d", after.NoNewStreak)
 	}
-	// sin novedades (racha 1) → 2m ±20%: entre 96s y 144s
-	if g := gapUntil(after.NextUpdateTime); g < 96*time.Second || g > 144*time.Second {
+	// sin novedades (racha 1) → 2m ±20%: entre 96s y 144s.
+	// Margen inferior 95s: gapUntil mide tras operaciones (resta latencia real).
+	if g := gapUntil(after.NextUpdateTime); g < 95*time.Second || g > 145*time.Second {
 		t.Errorf("gap sin novedades: %v", g)
 	}
 }
@@ -131,8 +132,9 @@ func TestRefreshErrorBackoff(t *testing.T) {
 	if got.UpdateErrorCount != 1 || got.LastUpdateError == nil {
 		t.Fatalf("error no registrado: %+v", got)
 	}
-	// 1er error → 2m ±20% (interval 1m << 1)
-	if g := gapUntil(got.NextUpdateTime); g < 96*time.Second || g > 144*time.Second {
+	// 1er error → 2m ±20% (interval 1m << 1). Margen inferior 95s por la
+	// latencia de medición de gapUntil (time.Until tras las operaciones).
+	if g := gapUntil(got.NextUpdateTime); g < 95*time.Second || g > 145*time.Second {
 		t.Errorf("gap backoff 1er error: %v", g)
 	}
 }
