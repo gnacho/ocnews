@@ -1,6 +1,7 @@
 package cred
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -67,10 +68,10 @@ func TestDecryptWrongKey(t *testing.T) {
 	c1, _ := Load(t.TempDir())
 	c2, _ := Load(t.TempDir())
 	enc, _ := c1.Encrypt("abc")
-	if _, err := c2.Decrypt(enc); err != ErrDecrypt {
+	if _, err := c2.Decrypt(enc); !errors.Is(err, ErrDecrypt) {
 		t.Fatalf("esperaba ErrDecrypt: %v", err)
 	}
-	if _, err := c1.Decrypt("no-es-base64!!!"); err != ErrDecrypt {
+	if _, err := c1.Decrypt("no-es-base64!!!"); !errors.Is(err, ErrDecrypt) {
 		t.Fatalf("base64 inválido: %v", err)
 	}
 }
