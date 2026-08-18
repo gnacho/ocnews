@@ -4,6 +4,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
+	sqlite "modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 var ErrNotFound = errors.New("not found")
@@ -25,9 +28,23 @@ func (s *Store) CreateUserWithOCID(username, ocID, passwordHash, displayName, ro
 		`INSERT INTO users (username, password_hash, display_name, role, language, oc_id, created_at) VALUES (?, ?, ?, ?, 'auto', ?, ?)`,
 		username, passwordHash, displayName, role, ocID, now())
 	if err != nil {
+		if isUniqueViolation(err) {
+			return 0, ErrConflict
+		}
 		return 0, fmt.Errorf("crear usuario: %w", err)
 	}
 	return res.LastInsertId()
+}
+
+// isUniqueViolation detecta un error de constraint UNIQUE (código 2067) de
+// SQLite, p.ej. un shadow user con un oc_id ya existente por una carrera entre
+// dos requests del mismo usuario OpenCloud.
+func isUniqueViolation(err error) bool {
+	var se *sqlite.Error
+	if errors.As(err, &se) {
+		return se.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE
+	}
+	return false
 }
 
 // SetUserOCID vincula el oc_id a un usuario existente (p.ej. shadow Basic
