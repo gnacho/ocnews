@@ -34,6 +34,29 @@
             <Plus style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Add') }}
           </oc-button>
         </div>
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 8px; cursor: pointer; opacity: 0.8">
+          <input v-model="newFeedAuth" type="checkbox" />
+          {{ $gettext('Requires authentication') }}
+        </label>
+        <div v-if="newFeedAuth" style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px">
+          <input
+            v-model="newFeedUser"
+            type="text"
+            autocomplete="off"
+            :placeholder="$gettext('Username')"
+            :aria-label="$gettext('Username')"
+            style="font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
+          />
+          <input
+            v-model="newFeedPass"
+            type="password"
+            autocomplete="new-password"
+            :placeholder="$gettext('Password')"
+            :aria-label="$gettext('Password')"
+            style="font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
+            @keydown.enter="subscribeFeed"
+          />
+        </div>
       </div>
 
       <!-- Sidebar nav -->
@@ -49,7 +72,7 @@
             :title="$gettext('New folder')"
             @click="createFolder"
           >
-            <FolderPlus style="width: 16px; height: 16px" />
+            <FolderPlus style="width: 16px; height: 16px" />&nbsp;<span style="font-size: 12px">{{ $gettext('New folder') }}</span>
           </oc-button>
         </div>
 
@@ -102,6 +125,7 @@
           >
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Rename')" @click="renameFeed(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Move to folder…')" @click="moveFeed(entry)" />
+            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Credentials…')" @click="openCredentials(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Filter articles…')" @click="openFilter(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Retention…')" @click="openRetention(entry)" />
             <MenuBtn v-if="entry.kind === 'folder'" :label="$gettext('Rename')" @click="renameFolder(entry)" />
@@ -120,10 +144,10 @@
         </template>
       </nav>
 
-      <!-- Pie: Settings (OPML vive dentro del diálogo de ajustes) -->
-      <div style="padding: 8px; border-top: 1px solid var(--news-border-light); display: flex; gap: 12px">
-        <oc-button variation="passive" appearance="raw" style="font-size: 13px" :aria-label="$gettext('Settings')" :title="$gettext('Settings')" @click="openSettings">
-          <Settings style="width: 16px; height: 16px" />
+      <!-- Pie: Ajustes (OPML vive dentro del diálogo de ajustes) -->
+      <div style="padding: 8px; border-top: 1px solid var(--news-border-light)">
+        <oc-button variation="passive" appearance="outline" style="width: 100%; justify-content: flex-start; font-size: 13px" @click="openSettings">
+          <Settings style="width: 16px; height: 16px" />&nbsp;{{ $gettext('News settings') }}
         </oc-button>
         <input
           ref="opmlInputEl"
@@ -273,9 +297,9 @@
       v-if="detail"
       style="display: flex; flex-direction: column; flex: 1; min-width: 0; border-left: 1px solid var(--news-border)"
     >
-      <header style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--news-border)">
+      <header style="display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-bottom: 1px solid var(--news-border)">
         <oc-button variation="passive" appearance="raw" :aria-label="$gettext('Back')" @click="detail = null">
-          <X style="width: 16px; height: 16px" />
+          <X style="width: 20px; height: 20px" />
         </oc-button>
         <h2 style="flex: 1; font-size: 17px; font-weight: 600; margin: 0">
           <a :href="detail.url" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none">
@@ -291,7 +315,7 @@
           :disabled="fullLoading"
           @click="toggleFull"
         >
-          <BookOpenText style="width: 16px; height: 16px" :style="fullBody ? 'color: var(--news-primary)' : ''" />
+          <BookOpenText style="width: 20px; height: 20px" :style="fullBody ? 'color: var(--news-primary)' : ''" />
         </oc-button>
         <oc-button
           variation="passive"
@@ -300,26 +324,26 @@
           :title="detail.unread ? $gettext('Mark as read') : $gettext('Mark as unread')"
           @click="toggleUnread(detail)"
         >
-          <MailOpen style="width: 16px; height: 16px" />
+          <MailOpen style="width: 20px; height: 20px" />
         </oc-button>
         <oc-button
           variation="passive"
           appearance="raw"
           :aria-label="detail.starred ? $gettext('Unstar') : $gettext('Star')"
+          :title="detail.starred ? $gettext('Unstar') : $gettext('Star')"
           @click="toggleStar(detail)"
         >
-          <Star style="width: 16px; height: 16px" :fill="detail.starred ? 'currentColor' : 'none'" />
+          <Star style="width: 20px; height: 20px" :fill="detail.starred ? 'currentColor' : 'none'" />
         </oc-button>
-        <a
-          :href="detail.url"
-          target="_blank"
-          rel="noopener noreferrer"
+        <oc-button
+          variation="passive"
+          appearance="raw"
           :aria-label="$gettext('Open in new tab')"
           :title="$gettext('Open in new tab')"
-          style="color: inherit; display: inline-flex; padding: 4px"
+          @click="openOriginal"
         >
-          <ExternalLink style="width: 16px; height: 16px" />
-        </a>
+          <ExternalLink style="width: 20px; height: 20px" />
+        </oc-button>
       </header>
       <div style="flex: 1; overflow-y: auto; padding: 12px 16px">
         <audio
@@ -550,6 +574,101 @@
         </div>
       </div>
     </div>
+    <!-- Diálogo de texto genérico (nueva carpeta / renombrar feed / renombrar carpeta) -->
+    <div
+      v-if="textPrompt"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="textPrompt.title"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="textPrompt = null"
+    >
+      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 360px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
+        <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 600">{{ textPrompt.title }}</h3>
+        <input
+          ref="textPromptInput"
+          v-model="textPrompt.value"
+          type="text"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 16px"
+          @keydown.enter="confirmTextPrompt"
+        />
+        <div style="display: flex; gap: 8px; justify-content: flex-end">
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="textPrompt = null">
+            {{ $gettext('Cancel') }}
+          </oc-button>
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="textPromptSaving" @click="confirmTextPrompt">
+            {{ $gettext('Save') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mover feed a carpeta -->
+    <div
+      v-if="moveOpen"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Move to folder')"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="moveOpen = false"
+    >
+      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 360px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
+        <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 600">{{ $gettext('Move to folder') }}</h3>
+        <select v-model="moveFolderSel" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 16px">
+          <option :value="0">{{ $gettext('No folder') }}</option>
+          <option v-for="fo in folders" :key="fo.id" :value="fo.id">{{ fo.name }}</option>
+        </select>
+        <div style="display: flex; gap: 8px; justify-content: flex-end">
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="moveOpen = false">
+            {{ $gettext('Cancel') }}
+          </oc-button>
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="moveSaving" @click="confirmMove">
+            {{ $gettext('Save') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Credenciales del feed (Basic auth) -->
+    <div
+      v-if="credOpen"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Feed credentials')"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="credOpen = false"
+    >
+      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 380px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
+        <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 600">{{ $gettext('Feed credentials') }}</h3>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Username') }}</label>
+        <input
+          v-model="credUser"
+          type="text"
+          autocomplete="off"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 10px"
+        />
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Password') }}</label>
+        <input
+          v-model="credPass"
+          type="password"
+          autocomplete="new-password"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 4px"
+        />
+        <p style="margin: 0 0 16px; font-size: 11px; opacity: 0.6">{{ $gettext('Leave the password empty to keep the current one.') }}</p>
+        <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center">
+          <oc-button v-if="credHasAuth" variation="passive" appearance="raw" style="font-size: 13px; color: var(--news-error)" @click="removeCredentials">
+            {{ $gettext('Remove credentials') }}
+          </oc-button>
+          <span style="flex: 1"></span>
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="credOpen = false">
+            {{ $gettext('Cancel') }}
+          </oc-button>
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="credSaving" @click="saveCredentials">
+            {{ $gettext('Save') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -630,6 +749,9 @@ const fullFailed = ref(false)
 const loading = ref(false)
 const error = ref('')
 const newFeedUrl = ref('')
+const newFeedAuth = ref(false)
+const newFeedUser = ref('')
+const newFeedPass = ref('')
 const subscribing = ref(false)
 const refreshing = ref(false)
 const openMenu = ref('')
@@ -1042,20 +1164,32 @@ async function subscribeFeed() {
   if (!url) return
   subscribing.value = true
   error.value = ''
+  const authUser = newFeedAuth.value ? newFeedUser.value.trim() : ''
+  const authPass = newFeedAuth.value ? newFeedPass.value : ''
   try {
-    await api.addFeed(url, null)
+    await api.addFeed(url, null, authUser, authPass)
     newFeedUrl.value = ''
+    newFeedAuth.value = false
+    newFeedUser.value = ''
+    newFeedPass.value = ''
     await loadSidebar()
     await loadItems()
   } catch (e: unknown) {
-    const status = (e as { response?: { status?: number } })?.response?.status
-    if (status === 422) {
+    const resp = (e as { response?: { status?: number; data?: { error?: { code?: string; message?: string } } } })?.response
+    if (resp?.data?.error?.code === 'feed_auth_required') {
+      // el origen pide auth: abrir los campos de credenciales y avisar
+      newFeedAuth.value = true
+      error.value = resp.data.error.message || $gettext('This feed requires authentication (username and password)')
+    } else if (resp?.status === 422) {
       // no es un feed directo: probar autodetección en la URL del sitio
       try {
         const res = await api.discover(url)
         if (res.feeds?.length === 1) {
-          await api.addFeed(res.feeds[0].url, null)
+          await api.addFeed(res.feeds[0].url, null, authUser, authPass)
           newFeedUrl.value = ''
+          newFeedAuth.value = false
+          newFeedUser.value = ''
+          newFeedPass.value = ''
           await loadSidebar()
           await loadItems()
           return
@@ -1087,8 +1221,11 @@ async function subscribeDiscovered() {
   }
   discoverSubscribing.value = true
   try {
-    await api.addFeed(feed.url, null)
+    await api.addFeed(feed.url, null, newFeedAuth.value ? newFeedUser.value.trim() : '', newFeedAuth.value ? newFeedPass.value : '')
     newFeedUrl.value = ''
+    newFeedAuth.value = false
+    newFeedUser.value = ''
+    newFeedPass.value = ''
     discoverPickerOpen.value = false
     await loadSidebar()
     await loadItems()
@@ -1099,14 +1236,36 @@ async function subscribeDiscovered() {
   }
 }
 
-async function createFolder() {
-  const name = window.prompt($gettext('Folder name'))
-  if (!name?.trim()) return
+// Diálogo de texto genérico (sustituye window.prompt, que el host puede
+// suprimir): nueva carpeta, renombrar feed, renombrar carpeta.
+type TextPromptAction = 'newFolder' | 'renameFeed' | 'renameFolder'
+const textPrompt = ref<{ action: TextPromptAction; title: string; value: string; entryKey?: string } | null>(null)
+const textPromptSaving = ref(false)
+
+function createFolder() {
+  textPrompt.value = { action: 'newFolder', title: $gettext('New folder'), value: '' }
+}
+
+async function confirmTextPrompt() {
+  const p = textPrompt.value
+  if (!p || !p.value.trim()) return
+  textPromptSaving.value = true
   try {
-    await api.addFolder(name.trim())
+    if (p.action === 'newFolder') {
+      await api.addFolder(p.value.trim())
+    } else if (p.action === 'renameFeed') {
+      const f = feeds.value.find((x) => `feed-${x.id}` === p.entryKey)
+      if (f) await api.renameFeed(f.id, p.value.trim())
+    } else {
+      const fo = folders.value.find((x) => `folder-${x.id}` === p.entryKey)
+      if (fo) await api.renameFolder(fo.id, p.value.trim())
+    }
+    textPrompt.value = null
     await loadSidebar()
   } catch (e) {
-    error.value = $gettext('Could not create folder: ') + errText(e)
+    error.value = errText(e)
+  } finally {
+    textPromptSaving.value = false
   }
 }
 
@@ -1121,32 +1280,95 @@ async function renameFeed(entry: NavEntry) {
   openMenu.value = ''
   const f = entryFeed(entry)
   if (!f) return
-  const title = window.prompt($gettext('New title'), f.title)
-  if (!title?.trim()) return
-  await api.renameFeed(f.id, title.trim())
-  await loadSidebar()
+  textPrompt.value = { action: 'renameFeed', title: $gettext('Rename'), value: f.title, entryKey: entry.key }
 }
+
+// Mover a carpeta con selector (antes: window.prompt con el nombre a mano).
+const moveOpen = ref(false)
+const moveFeedId = ref(0)
+const moveFolderSel = ref(0)
+const moveSaving = ref(false)
 
 async function moveFeed(entry: NavEntry) {
   openMenu.value = ''
   const f = entryFeed(entry)
   if (!f) return
-  const names = folders.value.map((fo) => fo.name).join(', ')
-  const raw = window.prompt($gettext('Move to folder (name, empty = none)') + (names ? ` [${names}]` : ''), '')
-  if (raw === null) return
-  const target = folders.value.find((fo) => fo.name.toLowerCase() === raw.trim().toLowerCase())
-  await api.moveFeed(f.id, target ? target.id : null)
-  await loadSidebar()
+  moveFeedId.value = f.id
+  moveFolderSel.value = f.folderId ?? 0
+  moveOpen.value = true
+}
+
+async function confirmMove() {
+  moveSaving.value = true
+  try {
+    await api.moveFeed(moveFeedId.value, moveFolderSel.value || null)
+    moveOpen.value = false
+    await loadSidebar()
+  } catch (e) {
+    error.value = errText(e)
+  } finally {
+    moveSaving.value = false
+  }
 }
 
 async function renameFolder(entry: NavEntry) {
   openMenu.value = ''
   const fo = entryFolder(entry)
   if (!fo) return
-  const name = window.prompt($gettext('New name'), fo.name)
-  if (!name?.trim()) return
-  await api.renameFolder(fo.id, name.trim())
-  await loadSidebar()
+  textPrompt.value = { action: 'renameFolder', title: $gettext('Rename'), value: fo.name, entryKey: entry.key }
+}
+
+// Credenciales Basic del feed (#27).
+const credOpen = ref(false)
+const credFeedId = ref(0)
+const credUser = ref('')
+const credPass = ref('')
+const credHasAuth = ref(false)
+const credSaving = ref(false)
+
+function openCredentials(entry: NavEntry) {
+  openMenu.value = ''
+  const f = entryFeed(entry)
+  if (!f) return
+  credFeedId.value = f.id
+  credUser.value = f.authUser || ''
+  credPass.value = ''
+  credHasAuth.value = !!f.authUser
+  credOpen.value = true
+}
+
+async function saveCredentials() {
+  if (!credUser.value.trim()) {
+    error.value = $gettext('Username is required to set credentials')
+    return
+  }
+  credSaving.value = true
+  try {
+    await api.setFeedCredentials(credFeedId.value, credUser.value.trim(), credPass.value)
+    credOpen.value = false
+    await loadSidebar()
+  } catch (e) {
+    error.value = extractErrorMessage(e, $gettext('Could not save credentials'))
+  } finally {
+    credSaving.value = false
+  }
+}
+
+async function removeCredentials() {
+  credSaving.value = true
+  try {
+    await api.setFeedCredentials(credFeedId.value, '', '')
+    credOpen.value = false
+    await loadSidebar()
+  } catch (e) {
+    error.value = extractErrorMessage(e, $gettext('Could not save credentials'))
+  } finally {
+    credSaving.value = false
+  }
+}
+
+function openOriginal() {
+  if (detail.value?.url) window.open(detail.value.url, '_blank', 'noopener,noreferrer')
 }
 
 async function markEntryRead(entry: NavEntry) {

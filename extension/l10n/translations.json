@@ -100,7 +100,19 @@
   "Default": "Predeterminada",
   "Serif": "Con serifa",
   "Sans-serif": "Sin serifa",
-  "Monospace": "Monoespaciada"
+  "Monospace": "Monoespaciada",
+  "Requires authentication": "Requiere autenticación",
+  "Username": "Usuario",
+  "Password": "Contraseña",
+  "This feed requires authentication (username and password)": "Este feed requiere autenticación (usuario y contraseña)",
+  "Move to folder": "Mover a carpeta",
+  "No folder": "Sin carpeta",
+  "Credentials…": "Credenciales…",
+  "Feed credentials": "Credenciales del feed",
+  "Leave the password empty to keep the current one.": "Deja la contraseña vacía para conservar la actual.",
+  "Remove credentials": "Quitar credenciales",
+  "Username is required to set credentials": "El usuario es obligatorio para guardar las credenciales",
+  "Could not save credentials": "No se han podido guardar las credenciales"
  },
  "en": {
   "Add": "Add",
@@ -203,6 +215,18 @@
   "Default": "Default",
   "Serif": "Serif",
   "Sans-serif": "Sans-serif",
-  "Monospace": "Monospace"
+  "Monospace": "Monospace",
+  "Requires authentication": "Requires authentication",
+  "Username": "Username",
+  "Password": "Password",
+  "This feed requires authentication (username and password)": "This feed requires authentication (username and password)",
+  "Move to folder": "Move to folder",
+  "No folder": "No folder",
+  "Credentials…": "Credentials…",
+  "Feed credentials": "Feed credentials",
+  "Leave the password empty to keep the current one.": "Leave the password empty to keep the current one.",
+  "Remove credentials": "Remove credentials",
+  "Username is required to set credentials": "Username is required to set credentials",
+  "Could not save credentials": "Could not save credentials"
  }
 }
