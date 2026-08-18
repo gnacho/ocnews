@@ -11,6 +11,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -64,6 +65,8 @@ type OpenCloudValidator struct {
 
 	mu    sync.Mutex
 	cache map[string]cacheEntry // sha256(cred) → {userID, expira}
+
+	upsertMu sync.Mutex // serializa upsertShadow (read-then-create)
 }
 
 type cacheEntry struct {
@@ -149,6 +152,9 @@ func (o *OpenCloudValidator) Validate(ctx context.Context, cred Credential) (*st
 // vincula); si tampoco, se crea. Con Bearer el username preferido es el
 // account name del IDM, no el uuid.
 func (o *OpenCloudValidator) upsertShadow(cred Credential, me graphMe) (*store.User, error) {
+	o.upsertMu.Lock()
+	defer o.upsertMu.Unlock()
+
 	if me.ID != "" {
 		if u, err := o.Store.GetUserByOCID(me.ID); err == nil {
 			if me.DisplayName != "" && u.DisplayName != me.DisplayName {
@@ -188,6 +194,16 @@ func (o *OpenCloudValidator) upsertShadow(cred Credential, me graphMe) (*store.U
 		role = "admin"
 	}
 	if _, err := o.Store.CreateUserWithOCID(username, me.ID, "shadow:"+string(n), me.DisplayName, role); err != nil {
+		if errors.Is(err, store.ErrConflict) {
+			if me.ID != "" {
+				if u, e := o.Store.GetUserByOCID(me.ID); e == nil {
+					return u, nil
+				}
+			}
+			if u, e := o.Store.GetUserByUsername(username); e == nil {
+				return u, nil
+			}
+		}
 		return nil, fmt.Errorf("crear shadow: %w", err)
 	}
 	o.Log.Info("usuario opencloud vinculado", "username", username, "display", me.DisplayName)

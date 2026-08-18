@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -108,5 +109,62 @@ func TestOpenCloudValidatorBasicAndBearerUnify(t *testing.T) {
 	}
 	if _, ok := lv.Validate(context.Background(), Credential{Username: "nacho", Password: "app-token-xyz"}); ok {
 		t.Fatal("el shadow no debe autenticar localmente")
+	}
+}
+
+// TestOpenCloudValidatorConcurrentShadowCreate: dos credenciales del MISMO
+// usuario OpenCloud (Basic app-token y Bearer sesión web) entran a la vez en
+// una BD vacía. Ambas deben resolver al mismo shadow SIN error de UNIQUE
+// (carrera read-then-create de upsertShadow, issue #18).
+func TestOpenCloudValidatorConcurrentShadowCreate(t *testing.T) {
+	st := newStore(t)
+	fg := &fakeGraph{password: "app-token-xyz", bearer: "oidc-access-tok"}
+	ts := httptest.NewServer(fg.handler(t))
+	t.Cleanup(ts.Close)
+
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	v := NewOpenCloudValidator(st, ts.URL, log)
+
+	const n = 32
+	creds := make([]Credential, n)
+	for i := range creds {
+		if i%2 == 0 {
+			creds[i] = Credential{Username: "nacho", Password: "app-token-xyz"}
+		} else {
+			creds[i] = Credential{Bearer: "oidc-access-tok"}
+		}
+	}
+
+	var wg sync.WaitGroup
+	errs := make([]error, n)
+	ids := make([]int64, n)
+	for i := range creds {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			u, ok := v.Validate(context.Background(), creds[i])
+			if !ok {
+				errs[i] = fmt.Errorf("validate falló con credencial %d", i)
+				return
+			}
+			ids[i] = u.ID
+		}(i)
+	}
+	wg.Wait()
+
+	var firstID int64
+	for i := range creds {
+		if errs[i] != nil {
+			t.Fatalf("request %d: %v (¿carrera UNIQUE?)", i, errs[i])
+		}
+		if i == 0 {
+			firstID = ids[i]
+		} else if ids[i] != firstID {
+			t.Fatalf("request %d resuelve a otro shadow: %d != %d", i, ids[i], firstID)
+		}
+	}
+	// la BD debe tener UN solo shadow user
+	if nUsers, err := st.CountUsers(); err != nil || nUsers != 1 {
+		t.Fatalf("esperaba 1 usuario, hay %d (err=%v)", nUsers, err)
 	}
 }
