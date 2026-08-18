@@ -220,7 +220,7 @@
           @click="openItem(item)"
         >
           <div style="flex: 1; min-width: 0">
-            <p style="margin: 0; font-size: 18px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+            <p style="margin: 0; font-size: 17px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
               {{ item.title }}
             </p>
             <p
@@ -277,7 +277,7 @@
         <oc-button variation="passive" appearance="raw" :aria-label="$gettext('Back')" @click="detail = null">
           <X style="width: 16px; height: 16px" />
         </oc-button>
-        <h2 style="flex: 1; font-size: 15px; font-weight: 600; margin: 0">
+        <h2 style="flex: 1; font-size: 17px; font-weight: 600; margin: 0">
           <a :href="detail.url" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none">
             {{ detail.title }}
           </a>
@@ -352,6 +352,16 @@
           v-html="detailBody"
         />
       </div>
+    </section>
+
+    <!-- Estado vacío: ningún artículo seleccionado -->
+    <section
+      v-else
+      style="display: flex; flex-direction: column; flex: 1; min-width: 0; align-items: center; justify-content: center; gap: 8px; padding: 24px; text-align: center"
+    >
+      <Newspaper style="width: 64px; height: 64px; opacity: 0.25" />
+      <p style="margin: 8px 0 0; font-size: 18px; font-weight: 600">{{ $gettext('No article selected') }}</p>
+      <p style="margin: 0; font-size: 14px; opacity: 0.6">{{ $gettext('Please select an article from the list.') }}</p>
     </section>
 
     <!-- Filtro de artículos por feed (News 28.4.0) -->
