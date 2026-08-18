@@ -20,15 +20,16 @@ UNINSTALL=0
 PURGE=0
 VERSION=""
 
-for arg in "$@"; do
-  case "$arg" in
+while [ $# -gt 0 ]; do
+  case "$1" in
     --dry-run) DRY_RUN=1 ;;
     --uninstall) UNINSTALL=1 ;;
     --purge) UNINSTALL=1; PURGE=1 ;;
     --version) shift; VERSION="${1:-}" ;;
-    --version=*) VERSION="${arg#*=}" ;;
+    --version=*) VERSION="${1#*=}" ;;
     *) echo "Uso: $0 [--dry-run] [--uninstall] [--purge] [--version vX.Y.Z]"; exit 1 ;;
   esac
+  shift
 done
 
 if [ -t 0 ]; then
