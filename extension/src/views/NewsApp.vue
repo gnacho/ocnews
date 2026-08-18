@@ -120,14 +120,8 @@
         </template>
       </nav>
 
-      <!-- OPML -->
+      <!-- Pie: Settings (OPML vive dentro del diálogo de ajustes) -->
       <div style="padding: 8px; border-top: 1px solid var(--news-border-light); display: flex; gap: 12px">
-        <oc-button variation="passive" appearance="raw" style="font-size: 13px" @click="exportOpml">
-          <Download style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Export OPML') }}
-        </oc-button>
-        <oc-button variation="passive" appearance="raw" style="font-size: 13px" @click="opmlInputEl?.click()">
-          <Upload style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Import OPML') }}
-        </oc-button>
         <oc-button variation="passive" appearance="raw" style="font-size: 13px" :aria-label="$gettext('Settings')" :title="$gettext('Settings')" @click="openSettings">
           <Settings style="width: 16px; height: 16px" />
         </oc-button>
@@ -226,7 +220,7 @@
           @click="openItem(item)"
         >
           <div style="flex: 1; min-width: 0">
-            <p style="margin: 0; font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+            <p style="margin: 0; font-size: 18px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
               {{ item.title }}
             </p>
             <p
@@ -344,7 +338,7 @@
         />
         <p style="font-size: 12px; opacity: 0.6; margin: 0 0 12px; display: flex; align-items: center; gap: 4px">
           <img v-if="feedIcon(detail.feedId)" :src="feedIcon(detail.feedId)" alt="" width="14" height="14" loading="lazy" style="width: 14px; height: 14px; border-radius: 3px; object-fit: contain" />
-          <span>{{ feedTitle(detail.feedId) }} · {{ fmtRelative(detail.pubDate) }}</span>
+          <span>{{ feedTitle(detail.feedId) }}<span v-if="detail.author"> · {{ detail.author }}</span> · {{ fmtRelative(detail.pubDate) }}</span>
           <span v-if="fullLoading" style="opacity: 0.7"> · {{ $gettext('loading full article…') }}</span>
           <span v-else-if="fullFailed" style="color: var(--news-warning)">
             · {{ $gettext('full article not available — open the original') }}
@@ -478,6 +472,15 @@
           style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 16px"
         />
         <p style="margin: 0 0 16px; font-size: 11px; opacity: 0.6">{{ $gettext('Leave empty for the server default (15 min).') }}</p>
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 16px">
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="exportOpml">
+            <Download style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Export OPML') }}
+          </oc-button>
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="opmlInputEl?.click()">
+            <Upload style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Import OPML') }}
+          </oc-button>
+          <span style="font-size: 11px; opacity: 0.6">{{ $gettext('Back up or restore your subscriptions.') }}</span>
+        </div>
         <div style="display: flex; gap: 8px; justify-content: flex-end">
           <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="settingsOpen = false">
             {{ $gettext('Cancel') }}
