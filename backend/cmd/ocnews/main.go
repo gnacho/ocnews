@@ -25,6 +25,12 @@ import (
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
 
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	if err := run(); err != nil {
 		slog.Error("fatal", "err", err)
@@ -109,7 +115,7 @@ func run() error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Info("ocnews-backend escuchando", "addr", cfg.Addr, "db", cfg.DBPath(), "api", api.Base)
+		log.Info("ocnews-backend escuchando", "version", version, "commit", commit, "date", date, "addr", cfg.Addr, "db", cfg.DBPath(), "api", api.Base)
 		errCh <- srv.ListenAndServe()
 	}()
 
