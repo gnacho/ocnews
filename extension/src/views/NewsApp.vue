@@ -1,11 +1,14 @@
 <template>
-  <main style="display: flex; height: 100%; width: 100%; overflow: hidden">
+  <main
+    :class="themeClass"
+    style="display: flex; height: 100%; width: 100%; overflow: hidden; background: var(--news-bg); color: var(--news-fg)"
+  >
     <!-- Sidebar -->
     <aside
-      style="display: flex; flex-direction: column; width: 280px; flex-shrink: 0; border-right: 1px solid rgba(125, 125, 125, 0.25); overflow: hidden"
+      style="display: flex; flex-direction: column; width: 280px; flex-shrink: 0; border-right: 1px solid var(--news-border); overflow: hidden"
     >
       <!-- Add feed -->
-      <div style="padding: 12px; border-bottom: 1px solid rgba(125, 125, 125, 0.2)">
+      <div style="padding: 12px; border-bottom: 1px solid var(--news-border-light)">
         <label
           for="news-add-feed"
           style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.65; margin-bottom: 6px"
@@ -19,7 +22,7 @@
             type="url"
             :placeholder="$gettext('https://site.example/feed')"
             :aria-label="$gettext('Feed URL')"
-            style="flex: 1; min-width: 0; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; background: transparent; color: inherit"
+            style="flex: 1; min-width: 0; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
             @keydown.enter="subscribeFeed"
           />
           <oc-button
@@ -54,7 +57,7 @@
           <div
             style="display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer"
             :style="{
-              background: isActive(entry) ? 'rgba(0, 100, 200, 0.12)' : 'transparent',
+              background: isActive(entry) ? 'var(--news-active-bg)' : 'transparent',
               paddingLeft: entry.indent ? '28px' : '8px',
               fontWeight: entry.unread ? 600 : 400
             }"
@@ -76,7 +79,7 @@
               {{ entry.label }}
             </span>
             <span v-if="entry.error" :title="entry.error" style="flex-shrink: 0; display: inline-flex">
-              <AlertTriangle style="width: 14px; height: 14px; color: #d97706" />
+              <AlertTriangle style="width: 14px; height: 14px; color: var(--news-warning)" />
             </span>
             <span v-if="entry.unread" style="font-size: 12px; opacity: 0.6; flex-shrink: 0">{{ entry.unread }}</span>
             <oc-button
@@ -95,7 +98,7 @@
           <!-- Context menu -->
           <div
             v-if="openMenu === entry.key"
-            style="margin: 2px 8px; border: 1px solid rgba(125, 125, 125, 0.3); border-radius: 8px; padding: 4px; display: flex; flex-direction: column; gap: 2px; background: #fff; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15)"
+            style="margin: 2px 8px; border: 1px solid var(--news-border-medium); border-radius: 8px; padding: 4px; display: flex; flex-direction: column; gap: 2px; background: var(--news-bg); box-shadow: 0 4px 12px var(--news-shadow)"
           >
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Rename')" @click="renameFeed(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Move to folder…')" @click="moveFeed(entry)" />
@@ -118,7 +121,7 @@
       </nav>
 
       <!-- OPML -->
-      <div style="padding: 8px; border-top: 1px solid rgba(125, 125, 125, 0.2); display: flex; gap: 12px">
+      <div style="padding: 8px; border-top: 1px solid var(--news-border-light); display: flex; gap: 12px">
         <oc-button variation="passive" appearance="raw" style="font-size: 13px" @click="exportOpml">
           <Download style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Export OPML') }}
         </oc-button>
@@ -140,14 +143,14 @@
 
     <!-- Lista -->
     <section
-      style="display: flex; flex-direction: column; flex-shrink: 0; min-width: 0; border-right: 1px solid rgba(125, 125, 125, 0.15)"
+      style="display: flex; flex-direction: column; flex-shrink: 0; min-width: 0; border-right: 1px solid var(--news-border-lighter)"
       :style="{ width: listWidth + 'px' }"
     >
       <header
-        style="display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid rgba(125, 125, 125, 0.25); flex-wrap: wrap"
+        style="display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--news-border); flex-wrap: wrap"
       >
         <h1
-          style="font-size: 16px; font-weight: 600; margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+          style="font-size: 14px; font-weight: 600; margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
         >
           {{ currentTitle }}
         </h1>
@@ -158,7 +161,7 @@
             type="search"
             :placeholder="$gettext('Search articles…')"
             :aria-label="$gettext('Search articles')"
-            style="width: 200px; max-width: 30vw; font-size: 13px; padding: 4px 8px; border-radius: 6px; border: 1px solid #94a3b8; background: transparent; color: inherit"
+            style="width: 200px; max-width: 30vw; font-size: 13px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
             @keydown.enter="doSearch"
           />
           <button
@@ -202,7 +205,7 @@
 
       <p
         v-if="error"
-        style="padding: 8px 16px; color: #b91c1c; font-size: 13px; border-bottom: 1px solid rgba(125, 125, 125, 0.2); margin: 0"
+        style="padding: 8px 16px; color: var(--news-error); font-size: 13px; border-bottom: 1px solid var(--news-border-light); margin: 0"
       >
         {{ error }}
       </p>
@@ -215,15 +218,15 @@
         <li
           v-for="item in items"
           :key="item.id"
-          style="display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid rgba(125, 125, 125, 0.15); cursor: pointer"
+          style="display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--news-border-lighter); cursor: pointer"
           :style="{
-            background: detail?.id === item.id ? 'rgba(0, 100, 200, 0.08)' : 'transparent',
+            background: detail?.id === item.id ? 'var(--news-hover-bg)' : 'transparent',
             opacity: item.unread ? 1 : 0.65
           }"
           @click="openItem(item)"
         >
           <div style="flex: 1; min-width: 0">
-            <p style="margin: 0; font-size: 20px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+            <p style="margin: 0; font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
               {{ item.title }}
             </p>
             <p
@@ -239,7 +242,7 @@
           </div>
           <button
             style="align-self: flex-start; background: none; border: 0; cursor: pointer; padding: 2px"
-            :style="{ color: item.unread ? '#2563eb' : 'rgba(0,0,0,0.35)' }"
+            :style="{ color: item.unread ? 'var(--news-primary)' : 'var(--news-muted)' }"
             :aria-label="item.unread ? $gettext('Mark as read') : $gettext('Mark as unread')"
             :title="item.unread ? $gettext('Mark as read') : $gettext('Mark as unread')"
             @click.stop="toggleUnread(item)"
@@ -248,7 +251,7 @@
           </button>
           <button
             style="align-self: flex-start; background: none; border: 0; cursor: pointer; padding: 2px"
-            :style="{ color: item.starred ? '#d97706' : 'rgba(0,0,0,0.35)' }"
+            :style="{ color: item.starred ? 'var(--news-warning)' : 'var(--news-muted)' }"
             :aria-label="item.starred ? $gettext('Unstar') : $gettext('Star')"
             @click.stop="toggleStar(item)"
           >
@@ -274,9 +277,9 @@
     <!-- Detalle -->
     <section
       v-if="detail"
-      style="display: flex; flex-direction: column; flex: 1; min-width: 0; border-left: 1px solid rgba(125, 125, 125, 0.25)"
+      style="display: flex; flex-direction: column; flex: 1; min-width: 0; border-left: 1px solid var(--news-border)"
     >
-      <header style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 16px; border-bottom: 1px solid rgba(125, 125, 125, 0.25)">
+      <header style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--news-border)">
         <oc-button variation="passive" appearance="raw" :aria-label="$gettext('Back')" @click="detail = null">
           <X style="width: 16px; height: 16px" />
         </oc-button>
@@ -294,7 +297,7 @@
           :disabled="fullLoading"
           @click="toggleFull"
         >
-          <BookOpenText style="width: 16px; height: 16px" :style="fullBody ? 'color: #2563eb' : ''" />
+          <BookOpenText style="width: 16px; height: 16px" :style="fullBody ? 'color: var(--news-primary)' : ''" />
         </oc-button>
         <oc-button
           variation="passive"
@@ -343,7 +346,7 @@
           <img v-if="feedIcon(detail.feedId)" :src="feedIcon(detail.feedId)" alt="" width="14" height="14" loading="lazy" style="width: 14px; height: 14px; border-radius: 3px; object-fit: contain" />
           <span>{{ feedTitle(detail.feedId) }} · {{ fmtRelative(detail.pubDate) }}</span>
           <span v-if="fullLoading" style="opacity: 0.7"> · {{ $gettext('loading full article…') }}</span>
-          <span v-else-if="fullFailed" style="color: #d97706">
+          <span v-else-if="fullFailed" style="color: var(--news-warning)">
             · {{ $gettext('full article not available — open the original') }}
           </span>
         </p>
@@ -366,7 +369,7 @@
       style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
       @click.self="closeFilter"
     >
-      <div style="background: #fff; border-radius: 12px; padding: 20px; width: 420px; max-width: 92vw; box-shadow: 0 8px 32px rgba(0,0,0,0.25); color: #1a1a1a">
+      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 420px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
         <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">
           {{ $gettext('Filter articles') }}
         </h3>
@@ -378,21 +381,21 @@
           v-model="filterForm.titleKeywords"
           type="text"
           placeholder="sponsored,ads,offer"
-          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 10px"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 10px"
         />
         <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Body keywords') }}</label>
         <input
           v-model="filterForm.bodyKeywords"
           type="text"
           placeholder="tracking,cookie"
-          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 10px"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 10px"
         />
         <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('URL keywords') }}</label>
         <input
           v-model="filterForm.urlKeywords"
           type="text"
           placeholder="utm_,/tag/"
-          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 16px"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 16px"
         />
         <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center">
           <oc-button v-if="filterHasFilter" variation="passive" appearance="raw" style="font-size: 13px" @click="clearFilter">
@@ -418,7 +421,7 @@
       style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
       @click.self="retentionOpen = false"
     >
-      <div style="background: #fff; border-radius: 12px; padding: 20px; width: 380px; max-width: 92vw; box-shadow: 0 8px 32px rgba(0,0,0,0.25); color: #1a1a1a">
+      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 380px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
         <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">{{ $gettext('Article retention') }}</h3>
         <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.6">
           {{ $gettext('Days to keep read, non-starred articles for this feed. 0 = use the server default.') }}
@@ -429,7 +432,7 @@
           type="number"
           min="0"
           max="3650"
-          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 16px"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 16px"
         />
         <div style="display: flex; gap: 8px; justify-content: flex-end">
           <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="retentionOpen = false">
@@ -451,16 +454,16 @@
       style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
       @click.self="settingsOpen = false"
     >
-      <div style="background: #fff; border-radius: 12px; padding: 20px; width: 400px; max-width: 92vw; box-shadow: 0 8px 32px rgba(0,0,0,0.25); color: #1a1a1a">
+      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 400px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
         <h3 style="margin: 0 0 16px; font-size: 15px; font-weight: 600">{{ $gettext('Settings') }}</h3>
         <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Reader theme') }}</label>
-        <select v-model="settingsForm.theme" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 12px">
+        <select v-model="settingsForm.theme" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 12px">
           <option value="system">{{ $gettext('System') }}</option>
           <option value="light">{{ $gettext('Light') }}</option>
           <option value="dark">{{ $gettext('Dark') }}</option>
         </select>
         <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Reader width') }}</label>
-        <select v-model="settingsForm.readerMaxWidth" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 12px">
+        <select v-model="settingsForm.readerMaxWidth" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 12px">
           <option value="narrow">{{ $gettext('Narrow') }}</option>
           <option value="normal">{{ $gettext('Normal') }}</option>
           <option value="wide">{{ $gettext('Wide') }}</option>
@@ -472,7 +475,7 @@
           min="5"
           max="1440"
           placeholder=""
-          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid #94a3b8; margin-bottom: 16px"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 16px"
         />
         <p style="margin: 0 0 16px; font-size: 11px; opacity: 0.6">{{ $gettext('Leave empty for the server default (15 min).') }}</p>
         <div style="display: flex; gap: 8px; justify-content: flex-end">
@@ -495,7 +498,7 @@
       style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
       @click.self="discoverPickerOpen = false"
     >
-      <div style="background: #fff; border-radius: 12px; padding: 20px; width: 440px; max-width: 92vw; box-shadow: 0 8px 32px rgba(0,0,0,0.25); color: #1a1a1a">
+      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 440px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
         <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">{{ $gettext('Select a feed') }}</h3>
         <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.6">
           {{ $gettext('Multiple feeds were found on this site.') }}
@@ -580,7 +583,7 @@ const MenuBtn = defineComponent({
             padding: '6px 10px',
             borderRadius: '6px',
             fontSize: '13px',
-            color: props.danger ? '#b91c1c' : 'inherit'
+            color: props.danger ? 'var(--news-error)' : 'inherit'
           },
           onClick: (e: MouseEvent) => {
             e.stopPropagation()
@@ -650,13 +653,26 @@ const searchActive = computed(() => searchQuery.value.trim() !== '')
 const userTheme = ref('system')
 const userWidth = ref('wide')
 
-const readerClass = computed(() => `news-theme-${userTheme.value}`)
+// Tema real: elige setting del usuario o prefiere sistema. Escucha cambios de
+// prefers-color-scheme para que "System" funcione sin recargar.
+const mediaDark = window.matchMedia('(prefers-color-scheme: dark)')
+const systemDark = ref(mediaDark.matches)
+function onMediaChange(e: MediaQueryListEvent | MediaQueryList) {
+  systemDark.value = 'matches' in e ? e.matches : (e as MediaQueryList).matches
+}
+const effectiveTheme = computed(() => {
+  if (userTheme.value === 'system') return systemDark.value ? 'dark' : 'light'
+  return userTheme.value
+})
+const themeClass = computed(() => `news-theme-${effectiveTheme.value}`)
+
+const readerClass = computed(() => `news-theme-${effectiveTheme.value}`)
 const readerMaxWidth = computed(() => ({ narrow: '52ch', normal: '72ch', wide: '100%' })[userWidth.value] ?? '100%')
 const readerBg = computed(() =>
-  userTheme.value === 'dark' ? '#161616' : userTheme.value === 'light' ? '#ffffff' : ''
+  effectiveTheme.value === 'dark' ? 'var(--news-bg)' : effectiveTheme.value === 'light' ? 'var(--news-bg)' : ''
 )
 const readerFg = computed(() =>
-  userTheme.value === 'dark' ? '#e5e5e5' : userTheme.value === 'light' ? '#1a1a1a' : ''
+  effectiveTheme.value === 'dark' ? 'var(--news-fg)' : effectiveTheme.value === 'light' ? 'var(--news-fg)' : ''
 )
 
 async function loadSettings() {
@@ -1329,6 +1345,7 @@ function restoreHostFavicon() {
 
 onMounted(async () => {
   applyNewsFavicon()
+  mediaDark.addEventListener('change', onMediaChange)
   try {
     await loadSettings()
     await loadSidebar()
@@ -1340,11 +1357,47 @@ onMounted(async () => {
 
 onUnmounted(() => {
   restoreHostFavicon()
+  mediaDark.removeEventListener('change', onMediaChange)
   resizeEnd()
 })
 </script>
 
 <style>
+main {
+  /* Variables de tema; se sobreescriben en .news-theme-dark */
+  --news-bg: #ffffff;
+  --news-fg: #1a1a1a;
+  --news-border: rgba(125, 125, 125, 0.25);
+  --news-border-light: rgba(125, 125, 125, 0.2);
+  --news-border-lighter: rgba(125, 125, 125, 0.15);
+  --news-border-medium: rgba(125, 125, 125, 0.3);
+  --news-border-soft: rgba(125, 125, 125, 0.35);
+  --news-input-border: #94a3b8;
+  --news-primary: #2563eb;
+  --news-warning: #d97706;
+  --news-error: #b91c1c;
+  --news-muted: rgba(0, 0, 0, 0.35);
+  --news-active-bg: rgba(0, 100, 200, 0.12);
+  --news-hover-bg: rgba(0, 100, 200, 0.08);
+  --news-shadow: rgba(0, 0, 0, 0.15);
+}
+main.news-theme-dark {
+  --news-bg: #161616;
+  --news-fg: #e5e5e5;
+  --news-border: rgba(255, 255, 255, 0.18);
+  --news-border-light: rgba(255, 255, 255, 0.12);
+  --news-border-lighter: rgba(255, 255, 255, 0.08);
+  --news-border-medium: rgba(255, 255, 255, 0.22);
+  --news-border-soft: rgba(255, 255, 255, 0.3);
+  --news-input-border: #64748b;
+  --news-primary: #60a5fa;
+  --news-warning: #f59e0b;
+  --news-error: #f87171;
+  --news-muted: rgba(255, 255, 255, 0.4);
+  --news-active-bg: rgba(96, 165, 250, 0.18);
+  --news-hover-bg: rgba(96, 165, 250, 0.12);
+  --news-shadow: rgba(0, 0, 0, 0.45);
+}
 @keyframes news-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
@@ -1365,37 +1418,24 @@ onUnmounted(() => {
   border-radius: 8px;
   margin: 0.4em 0 1em;
 }
-.news-body a { color: #2563eb; text-decoration: underline; }
-.news-body a:hover { opacity: 0.8; }
-.news-theme-dark {
-  color: var(--news-fg, #e5e5e5);
-  background: var(--news-bg, #161616);
-  border-radius: 8px;
-  padding: 12px;
-}
-.news-theme-light {
-  color: var(--news-fg, #1a1a1a);
-  background: var(--news-bg, #ffffff);
-  border-radius: 8px;
-  padding: 12px;
-}
+.news-body a { color: var(--news-primary); text-decoration: underline; }
 .news-body blockquote {
   margin: 0 0 1em;
   padding: 0.4em 1em;
-  border-left: 3px solid rgba(125, 125, 125, 0.4);
+  border-left: 3px solid var(--news-border-soft);
   opacity: 0.9;
 }
 .news-body pre {
-  background: rgba(125, 125, 125, 0.12);
+  background: var(--news-border-lighter);
   border-radius: 8px;
   padding: 0.8em 1em;
   overflow-x: auto;
   font-size: 0.9em;
 }
-.news-body code { background: rgba(125, 125, 125, 0.12); border-radius: 4px; padding: 0.1em 0.35em; }
+.news-body code { background: var(--news-border-lighter); border-radius: 4px; padding: 0.1em 0.35em; }
 .news-body pre code { background: none; padding: 0; }
 .news-body figure { margin: 0 0 1em; }
 .news-body figcaption { font-size: 0.85em; opacity: 0.65; margin-top: 0.3em; }
 .news-body table { border-collapse: collapse; margin-bottom: 1em; }
-.news-body th, .news-body td { border: 1px solid rgba(125, 125, 125, 0.35); padding: 0.4em 0.7em; }
+.news-body th, .news-body td { border: 1px solid var(--news-border-soft); padding: 0.4em 0.7em; }
 </style>
