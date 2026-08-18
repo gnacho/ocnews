@@ -147,7 +147,7 @@ echo "Descargando ${APP} ${VERSION} para linux/${ARCH}..."
 run curl -fsSL -o "${TMPDIR}/${ASSET}" "$URL"
 run curl -fsSL -o "${TMPDIR}/checksums.txt" "$CHECKSUM_URL"
 
-(cd "$TMPDIR" && sha256sum -c <(grep "${ASSET}" checksums.txt) >/dev/null 2>&1) || {
+(cd "$TMPDIR" && grep "${ASSET}" checksums.txt | sha256sum -c - >/dev/null 2>&1) || {
   echo "Error: el checksum no coincide para ${ASSET}." >&2
   exit 1
 }
