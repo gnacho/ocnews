@@ -60,6 +60,8 @@ export interface UserSettings {
   theme: string
   readerMaxWidth: string
   feedIntervalMin: string
+  readerFont: string
+  readerFontSize: string
 }
 
 // type: 0 feed, 1 folder, 2 starred, 3 all

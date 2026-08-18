@@ -348,7 +348,7 @@
         <div
           class="oc-prose news-body"
           :class="readerClass"
-          :style="{ maxWidth: readerMaxWidth, ['--news-bg' as any]: readerBg, ['--news-fg' as any]: readerFg }"
+          :style="{ maxWidth: readerMaxWidth, fontFamily: readerFontFamily, fontSize: readerFontSizePx, ['--news-bg' as any]: readerBg, ['--news-fg' as any]: readerFg }"
           v-html="detailBody"
         />
       </div>
@@ -459,7 +459,7 @@
       @click.self="settingsOpen = false"
     >
       <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 400px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
-        <h3 style="margin: 0 0 16px; font-size: 15px; font-weight: 600">{{ $gettext('Settings') }}</h3>
+        <h3 style="margin: 0 0 16px; font-size: 15px; font-weight: 600">{{ $gettext('News settings') }}</h3>
         <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Reader theme') }}</label>
         <select v-model="settingsForm.theme" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 12px">
           <option value="system">{{ $gettext('System') }}</option>
@@ -471,6 +471,17 @@
           <option value="narrow">{{ $gettext('Narrow') }}</option>
           <option value="normal">{{ $gettext('Normal') }}</option>
           <option value="wide">{{ $gettext('Wide') }}</option>
+        </select>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Font') }}</label>
+        <select v-model="settingsForm.readerFont" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 12px">
+          <option value="default">{{ $gettext('Default') }}</option>
+          <option value="serif">{{ $gettext('Serif') }}</option>
+          <option value="sans">{{ $gettext('Sans-serif') }}</option>
+          <option value="mono">{{ $gettext('Monospace') }}</option>
+        </select>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Font size') }}</label>
+        <select v-model="settingsForm.readerFontSize" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 12px">
+          <option v-for="n in [13, 14, 15, 16, 17, 18, 19, 20]" :key="n" :value="String(n)">{{ n }} px</option>
         </select>
         <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Refresh interval (minutes)') }}</label>
         <input
@@ -665,6 +676,8 @@ const searchActive = computed(() => searchQuery.value.trim() !== '')
 
 const userTheme = ref('system')
 const userWidth = ref('wide')
+const userFont = ref('default')
+const userFontSize = ref('15')
 
 // Tema real: elige setting del usuario o prefiere sistema. Escucha cambios de
 // prefers-color-scheme para que "System" funcione sin recargar.
@@ -681,6 +694,16 @@ const themeClass = computed(() => `news-theme-${effectiveTheme.value}`)
 
 const readerClass = computed(() => `news-theme-${effectiveTheme.value}`)
 const readerMaxWidth = computed(() => ({ narrow: '52ch', normal: '72ch', wide: '100%' })[userWidth.value] ?? '100%')
+const readerFontFamily = computed(
+  () =>
+    ({
+      default: '',
+      serif: "Georgia, 'Times New Roman', serif",
+      sans: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      mono: "ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace"
+    })[userFont.value] ?? ''
+)
+const readerFontSizePx = computed(() => `${userFontSize.value || '15'}px`)
 const readerBg = computed(() =>
   effectiveTheme.value === 'dark' ? 'var(--news-bg)' : effectiveTheme.value === 'light' ? 'var(--news-bg)' : ''
 )
@@ -693,6 +716,8 @@ async function loadSettings() {
     const s = await api.mySettings()
     userTheme.value = s.theme || 'system'
     userWidth.value = s.readerMaxWidth || 'wide'
+    userFont.value = s.readerFont || 'default'
+    userFontSize.value = s.readerFontSize || '15'
   } catch {
     /* defaults */
   }
@@ -729,7 +754,7 @@ const retentionForm = ref(0)
 
 const settingsOpen = ref(false)
 const settingsSaving = ref(false)
-const settingsForm = ref<UserSettings>({ theme: 'system', readerMaxWidth: 'wide', feedIntervalMin: '' })
+const settingsForm = ref<UserSettings>({ theme: 'system', readerMaxWidth: 'wide', feedIntervalMin: '', readerFont: 'default', readerFontSize: '15' })
 
 const discoverPickerOpen = ref(false)
 const discoverCandidates = ref<DiscoveredFeed[]>([])
@@ -1241,7 +1266,13 @@ async function openSettings() {
   settingsOpen.value = true
   try {
     const s = await api.mySettings()
-    settingsForm.value = { theme: s.theme || 'system', readerMaxWidth: s.readerMaxWidth || 'wide', feedIntervalMin: s.feedIntervalMin ?? '' }
+    settingsForm.value = {
+      theme: s.theme || 'system',
+      readerMaxWidth: s.readerMaxWidth || 'wide',
+      feedIntervalMin: s.feedIntervalMin ?? '',
+      readerFont: s.readerFont || 'default',
+      readerFontSize: s.readerFontSize || '15'
+    }
   } catch {
     /* usar defaults */
   }
@@ -1253,10 +1284,14 @@ async function saveSettings() {
     const updated = await api.updateSettings({
       theme: settingsForm.value.theme,
       readerMaxWidth: settingsForm.value.readerMaxWidth,
-      feedIntervalMin: settingsForm.value.feedIntervalMin.trim()
+      feedIntervalMin: settingsForm.value.feedIntervalMin.trim(),
+      readerFont: settingsForm.value.readerFont,
+      readerFontSize: settingsForm.value.readerFontSize
     })
     userTheme.value = updated.theme || 'system'
     userWidth.value = updated.readerMaxWidth || 'wide'
+    userFont.value = updated.readerFont || 'default'
+    userFontSize.value = updated.readerFontSize || '15'
     settingsOpen.value = false
   } catch (e) {
     error.value = $gettext('Could not save settings: ') + errText(e)

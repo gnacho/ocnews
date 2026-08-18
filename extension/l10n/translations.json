@@ -93,7 +93,14 @@
   "loading full article…": "cargando el artículo completo…",
   "skipped": "omitidos",
   "No article selected": "Ningún artículo seleccionado",
-  "Please select an article from the list.": "Por favor, seleccione un artículo de la lista."
+  "Please select an article from the list.": "Por favor, seleccione un artículo de la lista.",
+  "News settings": "Ajustes de Noticias",
+  "Font": "Fuente",
+  "Font size": "Tamaño de fuente",
+  "Default": "Predeterminada",
+  "Serif": "Con serifa",
+  "Sans-serif": "Sin serifa",
+  "Monospace": "Monoespaciada"
  },
  "en": {
   "Add": "Add",
@@ -189,6 +196,13 @@
   "skipped": "skipped",
   "No article selected": "No article selected",
   "Please select an article from the list.": "Please select an article from the list.",
-  "Back up or restore your subscriptions.": "Back up or restore your subscriptions."
+  "Back up or restore your subscriptions.": "Back up or restore your subscriptions.",
+  "News settings": "News settings",
+  "Font": "Font",
+  "Font size": "Font size",
+  "Default": "Default",
+  "Serif": "Serif",
+  "Sans-serif": "Sans-serif",
+  "Monospace": "Monospace"
  }
 }
