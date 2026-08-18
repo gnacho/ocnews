@@ -140,6 +140,14 @@ var messages = map[string]map[Lang]string{
 		ES: "tamaño de fuente no válido (13-20 px)",
 		EN: "invalid font size (13-20 px)",
 	},
+	"feed_auth_required": {
+		ES: "este feed requiere autenticación (usuario y contraseña)",
+		EN: "this feed requires authentication (username and password)",
+	},
+	"invalid_credentials": {
+		ES: "credenciales no válidas",
+		EN: "invalid credentials",
+	},
 }
 
 // T devuelve el mensaje traducido; claves desconocidas caen en internal_error.

@@ -16,6 +16,7 @@ import (
 	"github.com/gnacho/ocnews/backend/internal/api"
 	"github.com/gnacho/ocnews/backend/internal/auth"
 	"github.com/gnacho/ocnews/backend/internal/config"
+	"github.com/gnacho/ocnews/backend/internal/cred"
 	"github.com/gnacho/ocnews/backend/internal/extract"
 	"github.com/gnacho/ocnews/backend/internal/feed"
 	"github.com/gnacho/ocnews/backend/internal/favicon"
@@ -60,6 +61,10 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	creds, err := cred.Load(cfg.DataDir)
+	if err != nil {
+		return err
+	}
 
 	// validador de credenciales: local (bcrypt) u OpenCloud (Graph /me)
 	var validator auth.Validator
@@ -94,11 +99,11 @@ func run() error {
 
 	fetcher := feed.NewHTTPFetcher(cfg.FetchTimeout)
 	extractor := extract.New(cfg.FetchTimeout)
-	refresh := refresher.New(st, fetcher, log, cfg.FeedInterval, cfg.MaxGap)
+	refresh := refresher.New(st, fetcher, creds, log, cfg.FeedInterval, cfg.MaxGap)
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           api.NewServer(st, validator, fetcher, refresh, favicons, imgs, extractor, cfg.Retention, log).Handler(),
+		Handler:           api.NewServer(st, validator, fetcher, refresh, favicons, imgs, extractor, creds, cfg.Retention, log).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

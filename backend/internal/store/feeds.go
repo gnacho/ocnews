@@ -10,7 +10,8 @@ import (
 
 const feedCols = `f.id, f.url, f.title, f.favicon, f.added, f.next_update, f.folder_id,
 	COALESCE(c.unread, 0), f.ordering, f.link, f.pinned, f.update_error_count,
-	NULLIF(f.last_update_error, ''), f.no_new_streak, f.user_id, f.url_hash, f.full_content, f.retention_days, f.is_podcast`
+	NULLIF(f.last_update_error, ''), f.no_new_streak, f.user_id, f.url_hash, f.full_content, f.retention_days, f.is_podcast,
+	f.auth_user, f.auth_pass`
 
 const feedSelect = `SELECT ` + feedCols + `
 	FROM feeds f
@@ -23,7 +24,8 @@ func scanFeed(row interface{ Scan(...any) error }) (*Feed, error) {
 	var pinned, full, retention, podcast int
 	err := row.Scan(&f.ID, &f.URL, &f.Title, &f.FaviconLink, &f.Added, &f.NextUpdateTime,
 		&f.FolderID, &f.UnreadCount, &f.Ordering, &f.Link, &pinned,
-		&f.UpdateErrorCount, &lastErr, &f.NoNewStreak, &f.UserID, &f.URLHash, &full, &retention, &podcast)
+		&f.UpdateErrorCount, &lastErr, &f.NoNewStreak, &f.UserID, &f.URLHash, &full, &retention, &podcast,
+		&f.AuthUser, &f.AuthPassEnc)
 	if err != nil {
 		return nil, err
 	}
@@ -322,6 +324,26 @@ func (s *Store) MoveFeed(userID, feedID int64, folderID *int64) error {
 
 func (s *Store) RenameFeed(userID, feedID int64, title string) error {
 	res, err := s.db.Exec(`UPDATE feeds SET title = ? WHERE user_id = ? AND id = ?`, title, userID, feedID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// SetFeedCredentials fija la auth Basic del feed. passEnc es la contraseña
+// YA cifrada (internal/cred); passEnc = nil conserva la actual (edición que
+// solo cambia el usuario). user vacío + passEnc apuntando a "" quita la auth.
+func (s *Store) SetFeedCredentials(userID, feedID int64, user string, passEnc *string) error {
+	var res sql.Result
+	var err error
+	if passEnc == nil {
+		res, err = s.db.Exec(`UPDATE feeds SET auth_user = ? WHERE user_id = ? AND id = ?`, user, userID, feedID)
+	} else {
+		res, err = s.db.Exec(`UPDATE feeds SET auth_user = ?, auth_pass = ? WHERE user_id = ? AND id = ?`, user, *passEnc, userID, feedID)
+	}
 	if err != nil {
 		return err
 	}

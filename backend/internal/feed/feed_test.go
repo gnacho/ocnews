@@ -2,6 +2,7 @@ package feed
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -187,4 +188,38 @@ func containsStr(s []string, want string) bool {
 		}
 	}
 	return false
+}
+
+// TestFetchBasicAuth: el fetcher manda Authorization Basic cuando el feed
+// la exige, y sin credenciales (o erróneas) devuelve ErrAuthRequired.
+func TestFetchBasicAuth(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		u, p, ok := r.BasicAuth()
+		if !ok || u != "lector" || p != "s3cret" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/rss+xml")
+		w.Write(loadFixture(t, "rss.xml"))
+	}))
+	defer srv.Close()
+
+	h := NewHTTPFetcherAllowLocal(5 * time.Second)
+
+	// sin credenciales → 401 → ErrAuthRequired
+	if _, _, err := h.Fetch(context.Background(), srv.URL, "", ""); !errors.Is(err, ErrAuthRequired) {
+		t.Fatalf("sin creds esperaba ErrAuthRequired: %v", err)
+	}
+	// credenciales mal → ErrAuthRequired
+	if _, _, err := h.Fetch(context.Background(), srv.URL, "lector", "mal"); !errors.Is(err, ErrAuthRequired) {
+		t.Fatalf("creds mal esperaba ErrAuthRequired: %v", err)
+	}
+	// credenciales bien → feed parseado
+	f, items, err := h.Fetch(context.Background(), srv.URL, "lector", "s3cret")
+	if err != nil {
+		t.Fatalf("con creds: %v", err)
+	}
+	if f.Title != "Ejemplo Blog" || len(items) != 2 {
+		t.Fatalf("feed con auth mal parseado: %+v (%d items)", f, len(items))
+	}
 }

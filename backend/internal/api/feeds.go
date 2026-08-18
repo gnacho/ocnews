@@ -40,6 +40,8 @@ func (s *Server) createFeed(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		URL      string `json:"url"`
 		FolderID *int64 `json:"folderId"`
+		Username string `json:"username"` // Basic auth del feed (spec News + news-android)
+		Password string `json:"password"`
 	}
 	if err := decodeBody(r, &body); err != nil {
 		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_body")
@@ -56,6 +58,12 @@ func (s *Server) createFeed(w http.ResponseWriter, r *http.Request) {
 				if _, err := fmt.Sscanf(v, "%d", &fid); err == nil && fid > 0 {
 					body.FolderID = &fid
 				}
+			}
+			if v := r.Form.Get("username"); v != "" {
+				body.Username = v
+			}
+			if v := r.Form.Get("password"); v != "" {
+				body.Password = v
 			}
 		}
 	}
@@ -75,8 +83,12 @@ func (s *Server) createFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	f, items, err := s.fetcher.Fetch(r.Context(), body.URL)
+	f, items, err := s.fetcher.Fetch(r.Context(), body.URL, body.Username, body.Password)
 	if err != nil {
+		if errors.Is(err, feed.ErrAuthRequired) {
+			errorStatus(w, r, http.StatusUnprocessableEntity, "feed_auth_required")
+			return
+		}
 		// spec: 422 si el feed no se puede leer
 		s.log.Warn("fetch de feed nuevo falló", "url", body.URL, "err", err)
 		errorStatus(w, r, http.StatusUnprocessableEntity, "feed_unreadable")
@@ -97,6 +109,18 @@ func (s *Server) createFeed(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.logError(w, r, "crear feed", err)
 		return
+	}
+	if body.Username != "" {
+		enc, err := s.cred.Encrypt(body.Password)
+		if err != nil {
+			s.logError(w, r, "cifrar credenciales", err)
+			return
+		}
+		if err := s.store.SetFeedCredentials(user(r).ID, created.ID, body.Username, &enc); err != nil {
+			s.logError(w, r, "guardar credenciales", err)
+			return
+		}
+		created.AuthUser = body.Username
 	}
 	newest, _ := s.store.NewestItemID(user(r).ID)
 	created.FaviconLink = s.rewriteFavicon(created.URLHash)
@@ -293,4 +317,60 @@ func (s *Server) setFeedRetention(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"feedId": id, "retentionDays": body.RetentionDays})
+}
+
+// setFeedCredentials fija o quita la auth Basic del feed
+// (POST /feeds/{id}/credentials). Ambos campos vacíos = quitar; password
+// vacío con username = conservar la contraseña actual. La contraseña se
+// guarda cifrada (internal/cred) y NUNCA se devuelve por la API.
+func (s *Server) setFeedCredentials(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(r, "feedId")
+	if !ok {
+		errorStatus(w, r, http.StatusNotFound, "feed_not_found")
+		return
+	}
+	var body struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := decodeBody(r, &body); err != nil {
+		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_body")
+		return
+	}
+	u := user(r)
+	if body.Username == "" && body.Password == "" {
+		empty := ""
+		err := s.store.SetFeedCredentials(u.ID, id, "", &empty)
+		if errors.Is(err, store.ErrNotFound) {
+			errorStatus(w, r, http.StatusNotFound, "feed_not_found")
+			return
+		}
+		if err != nil {
+			s.logError(w, r, "quitar credenciales", err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"feedId": id, "authUser": ""})
+		return
+	}
+	if body.Username == "" {
+		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_credentials")
+		return
+	}
+	var passEnc *string
+	if body.Password != "" {
+		enc, err := s.cred.Encrypt(body.Password)
+		if err != nil {
+			s.logError(w, r, "cifrar credenciales", err)
+			return
+		}
+		passEnc = &enc
+	}
+	if err := s.store.SetFeedCredentials(u.ID, id, body.Username, passEnc); errors.Is(err, store.ErrNotFound) {
+		errorStatus(w, r, http.StatusNotFound, "feed_not_found")
+		return
+	} else if err != nil {
+		s.logError(w, r, "guardar credenciales", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"feedId": id, "authUser": body.Username})
 }

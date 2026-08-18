@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gnacho/ocnews/backend/internal/auth"
+	"github.com/gnacho/ocnews/backend/internal/cred"
 	"github.com/gnacho/ocnews/backend/internal/feed"
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
@@ -20,7 +21,7 @@ type fakeFetcher struct {
 	fetchN int
 }
 
-func (f *fakeFetcher) Fetch(_ context.Context, _ string) (*store.Feed, []store.NewItem, error) {
+func (f *fakeFetcher) Fetch(_ context.Context, _, _, _ string) (*store.Feed, []store.NewItem, error) {
 	f.fetchN++
 	if f.fail {
 		return nil, nil, errFake
@@ -61,7 +62,11 @@ func newEnv(t *testing.T) (*store.Store, int64, *fakeFetcher, *Refresher) {
 	}
 	ff := &fakeFetcher{items: 3}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	r := New(st, ff, log, time.Minute, 10*time.Minute)
+	creds, err := cred.Load(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := New(st, ff, creds, log, time.Minute, 10*time.Minute)
 	return st, uid, ff, r
 }
 
@@ -143,7 +148,11 @@ func TestRefreshSanitizesBody(t *testing.T) {
 	st, uid, _, _ := newEnv(t)
 	dirty := &dirtyFetcher{}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	r2 := New(st, dirty, log, time.Minute, time.Minute)
+	creds, err := cred.Load(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	r2 := New(st, dirty, creds, log, time.Minute, time.Minute)
 	f, err := st.CreateFeed(uid, "https://d.example/f", nil, "T", "https://d.example", "", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -164,7 +173,7 @@ func TestRefreshSanitizesBody(t *testing.T) {
 
 type dirtyFetcher struct{}
 
-func (d *dirtyFetcher) Fetch(_ context.Context, _ string) (*store.Feed, []store.NewItem, error) {
+func (d *dirtyFetcher) Fetch(_ context.Context, _, _, _ string) (*store.Feed, []store.NewItem, error) {
 	fd := &store.Feed{Title: "T", Link: "https://s.example"}
 	items := []store.NewItem{{
 		GUID: "g1", GUIDHash: "g1", Title: "t",
