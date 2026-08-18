@@ -1384,6 +1384,16 @@ main {
   --news-hover-bg: rgba(0, 100, 200, 0.08);
   --news-shadow: rgba(0, 0, 0, 0.15);
 }
+/* The host sets global element rules (body, h1-h6, p, dialog, a, a:hover)
+   and oc-button colors from its --oc-role-* tokens, and a direct rule beats
+   inheritance. Override those tokens in both themes so the app palette does
+   not depend on the host theme (issue #23). */
+main.news-theme-light {
+  --oc-role-surface: var(--news-bg);
+  --oc-role-on-surface: var(--news-fg);
+  --oc-role-secondary: #4b5563;
+  --oc-role-on-secondary: #ffffff;
+}
 main.news-theme-dark {
   --news-bg: #161616;
   --news-fg: #e5e5e5;
@@ -1400,6 +1410,10 @@ main.news-theme-dark {
   --news-active-bg: rgba(96, 165, 250, 0.18);
   --news-hover-bg: rgba(96, 165, 250, 0.12);
   --news-shadow: rgba(0, 0, 0, 0.45);
+  --oc-role-surface: var(--news-bg);
+  --oc-role-on-surface: var(--news-fg);
+  --oc-role-secondary: #cbd5e1;
+  --oc-role-on-secondary: #1a1a1a;
 }
 @keyframes news-spin {
   from { transform: rotate(0deg); }
@@ -1422,6 +1436,7 @@ main.news-theme-dark {
   margin: 0.4em 0 1em;
 }
 .news-body a { color: var(--news-primary); text-decoration: underline; }
+.news-body a:hover { color: var(--news-primary); }
 .news-body blockquote {
   margin: 0 0 1em;
   padding: 0.4em 1em;
