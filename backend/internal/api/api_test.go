@@ -661,9 +661,11 @@ func TestSettingsAndRetentionFlow(t *testing.T) {
 	var st struct {
 		Theme          string `json:"theme"`
 		ReaderMaxWidth string `json:"readerMaxWidth"`
+		ReaderFont     string `json:"readerFont"`
+		ReaderFontSize string `json:"readerFontSize"`
 	}
 	decode(t, body, &st)
-	if st.Theme != "system" || st.ReaderMaxWidth != "normal" {
+	if st.Theme != "system" || st.ReaderMaxWidth != "normal" || st.ReaderFont != "default" || st.ReaderFontSize != "15" {
 		t.Fatalf("settings default: %s", body)
 	}
 
@@ -681,6 +683,25 @@ func TestSettingsAndRetentionFlow(t *testing.T) {
 	if code, _ := e.do(t, "PUT", "/api/me/settings", e.user, e.pass,
 		map[string]any{"feedIntervalMin": "1"}); code != 422 {
 		t.Fatalf("intervalo inválido esperaba 422: %d", code)
+	}
+
+	// fuente y tamaño del lector
+	code, body = e.do(t, "PUT", "/api/me/settings", e.user, e.pass,
+		map[string]any{"readerFont": "serif", "readerFontSize": "17"})
+	if code != 200 {
+		t.Fatalf("update font settings: %d %s", code, body)
+	}
+	decode(t, body, &st)
+	if st.ReaderFont != "serif" || st.ReaderFontSize != "17" {
+		t.Fatalf("fuente tras update: %s", body)
+	}
+	if code, _ := e.do(t, "PUT", "/api/me/settings", e.user, e.pass,
+		map[string]any{"readerFont": "comic-sans"}); code != 422 {
+		t.Fatalf("fuente inválida esperaba 422: %d", code)
+	}
+	if code, _ := e.do(t, "PUT", "/api/me/settings", e.user, e.pass,
+		map[string]any{"readerFontSize": "42"}); code != 422 {
+		t.Fatalf("tamaño inválido esperaba 422: %d", code)
 	}
 
 	// crear feed y fijar retención
