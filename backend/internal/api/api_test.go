@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gnacho/ocnews/backend/internal/auth"
+	"github.com/gnacho/ocnews/backend/internal/cred"
 	"github.com/gnacho/ocnews/backend/internal/feed"
 	"github.com/gnacho/ocnews/backend/internal/extract"
 	"github.com/gnacho/ocnews/backend/internal/favicon"
@@ -28,10 +29,14 @@ import (
 type fakeFetcher struct {
 	fetches  int
 	failURLs map[string]bool
+	// credenciales recibidas en la última llamada (tests de feeds con auth)
+	lastAuthUser string
+	lastAuthPass string
 }
 
-func (f *fakeFetcher) Fetch(_ context.Context, url string) (*store.Feed, []store.NewItem, error) {
+func (f *fakeFetcher) Fetch(_ context.Context, url, authUser, authPass string) (*store.Feed, []store.NewItem, error) {
 	f.fetches++
+	f.lastAuthUser, f.lastAuthPass = authUser, authPass
 	if f.failURLs != nil && f.failURLs[url] {
 		return nil, nil, fmt.Errorf("feed roto (fake)")
 	}
@@ -94,7 +99,11 @@ func newTestEnv(t *testing.T, fetcher feed.Fetcher) *testEnv {
 	}
 
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	refresh := refresher.New(st, fetcher, log, time.Minute, time.Hour)
+	creds, err := cred.Load(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	refresh := refresher.New(st, fetcher, creds, log, time.Minute, time.Hour)
 	favDir := t.TempDir()
 	fc, err := favicon.NewCache(favDir, log)
 	if err != nil {
@@ -106,7 +115,7 @@ func newTestEnv(t *testing.T, fetcher feed.Fetcher) *testEnv {
 	}
 	validator := &auth.LocalValidator{Store: st}
 	ex := extract.NewAllowLocal(5 * time.Second)
-	srv := NewServer(st, validator, fetcher, refresh, fc, imgs, ex, 90*24*time.Hour, log)
+	srv := NewServer(st, validator, fetcher, refresh, fc, imgs, ex, creds, 90*24*time.Hour, log)
 	h := srv.Handler()
 	ts := httptest.NewServer(h)
 	t.Cleanup(ts.Close)
@@ -465,6 +474,89 @@ func TestMarkAllRead(t *testing.T) {
 	}
 }
 
+// TestFeedCredentials: suscripción con Basic auth (las credenciales llegan
+// al fetcher), edición posterior (password vacío conserva) y borrado. La
+// contraseña NUNCA aparece en las respuestas.
+func TestFeedCredentials(t *testing.T) {
+	ff := &fakeFetcher{}
+	e := newTestEnv(t, ff)
+
+	code, body := e.do(t, "POST", "/feeds", e.user, e.pass,
+		map[string]string{"url": "https://auth.example/f", "username": "lector", "password": "s3cret"})
+	if code != 200 {
+		t.Fatalf("crear feed con auth: %d %s", code, body)
+	}
+	if ff.lastAuthUser != "lector" || ff.lastAuthPass != "s3cret" {
+		t.Fatalf("el fetcher no recibió las credenciales: %q/%q", ff.lastAuthUser, ff.lastAuthPass)
+	}
+	var fr struct {
+		Feeds []store.Feed `json:"feeds"`
+	}
+	decode(t, body, &fr)
+	if len(fr.Feeds) != 1 || fr.Feeds[0].AuthUser != "lector" {
+		t.Fatalf("authUser en respuesta: %s", body)
+	}
+	if strings.Contains(string(body), "s3cret") {
+		t.Fatal("la contraseña NO debe aparecer en la respuesta")
+	}
+	feedID := fr.Feeds[0].ID
+
+	// GET /feeds expone authUser pero no la contraseña
+	code, body = e.do(t, "GET", "/feeds", e.user, e.pass, nil)
+	if code != 200 {
+		t.Fatalf("list feeds: %d", code)
+	}
+	if !strings.Contains(string(body), `"authUser":"lector"`) {
+		t.Fatalf("authUser no expuesto: %s", body)
+	}
+	if strings.Contains(string(body), "s3cret") {
+		t.Fatal("la contraseña NO debe aparecer en /feeds")
+	}
+
+	// cambiar solo el usuario (password vacío = conservar)
+	if code, _ := e.do(t, "POST", fmt.Sprintf("/feeds/%d/credentials", feedID), e.user, e.pass,
+		map[string]string{"username": "lector2"}); code != 200 {
+		t.Fatalf("update user: %d", code)
+	}
+	// la contraseña conservada sigue funcionando: forzar refresh vía updater admin
+	if code, _ := e.do(t, "GET", fmt.Sprintf("/feeds/update?userId=%s&feedId=%d", e.user, feedID), e.user, e.pass, nil); code != 204 {
+		t.Fatalf("update tras cambiar user: %d", code)
+	}
+	if ff.lastAuthUser != "lector2" || ff.lastAuthPass != "s3cret" {
+		t.Fatalf("credenciales tras edición: %q/%q", ff.lastAuthUser, ff.lastAuthPass)
+	}
+
+	// cambiar la contraseña
+	if code, _ := e.do(t, "POST", fmt.Sprintf("/feeds/%d/credentials", feedID), e.user, e.pass,
+		map[string]string{"username": "lector2", "password": "nueva"}); code != 200 {
+		t.Fatalf("update pass: %d", code)
+	}
+	if code, _ := e.do(t, "GET", fmt.Sprintf("/feeds/update?userId=%s&feedId=%d", e.user, feedID), e.user, e.pass, nil); code != 204 {
+		t.Fatalf("update tras cambiar pass: %d", code)
+	}
+	if ff.lastAuthPass != "nueva" {
+		t.Fatalf("contraseña no actualizada: %q", ff.lastAuthPass)
+	}
+
+	// quitar la auth
+	if code, _ := e.do(t, "POST", fmt.Sprintf("/feeds/%d/credentials", feedID), e.user, e.pass,
+		map[string]string{}); code != 200 {
+		t.Fatalf("quitar auth: %d", code)
+	}
+	if code, _ := e.do(t, "GET", fmt.Sprintf("/feeds/update?userId=%s&feedId=%d", e.user, feedID), e.user, e.pass, nil); code != 204 {
+		t.Fatalf("update tras quitar auth: %d", code)
+	}
+	if ff.lastAuthUser != "" || ff.lastAuthPass != "" {
+		t.Fatalf("auth no quitada: %q/%q", ff.lastAuthUser, ff.lastAuthPass)
+	}
+
+	// password sin usuario → inválido
+	if code, _ := e.do(t, "POST", fmt.Sprintf("/feeds/%d/credentials", feedID), e.user, e.pass,
+		map[string]string{"password": "sola"}); code != 422 {
+		t.Fatalf("password sin user esperaba 422: %d", code)
+	}
+}
+
 func TestUserIsolation(t *testing.T) {
 	e := newTestEnv(t, &fakeFetcher{})
 	e.do(t, "POST", "/feeds", e.user, e.pass, map[string]string{"url": "https://mine.example/f"})
@@ -661,9 +753,11 @@ func TestSettingsAndRetentionFlow(t *testing.T) {
 	var st struct {
 		Theme          string `json:"theme"`
 		ReaderMaxWidth string `json:"readerMaxWidth"`
+		ReaderFont     string `json:"readerFont"`
+		ReaderFontSize string `json:"readerFontSize"`
 	}
 	decode(t, body, &st)
-	if st.Theme != "system" || st.ReaderMaxWidth != "normal" {
+	if st.Theme != "system" || st.ReaderMaxWidth != "normal" || st.ReaderFont != "default" || st.ReaderFontSize != "15" {
 		t.Fatalf("settings default: %s", body)
 	}
 
@@ -681,6 +775,25 @@ func TestSettingsAndRetentionFlow(t *testing.T) {
 	if code, _ := e.do(t, "PUT", "/api/me/settings", e.user, e.pass,
 		map[string]any{"feedIntervalMin": "1"}); code != 422 {
 		t.Fatalf("intervalo inválido esperaba 422: %d", code)
+	}
+
+	// fuente y tamaño del lector
+	code, body = e.do(t, "PUT", "/api/me/settings", e.user, e.pass,
+		map[string]any{"readerFont": "serif", "readerFontSize": "17"})
+	if code != 200 {
+		t.Fatalf("update font settings: %d %s", code, body)
+	}
+	decode(t, body, &st)
+	if st.ReaderFont != "serif" || st.ReaderFontSize != "17" {
+		t.Fatalf("fuente tras update: %s", body)
+	}
+	if code, _ := e.do(t, "PUT", "/api/me/settings", e.user, e.pass,
+		map[string]any{"readerFont": "comic-sans"}); code != 422 {
+		t.Fatalf("fuente inválida esperaba 422: %d", code)
+	}
+	if code, _ := e.do(t, "PUT", "/api/me/settings", e.user, e.pass,
+		map[string]any{"readerFontSize": "42"}); code != 422 {
+		t.Fatalf("tamaño inválido esperaba 422: %d", code)
 	}
 
 	// crear feed y fijar retención

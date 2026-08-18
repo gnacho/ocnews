@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gnacho/ocnews/backend/internal/auth"
+	"github.com/gnacho/ocnews/backend/internal/cred"
 	"github.com/gnacho/ocnews/backend/internal/extract"
 	"github.com/gnacho/ocnews/backend/internal/feed"
 	"github.com/gnacho/ocnews/backend/internal/favicon"
@@ -36,15 +37,16 @@ type Server struct {
 	favicons  *favicon.Cache
 	imgs      *imgproxy.Proxy
 	extract   *extract.Extractor
+	cred      *cred.Cipher
 	retention time.Duration
 	log       *slog.Logger
 }
 
 func NewServer(s *store.Store, v auth.Validator, f feed.Fetcher, r *refresher.Refresher,
-	fc *favicon.Cache, ip *imgproxy.Proxy, ex *extract.Extractor,
+	fc *favicon.Cache, ip *imgproxy.Proxy, ex *extract.Extractor, c *cred.Cipher,
 	retention time.Duration, log *slog.Logger) *Server {
 	return &Server{store: s, validator: v, fetcher: f, refresher: r, favicons: fc, imgs: ip,
-		extract: ex, retention: retention, log: log}
+		extract: ex, cred: c, retention: retention, log: log}
 }
 
 // Handler monta el router completo con CORS + auth en la base de la API.

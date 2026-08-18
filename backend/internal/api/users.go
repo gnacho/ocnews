@@ -151,9 +151,11 @@ func (s *Server) changeMyPassword(w http.ResponseWriter, r *http.Request) {
 // userSettings: preferencias de la app persistidas por usuario. La fuente de
 // verdad del idioma sigue siendo users.language; el resto va en user_settings.
 type userSettings struct {
-	Theme            string `json:"theme"`            // system|light|dark
-	ReaderMaxWidth   string `json:"readerMaxWidth"`   // narrow|normal|wide
-	FeedIntervalMin  string `json:"feedIntervalMin"`  // minutos; vacío = default global
+	Theme           string `json:"theme"`           // system|light|dark
+	ReaderMaxWidth  string `json:"readerMaxWidth"`  // narrow|normal|wide
+	FeedIntervalMin string `json:"feedIntervalMin"` // minutos; vacío = default global
+	ReaderFont      string `json:"readerFont"`      // default|serif|sans|mono
+	ReaderFontSize  string `json:"readerFontSize"`  // px; vacío = 15
 }
 
 func (s *Server) mySettings(w http.ResponseWriter, r *http.Request) {
@@ -161,13 +163,21 @@ func (s *Server) mySettings(w http.ResponseWriter, r *http.Request) {
 	theme, _ := s.store.GetUserSetting(u.ID, "theme")
 	width, _ := s.store.GetUserSetting(u.ID, "reader_max_width")
 	interval, _ := s.store.GetUserSetting(u.ID, "feed_interval_min")
+	font, _ := s.store.GetUserSetting(u.ID, "reader_font")
+	fontSize, _ := s.store.GetUserSetting(u.ID, "reader_font_size")
 	if theme == "" {
 		theme = "system"
 	}
 	if width == "" {
 		width = "normal"
 	}
-	writeJSON(w, http.StatusOK, userSettings{theme, width, interval})
+	if font == "" {
+		font = "default"
+	}
+	if fontSize == "" {
+		fontSize = "15"
+	}
+	writeJSON(w, http.StatusOK, userSettings{theme, width, interval, font, fontSize})
 }
 
 func (s *Server) updateMySettings(w http.ResponseWriter, r *http.Request) {
@@ -175,6 +185,8 @@ func (s *Server) updateMySettings(w http.ResponseWriter, r *http.Request) {
 		Theme           *string `json:"theme"`
 		ReaderMaxWidth  *string `json:"readerMaxWidth"`
 		FeedIntervalMin *string `json:"feedIntervalMin"`
+		ReaderFont      *string `json:"readerFont"`
+		ReaderFontSize  *string `json:"readerFontSize"`
 	}
 	if err := decodeBody(r, &body); err != nil {
 		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_body")
@@ -222,14 +234,49 @@ func (s *Server) updateMySettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if body.ReaderFont != nil {
+		if !validFont(*body.ReaderFont) {
+			errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_reader_font")
+			return
+		}
+		v := *body.ReaderFont
+		if v == "default" {
+			v = ""
+		}
+		if err := s.store.SetUserSetting(u.ID, "reader_font", v); err != nil {
+			s.logError(w, r, "guardar fuente del lector", err)
+			return
+		}
+	}
+	if body.ReaderFontSize != nil {
+		v := *body.ReaderFontSize
+		if v != "" && !validFontSize(v) {
+			errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_reader_font_size")
+			return
+		}
+		if v == "15" {
+			v = ""
+		}
+		if err := s.store.SetUserSetting(u.ID, "reader_font_size", v); err != nil {
+			s.logError(w, r, "guardar tamaño de fuente", err)
+			return
+		}
+	}
 	s.mySettings(w, r)
 }
 
-func validTheme(t string) bool   { return t == "system" || t == "light" || t == "dark" }
-func validWidth(w string) bool   { return w == "narrow" || w == "normal" || w == "wide" }
+func validTheme(t string) bool { return t == "system" || t == "light" || t == "dark" }
+func validWidth(w string) bool { return w == "narrow" || w == "normal" || w == "wide" }
 func validInterval(v string) bool {
 	n, err := strconv.Atoi(v)
 	return err == nil && n >= 5 && n <= 1440
+}
+func validFont(f string) bool {
+	return f == "default" || f == "serif" || f == "sans" || f == "mono"
+}
+func validFontSize(v string) bool {
+	n, err := strconv.Atoi(v)
+	return err == nil && n >= 13 && n <= 20
 }
 
 func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {

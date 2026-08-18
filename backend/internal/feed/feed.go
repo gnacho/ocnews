@@ -5,6 +5,7 @@ package feed
 import (
 	"context"
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,10 +25,14 @@ const maxBodyBytes = 10 << 20 // 10 MB de techo por feed
 
 type Fetcher interface {
 	// Fetch descarga y parsea el feed; error si no se puede leer.
-	Fetch(ctx context.Context, url string) (*store.Feed, []store.NewItem, error)
+	// authUser/authPass: credenciales HTTP Basic del feed (vacías = sin auth).
+	Fetch(ctx context.Context, url, authUser, authPass string) (*store.Feed, []store.NewItem, error)
 	// Discover autodetecta feeds RSS/Atom en una página web.
 	Discover(ctx context.Context, url string) ([]DiscoveredFeed, error)
 }
+
+// ErrAuthRequired: el origen respondió 401/403 (feed tras autenticación).
+var ErrAuthRequired = errors.New("el feed requiere autenticación")
 
 type HTTPFetcher struct {
 	Client *http.Client
@@ -43,18 +48,24 @@ func NewHTTPFetcherAllowLocal(timeout time.Duration) *HTTPFetcher {
 	return &HTTPFetcher{Client: netguard.ClientAllowLocal(timeout)}
 }
 
-func (h *HTTPFetcher) Fetch(ctx context.Context, url string) (*store.Feed, []store.NewItem, error) {
+func (h *HTTPFetcher) Fetch(ctx context.Context, url, authUser, authPass string) (*store.Feed, []store.NewItem, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("url inválida: %w", err)
 	}
 	req.Header.Set("User-Agent", "ocnews/0.5 (+https://github.com/gnacho/ocnews)")
 	req.Header.Set("Accept", "application/rss+xml, application/atom+xml, application/xml, text/xml, */*")
+	if authUser != "" {
+		req.SetBasicAuth(authUser, authPass)
+	}
 	resp, err := h.Client.Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("descargar feed: %w", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, nil, fmt.Errorf("descargar feed: HTTP %d: %w", resp.StatusCode, ErrAuthRequired)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, nil, fmt.Errorf("descargar feed: HTTP %d", resp.StatusCode)
 	}

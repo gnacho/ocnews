@@ -22,6 +22,7 @@ export interface Feed {
   updateErrorCount: number
   lastUpdateError: string | null
   isPodcast: boolean
+  authUser?: string // usuario Basic del feed ("" = sin auth); la contraseña nunca se expone
 }
 
 export interface Item {
@@ -60,6 +61,8 @@ export interface UserSettings {
   theme: string
   readerMaxWidth: string
   feedIntervalMin: string
+  readerFont: string
+  readerFontSize: string
 }
 
 // type: 0 feed, 1 folder, 2 starred, 3 all
@@ -129,8 +132,10 @@ export function useNewsApi() {
       post(`/feeds/${feedId}/read`, { newestItemId }),
     markFolderRead: (folderId: number, newestItemId: number) =>
       post(`/folders/${folderId}/read`, { newestItemId }),
-    addFeed: (url: string, folderId: number | null) =>
-      client.httpAuthenticated.post(`${BASE}/feeds`, { url, folderId }),
+    addFeed: (url: string, folderId: number | null, username = '', password = '') =>
+      client.httpAuthenticated.post(`${BASE}/feeds`, { url, folderId, username, password }),
+    setFeedCredentials: (feedId: number, username: string, password: string) =>
+      client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/credentials`, { username, password }),
     deleteFeed: (feedId: number) => client.httpAuthenticated.delete(`${BASE}/feeds/${feedId}`),
     renameFeed: (feedId: number, title: string) =>
       client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/rename`, { feedTitle: title }),

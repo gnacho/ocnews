@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gnacho/ocnews/backend/internal/cred"
 	"github.com/gnacho/ocnews/backend/internal/feed"
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
@@ -18,13 +19,14 @@ import (
 type Refresher struct {
 	store    *store.Store
 	fetcher  feed.Fetcher
+	cred     *cred.Cipher
 	log      *slog.Logger
 	interval time.Duration // intervalo base entre refrescos
 	maxGap   time.Duration // tope del intervalo adaptativo
 }
 
-func New(st *store.Store, f feed.Fetcher, log *slog.Logger, interval, maxGap time.Duration) *Refresher {
-	return &Refresher{store: st, fetcher: f, log: log, interval: interval, maxGap: maxGap}
+func New(st *store.Store, f feed.Fetcher, c *cred.Cipher, log *slog.Logger, interval, maxGap time.Duration) *Refresher {
+	return &Refresher{store: st, fetcher: f, cred: c, log: log, interval: interval, maxGap: maxGap}
 }
 
 // Result resume un refresco para el scheduler.
@@ -45,7 +47,13 @@ func (r *Refresher) Refresh(ctx context.Context, f *store.Feed) Result {
 }
 
 func (r *Refresher) refresh(ctx context.Context, f *store.Feed) Result {
-	parsed, items, err := r.fetcher.Fetch(ctx, f.URL)
+	authPass, err := r.cred.Decrypt(f.AuthPassEnc)
+	if err != nil {
+		r.store.RecordFeedError(f.ID, "credenciales ilegibles (¿clave rotada?)")
+		r.log.Warn("descifrar credenciales falló", "url", f.URL, "err", err)
+		return Result{FeedID: f.ID, Err: err}
+	}
+	parsed, items, err := r.fetcher.Fetch(ctx, f.URL, f.AuthUser, authPass)
 	if err != nil {
 		r.store.RecordFeedError(f.ID, err.Error())
 		r.log.Warn("fetch falló", "url", f.URL, "err", err)
