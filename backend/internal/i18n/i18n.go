@@ -172,6 +172,10 @@ var messages = map[string]map[Lang]string{
 		ES: "selector CSS no válido",
 		EN: "invalid CSS selector",
 	},
+	"invalid_list_width": {
+		ES: "ancho de lista no válido (240-700 px)",
+		EN: "invalid list width (240-700 px)",
+	},
 }
 
 // T devuelve el mensaje traducido; claves desconocidas caen en internal_error.
