@@ -47,6 +47,8 @@ func (s *Server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /items/{itemId}/unread", s.markItem(true, "unread"))
 	mux.HandleFunc("POST /items/{itemId}/star", s.markItem(true, "starred"))
 	mux.HandleFunc("POST /items/{itemId}/unstar", s.markItem(false, "starred"))
+	mux.HandleFunc("POST /items/{itemId}/share", s.createShare)
+	mux.HandleFunc("DELETE /items/{itemId}/share", s.deleteShare)
 
 	// Marcado múltiple: la spec oficial se contradice (definiciones: POST con
 	// "itemIds"; sección How To Sync: PUT con "items") → registramos ambos

@@ -229,6 +229,12 @@ export function useNewsApi() {
     addAutoRead: (feedId: number, titlePattern: string) =>
       client.httpAuthenticated.post(`${BASE}/auto-read`, { feedId, titlePattern }),
     deleteAutoRead: (ruleId: number) =>
-      client.httpAuthenticated.delete(`${BASE}/auto-read/${ruleId}`)
+      client.httpAuthenticated.delete(`${BASE}/auto-read/${ruleId}`),
+    shareItem: async (itemId: number): Promise<{ share: { token: string; url: string } }> => {
+      const { data } = await client.httpAuthenticated.post(`${BASE}/items/${itemId}/share`, {})
+      return data as { share: { token: string; url: string } }
+    },
+    unshareItem: (itemId: number) =>
+      client.httpAuthenticated.delete(`${BASE}/items/${itemId}/share`)
   }
 }

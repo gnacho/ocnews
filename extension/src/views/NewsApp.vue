@@ -366,6 +366,15 @@
         >
           <ExternalLink style="width: 20px; height: 20px" />
         </oc-button>
+        <oc-button
+          variation="passive"
+          appearance="raw"
+          :aria-label="sharedUrl ? $gettext('Stop sharing') : $gettext('Share article')"
+          :title="sharedUrl ? $gettext('Stop sharing') : $gettext('Share article')"
+          @click="toggleShare"
+        >
+          <Share2 style="width: 20px; height: 20px" :style="sharedUrl ? 'color: var(--news-primary)' : ''" />
+        </oc-button>
       </header>
       <div style="flex: 1; overflow-y: auto; padding: 12px 16px">
         <audio
@@ -862,7 +871,8 @@ import {
   Podcast,
   Keyboard,
   Bookmark,
-  BookmarkPlus
+  BookmarkPlus,
+  Share2
 } from 'lucide-vue-next'
 import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings, DiscoveredFeed, SavedSearch, Rules, AutoReadRule } from '../api'
 
@@ -910,6 +920,7 @@ const detail = ref<Item | null>(null)
 const fullBody = ref('')
 const fullLoading = ref(false)
 const fullFailed = ref(false)
+const sharedUrl = ref('')
 const loading = ref(false)
 const error = ref('')
 const newFeedUrl = ref('')
@@ -1427,8 +1438,10 @@ function onKeydown(e: KeyboardEvent) {
 
 async function openItem(item: Item) {
   listIndex.value = items.value.findIndex((x) => x.id === item.id)
+  detail.value = item
   fullBody.value = ''
   fullFailed.value = false
+  sharedUrl.value = ''
   if (item.unread) {
     item.unread = false
     await api.markRead(item.id)
@@ -1697,6 +1710,34 @@ async function removeCredentials() {
 
 function openOriginal() {
   if (detail.value?.url) window.open(detail.value.url, '_blank', 'noopener,noreferrer')
+}
+
+// Compartir artículo con URL pública (#43): crea el token, copia el enlace y
+// permite revocarlo con un segundo clic.
+async function toggleShare() {
+  if (!detail.value) return
+  if (sharedUrl.value) {
+    try {
+      await api.unshareItem(detail.value.id)
+      sharedUrl.value = ''
+    } catch (e) {
+      error.value = $gettext('Could not stop sharing: ') + errText(e)
+    }
+    return
+  }
+  try {
+    const res = await api.shareItem(detail.value.id)
+    const url = window.location.origin + res.share.url
+    sharedUrl.value = url
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      /* sin permiso de portapapeles: se muestra el enlace como aviso */
+    }
+    error.value = $gettext('Share link copied')
+  } catch (e) {
+    error.value = $gettext('Could not share article: ') + errText(e)
+  }
 }
 
 async function markEntryRead(entry: NavEntry) {

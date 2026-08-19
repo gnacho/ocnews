@@ -7,6 +7,13 @@ import (
 	"strings"
 )
 
+// itemsCols: columnas del item + full_content del feed (en el orden exacto
+// que espera scanItem).
+const itemsCols = "i.id, i.guid, i.guid_hash, i.url, i.title, i.author, i.pub_date, i.body, " +
+	"i.enclosure_mime, i.enclosure_link, i.media_thumbnail, i.media_description, " +
+	"i.feed_id, i.unread, i.starred, i.last_modified, i.fingerprint, i.filtered, " +
+	"COALESCE(x.full_content, 0)"
+
 // buildItemQuery construye el WHERE según el filtro (type 0=feed, 1=folder,
 // 2=starred, 3=all) + getRead/offset/updatedSince, y el ORDER/LIMIT.
 func buildItemQuery(f ItemFilter, countOnly bool) (string, []any, error) {
@@ -44,11 +51,7 @@ func buildItemQuery(f ItemFilter, countOnly bool) (string, []any, error) {
 		where = append(where, "i.filtered = 0")
 	}
 
-	cols := "i.id, i.guid, i.guid_hash, i.url, i.title, i.author, i.pub_date, i.body, " +
-		"i.enclosure_mime, i.enclosure_link, i.media_thumbnail, i.media_description, " +
-		"i.feed_id, i.unread, i.starred, i.last_modified, i.fingerprint, i.filtered, " +
-		"COALESCE(x.full_content, 0)"
-	sel := "SELECT " + cols + " FROM items i LEFT JOIN feeds x ON x.id = i.feed_id"
+	sel := "SELECT " + itemsCols + " FROM items i LEFT JOIN feeds x ON x.id = i.feed_id"
 	if countOnly {
 		sel = "SELECT COUNT(*) FROM items i"
 	}
@@ -152,11 +155,7 @@ func (s *Store) SearchItems(f ItemFilter, query string, limit int) ([]Item, erro
 		"(LOWER(i.title) LIKE ? OR LOWER(i.body) LIKE ? OR LOWER(i.url) LIKE ?)")
 	args = append(args, like, like, like)
 
-	cols := "i.id, i.guid, i.guid_hash, i.url, i.title, i.author, i.pub_date, i.body, " +
-		"i.enclosure_mime, i.enclosure_link, i.media_thumbnail, i.media_description, " +
-		"i.feed_id, i.unread, i.starred, i.last_modified, i.fingerprint, i.filtered, " +
-		"COALESCE(x.full_content, 0)"
-	q := "SELECT " + cols + " FROM items i LEFT JOIN feeds x ON x.id = i.feed_id WHERE " +
+	q := "SELECT " + itemsCols + " FROM items i LEFT JOIN feeds x ON x.id = i.feed_id WHERE " +
 		strings.Join(where, " AND ")
 	if f.OldestFirst {
 		q += " ORDER BY i.id ASC"
