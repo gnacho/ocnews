@@ -171,19 +171,15 @@ p:last-child { margin-bottom: 0; }
   display: none; background: none; border: none; color: var(--fg); cursor: pointer;
 }
 
-/* Banda azul continua (hero + captura) - Unapp: imagen difuminada + gradiente */
-.blue-band {
-  background:
-    linear-gradient(135deg, rgba(73,155,234,0.95) 0%, rgba(121,142,234,0.95) 100%),
-    url("assets/bg-hero.webp") center/cover no-repeat;
-}
-
-/* Hero */
+/* Hero - Unapp: imagen difuminada + gradiente azul (efecto dinamico) */
 .hero {
   position: relative; min-height: 700px;
   display: flex; align-items: center; justify-content: center;
   text-align: center; color: #fff; overflow: hidden;
-  padding: 120px 0 190px;
+  padding: 120px 0 150px;
+  background:
+    linear-gradient(135deg, rgba(73,155,234,0.95) 0%, rgba(121,142,234,0.95) 100%),
+    url("assets/bg-hero.webp") center/cover no-repeat;
 }
 
 .hero-overlay { position: absolute; inset: 0; }
@@ -245,13 +241,14 @@ p:last-child { margin-bottom: 0; }
   color: rgba(255,255,255,0.95);
 }
 
-/* Slider - captura sobre el azul continuo de .blue-band */
+/* Slider - solo el trozo superior de la captura sobre el azul, como Unapp (112px) */
 .slider-band {
   padding: 0 0 90px;
+  background: var(--bg);
   position: relative; z-index: 3;
 }
 
-.slider { display: flex; align-items: center; gap: 16px; margin-top: -150px; }
+.slider { display: flex; align-items: center; gap: 16px; margin-top: -112px; }
 
 .slider-viewport {
   flex: 1; border-radius: 4px; overflow: hidden;
