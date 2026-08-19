@@ -13,12 +13,18 @@
   }
   applyTheme();
 
+  function updateToggleStates() {
+    if (themeBtn) themeBtn.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
+    if (langBtn) langBtn.setAttribute('aria-pressed', currentLang === 'en' ? 'true' : 'false');
+  }
+
   const themeBtn = document.getElementById('themeBtn');
   if (themeBtn) {
     themeBtn.addEventListener('click', () => {
       theme = theme === 'dark' ? 'light' : 'dark';
       localStorage.setItem('ocnews-theme', theme);
       applyTheme();
+      updateToggleStates();
     });
   }
 
@@ -29,6 +35,8 @@
       const next = currentLang === 'es' ? 'en' : 'es';
       setLang(next);
       renderSlider();
+      renderGridShots();
+      updateToggleStates();
     });
   }
 
@@ -54,6 +62,12 @@
     return `assets/${slide.file}-${currentLang}-${themeSuffix}.webp`;
   }
 
+  function renderGridShots() {
+    document.querySelectorAll('.shots-grid figure img').forEach((img, i) => {
+      if (slides[i]) img.src = shotSrc(slides[i]);
+    });
+  }
+
   function renderSlider() {
     const slide = slides[currentSlide];
     if (shotImg) {
@@ -62,6 +76,7 @@
         shotImg.src = shotSrc(slide);
         shotImg.alt = t('slider.label', { n: currentSlide + 1, total: slides.length, title: t(`shots.caption${currentSlide + 1}`) });
         shotImg.onload = () => { shotImg.style.opacity = '1'; };
+        shotImg.onerror = () => { shotImg.style.opacity = '1'; };
       }, 150);
     }
     if (thumbsEl) {
@@ -99,15 +114,16 @@
     });
   }
 
-  // Re-render slider on theme change
-  const originalThemeClick = themeBtn && themeBtn.onclick;
+  // Re-render slider and grid shots on theme change
   if (themeBtn) {
     themeBtn.addEventListener('click', () => {
-      setTimeout(renderSlider, 10);
+      setTimeout(() => { renderSlider(); renderGridShots(); }, 10);
     });
   }
 
   renderSlider();
+  renderGridShots();
+  updateToggleStates();
 
   // Lightbox
   const lightbox = document.getElementById('lightbox');
@@ -219,6 +235,12 @@
       const open = mobileToggle.getAttribute('aria-expanded') === 'true';
       mobileToggle.setAttribute('aria-expanded', String(!open));
       navLinks.classList.toggle('open', !open);
+    });
+    navLinks.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        mobileToggle.setAttribute('aria-expanded', 'false');
+        navLinks.classList.remove('open');
+      });
     });
   }
 })();
