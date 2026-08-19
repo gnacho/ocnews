@@ -12,13 +12,14 @@
   --fg: #303133;
   --muted: #6e6e6e;
   --border: #e6e6e6;
-  --accent: #1e7a4a;
-  --accent-hover: #238551;
+  --accent: #4aca85;
+  --accent-hover: #5ed092;
   --accent-decor: #4aca85;
   --accent-fg: #ffffff;
-  --hero-a: #3f90dd;
-  --hero-b: #6b7fd6;
-  --success: #1e7a4a;
+  --brand: #ee7318;
+  --hero-a: #499bea;
+  --hero-b: #798eea;
+  --success: #4aca85;
   --warning: #9a6700;
   --error: #c9302c;
 
@@ -133,7 +134,7 @@ p:last-child { margin-bottom: 0; }
   color: var(--fg);
 }
 .nav-logo:hover { text-decoration: none; color: var(--fg); }
-.nav-logo svg { color: var(--accent); flex-shrink: 0; }
+.nav-logo svg { color: var(--brand); flex-shrink: 0; }
 
 .nav-links { display: flex; align-items: center; gap: 30px; }
 .nav-links a {
@@ -170,13 +171,19 @@ p:last-child { margin-bottom: 0; }
   display: none; background: none; border: none; color: var(--fg); cursor: pointer;
 }
 
-/* Hero - Unapp gradient */
+/* Banda azul continua (hero + captura) - Unapp: imagen difuminada + gradiente */
+.blue-band {
+  background:
+    linear-gradient(135deg, rgba(73,155,234,0.95) 0%, rgba(121,142,234,0.95) 100%),
+    url("assets/bg-hero.webp") center/cover no-repeat;
+}
+
+/* Hero */
 .hero {
   position: relative; min-height: 700px;
   display: flex; align-items: center; justify-content: center;
   text-align: center; color: #fff; overflow: hidden;
   padding: 120px 0 190px;
-  background: linear-gradient(135deg, var(--hero-a) 0%, var(--hero-b) 100%);
 }
 
 .hero-overlay { position: absolute; inset: 0; }
@@ -238,8 +245,11 @@ p:last-child { margin-bottom: 0; }
   color: rgba(255,255,255,0.95);
 }
 
-/* Slider - captura superpuesta al fondo azul, como Unapp (.featured-wrap margin-top:-7em) */
-.slider-band { padding: 0 0 80px; background: var(--bg); position: relative; z-index: 3; }
+/* Slider - captura sobre el azul continuo de .blue-band */
+.slider-band {
+  padding: 0 0 90px;
+  position: relative; z-index: 3;
+}
 
 .slider { display: flex; align-items: center; gap: 16px; margin-top: -150px; }
 
@@ -292,7 +302,11 @@ p:last-child { margin-bottom: 0; }
 .club-copy { flex: 1; }
 .club-copy h2 { font-size: 32px; margin-bottom: 14px; }
 .club-copy p { color: var(--muted); margin-bottom: 0; }
-.block-club { background: linear-gradient(135deg, var(--hero-a) 0%, var(--hero-b) 100%); }
+.block-club {
+  background:
+    linear-gradient(135deg, rgba(73,155,234,0.95) 0%, rgba(121,142,234,0.95) 100%),
+    url("assets/bg-club.webp") center/cover no-repeat;
+}
 .block-club .eyebrow, .block-club h2, .block-club p { color: #fff; }
 .block-club .eyebrow { color: rgba(255,255,255,0.8); }
 .block-club .club-inner { background: rgba(255,255,255,0.1); box-shadow: none; }
@@ -394,6 +408,15 @@ p:last-child { margin-bottom: 0; }
 .requirements ul { margin: 0; padding-left: 22px; color: var(--muted); }
 .requirements li { margin-bottom: 8px; }
 
+/* About - banda azul con imagen difuminada, como el subscribe de Unapp */
+.block-about {
+  background:
+    linear-gradient(135deg, rgba(73,155,234,0.95) 0%, rgba(121,142,234,0.95) 100%),
+    url("assets/bg-club.webp") center/cover no-repeat;
+}
+.block-about .eyebrow, .block-about h2, .block-about .about-copy p { color: #fff; }
+.block-about .eyebrow { color: rgba(255,255,255,0.85); }
+
 /* About */
 .about-inner { display: grid; grid-template-columns: 2fr 1fr; gap: 50px; align-items: start; }
 .about-copy h2 { font-size: 34px; margin-bottom: 22px; }
@@ -418,7 +441,7 @@ p:last-child { margin-bottom: 0; }
   font-family: var(--font-display); font-size: 22px; font-weight: 700;
   color: #fff; margin-bottom: 14px;
 }
-.footer-logo svg { color: var(--accent); }
+.footer-logo svg { color: var(--brand); }
 
 .footer-col h4 {
   font-size: 15px; font-weight: 700; color: #fff;
