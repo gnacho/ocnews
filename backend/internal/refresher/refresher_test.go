@@ -66,7 +66,7 @@ func newEnv(t *testing.T) (*store.Store, int64, *fakeFetcher, *Refresher) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := New(st, ff, creds, log, time.Minute, 10*time.Minute)
+	r := New(st, ff, creds, log, time.Minute, 10*time.Minute, nil)
 	return st, uid, ff, r
 }
 
@@ -152,7 +152,7 @@ func TestRefreshSanitizesBody(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r2 := New(st, dirty, creds, log, time.Minute, time.Minute)
+	r2 := New(st, dirty, creds, log, time.Minute, time.Minute, nil)
 	f, err := st.CreateFeed(uid, "https://d.example/f", nil, "T", "https://d.example", "", nil)
 	if err != nil {
 		t.Fatal(err)

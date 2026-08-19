@@ -68,6 +68,7 @@ export interface UserSettings {
   feedIntervalMin: string
   readerFont: string
   readerFontSize: string
+  ntfyTopic?: string
 }
 
 // type: 0 feed, 1 folder, 2 starred, 3 all

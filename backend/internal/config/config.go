@@ -23,6 +23,9 @@ type Config struct {
 
 	AuthMode       string // OCNEWS_AUTH_MODE: local (default) | opencloud
 	OpenCloudURL   string // OCNEWS_OPENCOLOUD_URL: raíz del servidor OpenCloud (modo opencloud)
+
+	NtfyURL   string // OCNEWS_NTFY_URL, default https://ntfy.sh (base de notificaciones)
+	NtfyTopic string // OCNEWS_NTFY_TOPIC: topic global de ntfy (vacío = desactivado salvo per-usuario)
 }
 
 func Load() (*Config, error) {
@@ -38,6 +41,8 @@ func Load() (*Config, error) {
 		Retention:      90 * 24 * time.Hour,
 		AuthMode:       env("OCNEWS_AUTH_MODE", "local"),
 		OpenCloudURL:   os.Getenv("OCNEWS_OPENCOLOUD_URL"),
+		NtfyURL:        env("OCNEWS_NTFY_URL", "https://ntfy.sh"),
+		NtfyTopic:      os.Getenv("OCNEWS_NTFY_TOPIC"),
 	}
 	for _, e := range []struct {
 		key string

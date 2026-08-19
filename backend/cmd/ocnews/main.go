@@ -21,6 +21,7 @@ import (
 	"github.com/gnacho/ocnews/backend/internal/feed"
 	"github.com/gnacho/ocnews/backend/internal/favicon"
 	"github.com/gnacho/ocnews/backend/internal/imgproxy"
+	"github.com/gnacho/ocnews/backend/internal/notify"
 	"github.com/gnacho/ocnews/backend/internal/refresher"
 	"github.com/gnacho/ocnews/backend/internal/scheduler"
 	"github.com/gnacho/ocnews/backend/internal/store"
@@ -99,7 +100,8 @@ func run() error {
 
 	fetcher := feed.NewHTTPFetcher(cfg.FetchTimeout)
 	extractor := extract.New(cfg.FetchTimeout)
-	refresh := refresher.New(st, fetcher, creds, log, cfg.FeedInterval, cfg.MaxGap)
+	notifier := notify.New(cfg.NtfyURL, cfg.NtfyTopic, log)
+	refresh := refresher.New(st, fetcher, creds, log, cfg.FeedInterval, cfg.MaxGap, notifier)
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,

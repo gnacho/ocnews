@@ -6,6 +6,7 @@ package refresher
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"math/rand/v2"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/gnacho/ocnews/backend/internal/cred"
 	"github.com/gnacho/ocnews/backend/internal/feed"
+	"github.com/gnacho/ocnews/backend/internal/notify"
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
 
@@ -23,10 +25,11 @@ type Refresher struct {
 	log      *slog.Logger
 	interval time.Duration // intervalo base entre refrescos
 	maxGap   time.Duration // tope del intervalo adaptativo
+	notifier *notify.Notifier
 }
 
-func New(st *store.Store, f feed.Fetcher, c *cred.Cipher, log *slog.Logger, interval, maxGap time.Duration) *Refresher {
-	return &Refresher{store: st, fetcher: f, cred: c, log: log, interval: interval, maxGap: maxGap}
+func New(st *store.Store, f feed.Fetcher, c *cred.Cipher, log *slog.Logger, interval, maxGap time.Duration, n *notify.Notifier) *Refresher {
+	return &Refresher{store: st, fetcher: f, cred: c, log: log, interval: interval, maxGap: maxGap, notifier: n}
 }
 
 // Result resume un refresco para el scheduler.
@@ -76,8 +79,37 @@ func (r *Refresher) refresh(ctx context.Context, f *store.Feed) Result {
 	f.Title, f.Link = title, link
 	if inserted > 0 {
 		r.log.Info("feed actualizado", "url", f.URL, "nuevos", inserted)
+		r.notifyNewItems(ctx, f, inserted, items)
 	}
 	return Result{FeedID: f.ID, Inserted: inserted}
+}
+
+// notifyNewItems: notificación push (ntfy) cuando el feed trae artículos
+// nuevos. El topic es el del usuario (user_settings ntfy_topic) o, si no, el
+// global configurado en el arranque. Sin topic → no se notifica.
+func (r *Refresher) notifyNewItems(ctx context.Context, f *store.Feed, inserted int64, items []store.NewItem) {
+	if r.notifier == nil || inserted <= 0 {
+		return
+	}
+	topic, err := r.store.GetUserSetting(f.UserID, "ntfy_topic")
+	if err != nil || topic == "" {
+		topic = r.notifier.Topic()
+	}
+	if topic == "" {
+		return
+	}
+	noun := "artículo"
+	if inserted > 1 {
+		noun = "artículos"
+	}
+	title := fmt.Sprintf("%d %s nuevos en %s", inserted, noun, f.Title)
+	msg := ""
+	if len(items) > 0 {
+		msg = items[0].Title
+	}
+	if err := r.notifier.Notify(ctx, topic, title, msg); err != nil {
+		r.log.Warn("notificación ntfy falló", "feed", f.ID, "err", err)
+	}
 }
 
 // scheduleNext fija next_update:

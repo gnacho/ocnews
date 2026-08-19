@@ -548,6 +548,15 @@
           style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 16px"
         />
         <p style="margin: 0 0 16px; font-size: 11px; opacity: 0.6">{{ $gettext('Leave empty for the server default (15 min).') }}</p>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Notification topic (ntfy)') }}</label>
+        <input
+          v-model="settingsForm.ntfyTopic"
+          type="text"
+          spellcheck="false"
+          placeholder="ocnews"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 4px"
+        />
+        <p style="margin: 0 0 16px; font-size: 11px; opacity: 0.6">{{ $gettext('Get a push notification when new articles arrive. Leave empty to use the server default (or none).') }}</p>
         <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 16px">
           <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="exportOpml">
             <Download style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Export OPML') }}
@@ -1073,7 +1082,7 @@ const retentionForm = ref(0)
 
 const settingsOpen = ref(false)
 const settingsSaving = ref(false)
-const settingsForm = ref<UserSettings>({ theme: 'system', readerMaxWidth: 'wide', feedIntervalMin: '', readerFont: 'default', readerFontSize: '15' })
+const settingsForm = ref<UserSettings>({ theme: 'system', readerMaxWidth: 'wide', feedIntervalMin: '', readerFont: 'default', readerFontSize: '15', ntfyTopic: '' })
 
 const discoverPickerOpen = ref(false)
 const discoverCandidates = ref<DiscoveredFeed[]>([])
@@ -1986,7 +1995,8 @@ async function openSettings() {
       readerMaxWidth: s.readerMaxWidth || 'wide',
       feedIntervalMin: s.feedIntervalMin ?? '',
       readerFont: s.readerFont || 'default',
-      readerFontSize: s.readerFontSize || '15'
+      readerFontSize: s.readerFontSize || '15',
+      ntfyTopic: s.ntfyTopic ?? ''
     }
   } catch {
     /* usar defaults */
@@ -2001,7 +2011,8 @@ async function saveSettings() {
       readerMaxWidth: settingsForm.value.readerMaxWidth,
       feedIntervalMin: settingsForm.value.feedIntervalMin.trim(),
       readerFont: settingsForm.value.readerFont,
-      readerFontSize: settingsForm.value.readerFontSize
+      readerFontSize: settingsForm.value.readerFontSize,
+      ntfyTopic: settingsForm.value.ntfyTopic?.trim() ?? ''
     })
     userTheme.value = updated.theme || 'system'
     userWidth.value = updated.readerMaxWidth || 'wide'

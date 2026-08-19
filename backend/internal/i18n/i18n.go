@@ -164,6 +164,10 @@ var messages = map[string]map[Lang]string{
 		ES: "regla no encontrada",
 		EN: "rule not found",
 	},
+	"invalid_ntfy_topic": {
+		ES: "topic ntfy inválido (letras, números, guiones y guion bajo, máx. 64)",
+		EN: "invalid ntfy topic (letters, numbers, dashes and underscores, max 64)",
+	},
 }
 
 // T devuelve el mensaje traducido; claves desconocidas caen en internal_error.

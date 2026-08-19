@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -158,6 +159,7 @@ type userSettings struct {
 	FeedIntervalMin string `json:"feedIntervalMin"` // minutos; vacío = default global
 	ReaderFont      string `json:"readerFont"`      // default|serif|sans|mono
 	ReaderFontSize  string `json:"readerFontSize"`  // px; vacío = 15
+	NtfyTopic       string `json:"ntfyTopic"`       // topic ntfy del usuario; vacío = global/off
 }
 
 func (s *Server) mySettings(w http.ResponseWriter, r *http.Request) {
@@ -167,6 +169,7 @@ func (s *Server) mySettings(w http.ResponseWriter, r *http.Request) {
 	interval, _ := s.store.GetUserSetting(u.ID, "feed_interval_min")
 	font, _ := s.store.GetUserSetting(u.ID, "reader_font")
 	fontSize, _ := s.store.GetUserSetting(u.ID, "reader_font_size")
+	ntfy, _ := s.store.GetUserSetting(u.ID, "ntfy_topic")
 	if theme == "" {
 		theme = "system"
 	}
@@ -179,7 +182,7 @@ func (s *Server) mySettings(w http.ResponseWriter, r *http.Request) {
 	if fontSize == "" {
 		fontSize = "15"
 	}
-	writeJSON(w, http.StatusOK, userSettings{theme, width, interval, font, fontSize})
+	writeJSON(w, http.StatusOK, userSettings{theme, width, interval, font, fontSize, ntfy})
 }
 
 func (s *Server) updateMySettings(w http.ResponseWriter, r *http.Request) {
@@ -189,6 +192,7 @@ func (s *Server) updateMySettings(w http.ResponseWriter, r *http.Request) {
 		FeedIntervalMin *string `json:"feedIntervalMin"`
 		ReaderFont      *string `json:"readerFont"`
 		ReaderFontSize  *string `json:"readerFontSize"`
+		NtfyTopic       *string `json:"ntfyTopic"`
 	}
 	if err := decodeBody(r, &body); err != nil {
 		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_body")
@@ -264,6 +268,17 @@ func (s *Server) updateMySettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if body.NtfyTopic != nil {
+		v := strings.TrimSpace(*body.NtfyTopic)
+		if v != "" && !validNtfyTopic(v) {
+			errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_ntfy_topic")
+			return
+		}
+		if err := s.store.SetUserSetting(u.ID, "ntfy_topic", v); err != nil {
+			s.logError(w, r, "guardar topic ntfy", err)
+			return
+		}
+	}
 	s.mySettings(w, r)
 }
 
@@ -279,6 +294,20 @@ func validFont(f string) bool {
 func validFontSize(v string) bool {
 	n, err := strconv.Atoi(v)
 	return err == nil && n >= 13 && n <= 20
+}
+
+// validNtfyTopic: topic de ntfy = [a-zA-Z0-9_-], hasta 64 chars.
+func validNtfyTopic(v string) bool {
+	if len(v) > 64 {
+		return false
+	}
+	for _, r := range v {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
