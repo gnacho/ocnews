@@ -17,6 +17,7 @@ import (
 	"github.com/mmcdole/gofeed"
 
 	"github.com/gnacho/ocnews/backend/internal/netguard"
+	"github.com/gnacho/ocnews/backend/internal/privacy"
 	"github.com/gnacho/ocnews/backend/internal/sanitize"
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
@@ -173,10 +174,26 @@ func Parse(body []byte) (*store.Feed, []store.NewItem, error) {
 		if desc, ok := mediaExt(it, "description", ""); ok {
 			ni.MediaDescription = &desc
 		}
+		applyPrivacy(&ni)
 		ni.Fingerprint = fingerprint(ni)
 		items = append(items, ni)
 	}
 	return f, items, nil
+}
+
+// applyPrivacy limpia parámetros de tracking y pixel trackers del item ANTES
+// del fingerprint (la URL y el body entran ya limpios al hash).
+func applyPrivacy(ni *store.NewItem) {
+	ni.URL = privacy.StripParams(ni.URL)
+	if ni.EnclosureLink != nil {
+		v := privacy.StripParams(*ni.EnclosureLink)
+		ni.EnclosureLink = &v
+	}
+	if ni.MediaThumbnail != nil {
+		v := privacy.StripParams(*ni.MediaThumbnail)
+		ni.MediaThumbnail = &v
+	}
+	ni.Body = privacy.RemovePixels(ni.Body)
 }
 
 func websiteLink(f *gofeed.Feed) string {
@@ -301,7 +318,7 @@ func (h *HTTPFetcher) Discover(ctx context.Context, url string) ([]DiscoveredFee
 			continue
 		}
 		seen[abs.String()] = true
-		out = append(out, DiscoveredFeed{URL: abs.String(), Title: titleFromFeedLink(string(m)), Type: kind})
+		out = append(out, DiscoveredFeed{URL: privacy.StripParams(abs.String()), Title: titleFromFeedLink(string(m)), Type: kind})
 	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("no se encontraron feeds en la página")
