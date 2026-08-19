@@ -387,3 +387,75 @@ func (s *Store) SetItemURLForTesting(itemID int64, url string) error {
 	_, err := s.db.Exec(`UPDATE items SET url = ? WHERE id = ?`, url, itemID)
 	return err
 }
+
+// ItemClusterKeys devuelve el cluster_key de los ids dados ("" si no tiene).
+func (s *Store) ItemClusterKeys(userID int64, ids []int64) (map[int64]string, error) {
+	out := map[int64]string{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	q := `SELECT id, cluster_key FROM items WHERE user_id = ? AND id IN (`
+	args := []any{userID}
+	for i, id := range ids {
+		if i > 0 {
+			q += ","
+		}
+		q += "?"
+		args = append(args, id)
+	}
+	q += `)`
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var id int64
+		var k string
+		if err := rows.Scan(&id, &k); err != nil {
+			return nil, err
+		}
+		out[id] = k
+	}
+	return out, rows.Err()
+}
+
+// Cluster: agrupación de una misma noticia en varios feeds.
+type Cluster struct {
+	Size      int64
+	PrimaryID int64
+}
+
+// Clusters devuelve, para los cluster_keys dados, el tamaño del cluster y el
+// item principal (el de mayor id = más recientemente insertado).
+func (s *Store) Clusters(userID int64, keys []string) (map[string]Cluster, error) {
+	out := map[string]Cluster{}
+	if len(keys) == 0 {
+		return out, nil
+	}
+	q := `SELECT cluster_key, COUNT(*), MAX(id) FROM items
+		WHERE user_id = ? AND cluster_key <> '' AND cluster_key IN (`
+	args := []any{userID}
+	for i, k := range keys {
+		if i > 0 {
+			q += ","
+		}
+		q += "?"
+		args = append(args, k)
+	}
+	q += `) GROUP BY cluster_key HAVING COUNT(*) > 1`
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var k string
+		var size, prim int64
+		if err := rows.Scan(&k, &size, &prim); err != nil {
+			return nil, err
+		}
+		out[k] = Cluster{Size: size, PrimaryID: prim}
+	}
+	return out, rows.Err()
+}

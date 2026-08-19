@@ -42,6 +42,8 @@ export interface Item {
   starred: boolean
   lastModified: number
   feedFullContent?: boolean
+  clusterSize?: number
+  clusterPrimaryId?: number
 }
 
 export interface FeedsResponse {

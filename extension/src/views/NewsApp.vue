@@ -279,6 +279,13 @@
             <p style="margin: 3px 0 0; font-size: 12px; opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
               <img v-if="feedIcon(item.feedId)" :src="feedIcon(item.feedId)" alt="" width="12" height="12" loading="lazy" style="width: 12px; height: 12px; border-radius: 3px; object-fit: contain; vertical-align: -1px; margin-right: 4px" />
               {{ feedTitle(item.feedId) }}<span v-if="item.author"> · {{ item.author }}</span> · {{ fmtRelative(item.pubDate) }}
+              <span
+                v-if="item.clusterSize && item.clusterSize > 1"
+                :title="clusterTitle(item)"
+                style="display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; font-weight: 600; opacity: 0.8"
+              >
+                <Copy style="width: 11px; height: 11px" />{{ item.clusterSize }}
+              </span>
             </p>
           </div>
           <button
@@ -918,7 +925,8 @@ import {
   Keyboard,
   Bookmark,
   BookmarkPlus,
-  Share2
+  Share2,
+  Copy
 } from 'lucide-vue-next'
 import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings, DiscoveredFeed, SavedSearch, Rules, AutoReadRule } from '../api'
 
@@ -1304,6 +1312,12 @@ function fmtDate(epoch: number) {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+// clusterTitle: tooltip del badge de duplicados (#42).
+function clusterTitle(item: Item): string {
+  if (!item.clusterSize) return ''
+  return $gettext('This story also appears in ') + String(item.clusterSize - 1) + ' ' + $gettext('other feed(s)')
 }
 
 // fmtRelative: "hace 3 min", "hace 2 h" para tiempos cortos; fecha completa

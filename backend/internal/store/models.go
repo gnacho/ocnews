@@ -87,6 +87,7 @@ type NewItem struct {
 	MediaThumbnail  *string
 	MediaDescription *string
 	Fingerprint     string
+	ClusterKey      string // agrupación de la misma noticia en varios feeds
 	Filtered        bool
 }
 
@@ -110,6 +111,8 @@ type Item struct {
 	RTL             bool    `json:"rtl"`
 	LastModified    int64   `json:"lastModified"`
 	Fingerprint     string  `json:"fingerprint"`
+	ClusterSize     int64   `json:"clusterSize,omitempty"`     // nº de items del cluster (#42)
+	ClusterPrimaryID int64  `json:"clusterPrimaryId,omitempty"` // id principal del cluster
 	FeedFullContent bool    `json:"feedFullContent"` // el feed ya sirve el artículo entero
 }
 

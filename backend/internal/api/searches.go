@@ -89,6 +89,7 @@ func (s *Server) searchSavedItems(w http.ResponseWriter, r *http.Request) {
 		s.logError(w, r, "buscar items de búsqueda guardada", err)
 		return
 	}
+	s.annotateClusters(u, items)
 	s.rewriteAll(items)
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }

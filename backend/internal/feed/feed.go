@@ -176,9 +176,27 @@ func Parse(body []byte) (*store.Feed, []store.NewItem, error) {
 		}
 		applyPrivacy(&ni)
 		ni.Fingerprint = fingerprint(ni)
+		ni.ClusterKey = clusterKey(ni)
 		items = append(items, ni)
 	}
 	return f, items, nil
+}
+
+// clusterKey agrupa la misma noticia en varios feeds: hash sobre el título
+// y el inicio del cuerpo normalizados (sin URL, que difiere por sitio).
+func clusterKey(ni store.NewItem) string {
+	title := normalizeText(ni.Title)
+	body := normalizeText(plainTextLen(ni.Body))
+	if len(body) > 300 {
+		body = body[:300]
+	}
+	sum := md5.Sum([]byte(title + "\x00" + body))
+	return fmt.Sprintf("%x", sum)
+}
+
+// normalizeText: minúsculas y whitespace colapsado para comparar títulos.
+func normalizeText(s string) string {
+	return strings.ToLower(strings.Join(strings.Fields(s), " "))
 }
 
 // applyPrivacy limpia parámetros de tracking y pixel trackers del item ANTES

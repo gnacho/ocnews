@@ -112,7 +112,7 @@ func (s *Store) createFeed(userID int64, url string, folderID *int64, title, lin
 	for _, it := range items {
 		r, err := tx.Exec(itemInsertSQL(), feedID, userID, it.GUID, it.GUIDHash, it.URL, it.Title,
 			it.Author, it.PubDate, it.Body, it.EnclosureMime, it.EnclosureLink,
-			it.MediaThumbnail, it.MediaDescription, it.Fingerprint, now(), boolInt(it.Filtered))
+			it.MediaThumbnail, it.MediaDescription, it.Fingerprint, it.ClusterKey, now(), boolInt(it.Filtered))
 		if err != nil {
 			return nil, err
 		}
@@ -154,7 +154,7 @@ func (s *Store) ReplaceFeedItems(feedID, userID int64, title, link string, items
 	for _, it := range items {
 		r, err := tx.Exec(itemInsertSQL(), feedID, userID, it.GUID, it.GUIDHash, it.URL, it.Title,
 			it.Author, it.PubDate, it.Body, it.EnclosureMime, it.EnclosureLink,
-			it.MediaThumbnail, it.MediaDescription, it.Fingerprint, now(), boolInt(it.Filtered))
+			it.MediaThumbnail, it.MediaDescription, it.Fingerprint, it.ClusterKey, now(), boolInt(it.Filtered))
 		if err != nil {
 			return 0, err
 		}
@@ -404,8 +404,8 @@ func (s *Store) SetFeedScraperSelector(userID, feedID int64, selector string) er
 func itemInsertSQL() string {
 	return `INSERT OR IGNORE INTO items
 		(feed_id, user_id, guid, guid_hash, url, title, author, pub_date, body,
-		 enclosure_mime, enclosure_link, media_thumbnail, media_description, fingerprint, last_modified, filtered)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		 enclosure_mime, enclosure_link, media_thumbnail, media_description, fingerprint, cluster_key, last_modified, filtered)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 }
 
 func md5Hex(s string) string {

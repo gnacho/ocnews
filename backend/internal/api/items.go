@@ -79,6 +79,42 @@ func itemFilterFromRequest(r *http.Request, u *store.User, updated bool) (store.
 	return f, true
 }
 
+// annotateClusters rellena clusterSize/clusterPrimaryId de los items listados
+// (#42): consulta los cluster_keys de la página y su tamaño global por usuario.
+func (s *Server) annotateClusters(u *store.User, items []store.Item) {
+	if len(items) == 0 {
+		return
+	}
+	ids := make([]int64, 0, len(items))
+	for _, it := range items {
+		ids = append(ids, it.ID)
+	}
+	keysByID, err := s.store.ItemClusterKeys(u.ID, ids)
+	if err != nil {
+		return
+	}
+	seen := map[string]bool{}
+	keys := []string{}
+	for _, k := range keysByID {
+		if k != "" && !seen[k] {
+			seen[k] = true
+			keys = append(keys, k)
+		}
+	}
+	clusters, err := s.store.Clusters(u.ID, keys)
+	if err != nil {
+		return
+	}
+	for i := range items {
+		if k := keysByID[items[i].ID]; k != "" {
+			if c, ok := clusters[k]; ok {
+				items[i].ClusterSize = c.Size
+				items[i].ClusterPrimaryID = c.PrimaryID
+			}
+		}
+	}
+}
+
 func (s *Server) listItems(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	f, valid := itemFilterFromRequest(r, u, false)
@@ -91,6 +127,7 @@ func (s *Server) listItems(w http.ResponseWriter, r *http.Request) {
 		s.logError(w, r, "listar items", err)
 		return
 	}
+	s.annotateClusters(u, items)
 	s.rewriteAll(items)
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
@@ -107,6 +144,7 @@ func (s *Server) updatedItems(w http.ResponseWriter, r *http.Request) {
 		s.logError(w, r, "items actualizados", err)
 		return
 	}
+	s.annotateClusters(u, items)
 	s.rewriteAll(items)
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
@@ -135,6 +173,7 @@ func (s *Server) searchItems(w http.ResponseWriter, r *http.Request) {
 		s.logError(w, r, "buscar items", err)
 		return
 	}
+	s.annotateClusters(u, items)
 	s.rewriteAll(items)
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }

@@ -144,6 +144,7 @@
   "Subscriptions": "Suscripciones",
   "System": "Sistema",
   "This feed requires authentication (username and password)": "Este feed requiere autenticación (usuario y contraseña)",
+  "This story also appears in ": "Esta noticia también aparece en ",
   "Title keywords": "Palabras clave del título",
   "Toggle read/unread": "Alternar leído/no leído",
   "URL keywords": "Palabras clave de la URL",
@@ -156,6 +157,7 @@
   "https://site.example/feed": "https://ejemplo.com/feed",
   "just now": "ahora mismo",
   "loading full article…": "cargando el artículo completo…",
+  "other feed(s)": "otra(s) fuente(s)",
   "skipped": "omitidos"
  },
  "en": {
