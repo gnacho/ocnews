@@ -57,7 +57,7 @@ func (e *Extractor) articleBySelector(ctx context.Context, rawURL, selector stri
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	doc, err := goquery.NewDocumentFromReader(io.LimitReader(resp.Body, maxArticleBytes))
 	if err != nil {
 		return "", fmt.Errorf("parsear con selector: %w", err)
@@ -83,7 +83,7 @@ func (e *Extractor) articleByReadability(ctx context.Context, rawURL string) (st
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
 		return "", err
@@ -116,7 +116,7 @@ func (e *Extractor) fetch(ctx context.Context, rawURL string) (*http.Response, e
 		return nil, fmt.Errorf("descargar artículo: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("artículo: HTTP %d", resp.StatusCode)
 	}
 	return resp, nil

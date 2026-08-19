@@ -47,6 +47,8 @@ func (s *Server) websubVerify(w http.ResponseWriter, r *http.Request) {
 	_ = s.store.SaveWebSubStatus(feedID, "active")
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
+	//nolint:gosec // el challenge del protocolo WebSub se devuelve como texto
+	// plano (no HTML); el valor lo genera el hub y no se renderiza en ningún navegador.
 	_, _ = w.Write([]byte(q.Get("hub.challenge")))
 }
 

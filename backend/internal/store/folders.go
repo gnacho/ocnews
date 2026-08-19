@@ -58,7 +58,7 @@ func (s *Store) DeleteFolder(userID, folderID int64) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	// las subcarpetas de la carpeta borrada suben a la raíz
 	if _, err := tx.Exec(`UPDATE folders SET parent_id = NULL WHERE parent_id = ? AND user_id = ?`, folderID, userID); err != nil {
 		return err

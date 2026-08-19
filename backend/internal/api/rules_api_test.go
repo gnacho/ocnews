@@ -43,7 +43,7 @@ func TestFeedRulesAPI(t *testing.T) {
 	}
 
 	// leer
-	code, body = e.do(t, "GET", fmt.Sprintf("/feeds/%d/rules", feedID), e.user, e.pass, nil)
+	code, _ = e.do(t, "GET", fmt.Sprintf("/feeds/%d/rules", feedID), e.user, e.pass, nil)
 	if code != 200 {
 		t.Fatalf("leer reglas: %d", code)
 	}
@@ -53,7 +53,7 @@ func TestFeedRulesAPI(t *testing.T) {
 	if code != 204 {
 		t.Fatalf("borrar reglas: %d", code)
 	}
-	code, body = e.do(t, "GET", fmt.Sprintf("/feeds/%d/rules", feedID), e.user, e.pass, nil)
+	_, body = e.do(t, "GET", fmt.Sprintf("/feeds/%d/rules", feedID), e.user, e.pass, nil)
 	decode(t, body, &got)
 	if got.Rules.Block != "" || got.Rules.Keep != "" {
 		t.Errorf("reglas no borradas: %s", body)
