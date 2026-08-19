@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://ocnews.cloudless.club/sitemap.xml
