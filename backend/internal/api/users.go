@@ -160,6 +160,7 @@ type userSettings struct {
 	ReaderFont      string `json:"readerFont"`      // default|serif|sans|mono
 	ReaderFontSize  string `json:"readerFontSize"`  // px; vacío = 15
 	NtfyTopic       string `json:"ntfyTopic"`       // topic ntfy del usuario; vacío = global/off
+	ReaderListWidth string `json:"readerListWidth"` // px del ancho de la lista; vacío = 380
 }
 
 func (s *Server) mySettings(w http.ResponseWriter, r *http.Request) {
@@ -170,6 +171,7 @@ func (s *Server) mySettings(w http.ResponseWriter, r *http.Request) {
 	font, _ := s.store.GetUserSetting(u.ID, "reader_font")
 	fontSize, _ := s.store.GetUserSetting(u.ID, "reader_font_size")
 	ntfy, _ := s.store.GetUserSetting(u.ID, "ntfy_topic")
+	listWidth, _ := s.store.GetUserSetting(u.ID, "reader_list_width")
 	if theme == "" {
 		theme = "system"
 	}
@@ -182,7 +184,7 @@ func (s *Server) mySettings(w http.ResponseWriter, r *http.Request) {
 	if fontSize == "" {
 		fontSize = "15"
 	}
-	writeJSON(w, http.StatusOK, userSettings{theme, width, interval, font, fontSize, ntfy})
+	writeJSON(w, http.StatusOK, userSettings{theme, width, interval, font, fontSize, ntfy, listWidth})
 }
 
 func (s *Server) updateMySettings(w http.ResponseWriter, r *http.Request) {
@@ -193,6 +195,7 @@ func (s *Server) updateMySettings(w http.ResponseWriter, r *http.Request) {
 		ReaderFont      *string `json:"readerFont"`
 		ReaderFontSize  *string `json:"readerFontSize"`
 		NtfyTopic       *string `json:"ntfyTopic"`
+		ReaderListWidth *string `json:"readerListWidth"`
 	}
 	if err := decodeBody(r, &body); err != nil {
 		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_body")
@@ -279,6 +282,20 @@ func (s *Server) updateMySettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if body.ReaderListWidth != nil {
+		v := strings.TrimSpace(*body.ReaderListWidth)
+		if v != "" && !validListWidth(v) {
+			errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_list_width")
+			return
+		}
+		if v == "380" {
+			v = ""
+		}
+		if err := s.store.SetUserSetting(u.ID, "reader_list_width", v); err != nil {
+			s.logError(w, r, "guardar ancho de lista", err)
+			return
+		}
+	}
 	s.mySettings(w, r)
 }
 
@@ -308,6 +325,12 @@ func validNtfyTopic(v string) bool {
 		return false
 	}
 	return true
+}
+
+// validListWidth: ancho de la columna de artículos en px (240-700).
+func validListWidth(v string) bool {
+	n, err := strconv.Atoi(v)
+	return err == nil && n >= 240 && n <= 700
 }
 
 func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
