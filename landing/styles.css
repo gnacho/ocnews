@@ -107,11 +107,13 @@ p:last-child { margin-bottom: 0; }
 }
 
 .skip-link {
-  position: absolute; top: -40px; left: 0; background: var(--accent);
-  color: var(--accent-fg); padding: 8px 16px; z-index: 100;
+  position: fixed; top: -100px; left: 16px;
+  background: var(--accent); color: var(--accent-fg);
+  padding: 10px 18px; border-radius: var(--radius-pill);
+  line-height: 1.2; font-size: 14px; z-index: 200;
   transition: top var(--duration-fast) var(--ease-out);
 }
-.skip-link:focus { top: 0; }
+.skip-link:focus { top: 16px; }
 
 /* Nav */
 .nav {
