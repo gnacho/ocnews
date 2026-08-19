@@ -58,10 +58,6 @@ func TestWebSubCallback(t *testing.T) {
 	mac := hmac.New(sha1.New, []byte("supersecreto"))
 	mac.Write([]byte(hubRSS))
 	sig := "sha1=" + hex.EncodeToString(mac.Sum(nil))
-	code, _ := e.doRaw(t, "POST", fmt.Sprintf("/index.php/apps/news/api/v1-3/websub/callback/%d", feedID),
-		"", "", nil)
-	_ = code
-	// doRaw no manda body personalizado; hacemos el POST a mano con cabecera
 	req := newHubPost(t, e, feedID, hubRSS, sig)
 	resp2, err := e.client.Do(req)
 	if err != nil {
