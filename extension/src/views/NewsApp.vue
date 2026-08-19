@@ -176,6 +176,7 @@
           <Search style="width: 15px; height: 15px; opacity: 0.5; flex-shrink: 0" />
           <input
             v-model="searchQuery"
+            ref="searchInputEl"
             type="search"
             :placeholder="$gettext('Search articles…')"
             :aria-label="$gettext('Search articles')"
@@ -206,6 +207,15 @@
             <option :value="true">{{ $gettext('Oldest first') }}</option>
           </select>
         </label>
+        <oc-button
+          variation="passive"
+          appearance="raw"
+          :aria-label="$gettext('Keyboard shortcuts')"
+          :title="$gettext('Keyboard shortcuts (?)')"
+          @click="showShortcuts = true"
+        >
+          <Keyboard style="width: 16px; height: 16px" />
+        </oc-button>
         <oc-button
           variation="passive"
           appearance="raw"
@@ -669,6 +679,31 @@
         </div>
       </div>
     </div>
+
+    <!-- Atajos de teclado -->
+    <div
+      v-if="showShortcuts"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Keyboard shortcuts')"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="showShortcuts = false"
+    >
+      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 460px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
+        <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 600">{{ $gettext('Keyboard shortcuts') }}</h3>
+        <dl style="margin: 0; font-size: 13px; display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; max-height: 60vh; overflow-y: auto">
+          <template v-for="s in shortcutList" :key="s.keys">
+            <dt style="font-weight: 600"><code>{{ s.keys }}</code></dt>
+            <dd style="margin: 0; opacity: 0.85">{{ $gettext(s.label) }}</dd>
+          </template>
+        </dl>
+        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px">
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" @click="showShortcuts = false">
+            {{ $gettext('Close') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -699,7 +734,8 @@ import {
   Filter,
   Search,
   Settings,
-  Podcast
+  Podcast,
+  Keyboard
 } from 'lucide-vue-next'
 import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings, DiscoveredFeed } from '../api'
 
@@ -761,6 +797,28 @@ const oldestFirst = ref(false)
 const moreAvailable = ref(false)
 const opmlInputEl = ref<HTMLInputElement | null>(null)
 const searchQuery = ref('')
+const searchInputEl = ref<HTMLInputElement | null>(null)
+
+// Atajos de teclado (#34): índice del item "en foco" de la lista y ayuda.
+const listIndex = ref(-1)
+const showShortcuts = ref(false)
+
+const shortcutList = [
+  { keys: 'j / n / ↓', label: 'Next article' },
+  { keys: 'k / p / ↑', label: 'Previous article' },
+  { keys: 'o / Enter', label: 'Open article' },
+  { keys: 'm', label: 'Toggle read/unread' },
+  { keys: 'f', label: 'Star / unstar' },
+  { keys: 'v', label: 'Open original link' },
+  { keys: 'g u', label: 'All articles' },
+  { keys: 'g b', label: 'Starred' },
+  { keys: 'g p', label: 'Podcasts' },
+  { keys: 'a', label: 'Mark all read' },
+  { keys: 'r', label: 'Refresh feeds' },
+  { keys: '/', label: 'Focus search' },
+  { keys: '?', label: 'Show this help' },
+  { keys: 'Esc', label: 'Close dialogs' }
+]
 
 // resize de la columna de titulares arrastrando el divisor derecho.
 const resizerEl = ref<HTMLElement | null>(null)
@@ -1075,6 +1133,7 @@ async function loadItems(append = false) {
       const res = await api.search(searchQuery.value.trim(), { getRead, batchSize: 100, oldestFirst: oldestFirst.value })
       items.value = res.items
       moreAvailable.value = false
+      if (!append) listIndex.value = -1
       return
     }
     const selForFetch: Selection = selection.value.kind === 'podcasts' ? { kind: 'all' } : selection.value
@@ -1085,6 +1144,7 @@ async function loadItems(append = false) {
       fetched = fetched.filter((i) => podcastIds.value.has(i.feedId))
     }
     items.value = fetched
+    if (!append) listIndex.value = -1
     moreAvailable.value = res.items.length >= BATCH
   } catch (e) {
     error.value = $gettext('Could not load items: ') + errText(e)
@@ -1103,8 +1163,119 @@ async function refreshCounts() {
   }
 }
 
+function navList(delta: number) {
+  if (items.value.length === 0) return
+  if (listIndex.value < 0) {
+    listIndex.value = delta > 0 ? 0 : items.value.length - 1
+  } else {
+    listIndex.value = Math.max(0, Math.min(items.value.length - 1, listIndex.value + delta))
+  }
+  openItem(items.value[listIndex.value])
+}
+
+function focusSearch() {
+  searchInputEl.value?.focus()
+}
+
+// handler global de teclado (#34). No interfiere con inputs (salvo Esc para
+// cerrar diálogos) ni con la secuencia g+letra.
+let gKeyAt = 0
+function onKeydown(e: KeyboardEvent) {
+  const t = e.target as HTMLElement | null
+  const tag = t?.tagName ?? ''
+  const isTyping =
+    !!t && (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable)
+
+  if (e.key === 'Escape') {
+    if (showShortcuts.value) showShortcuts.value = false
+    else if (filterOpen.value) filterOpen.value = false
+    else if (retentionOpen.value) retentionOpen.value = false
+    else if (settingsOpen.value) settingsOpen.value = false
+    else if (discoverPickerOpen.value) discoverPickerOpen.value = false
+    else if (textPrompt.value) textPrompt.value = null
+    else if (moveOpen.value) moveOpen.value = false
+    else if (credOpen.value) credOpen.value = false
+    else if (openMenu.value) openMenu.value = ''
+    return
+  }
+  if (isTyping) return
+  if (e.ctrlKey || e.metaKey || e.altKey) return
+
+  const key = e.key.toLowerCase()
+
+  if (gKeyAt && Date.now() - gKeyAt < 1500) {
+    gKeyAt = 0
+    const target =
+      key === 'u' ? navEntries.value.find((x) => x.kind === 'all') :
+      key === 'b' ? navEntries.value.find((x) => x.kind === 'starred') :
+      key === 'p' ? navEntries.value.find((x) => x.kind === 'podcasts') : undefined
+    if (target) {
+      e.preventDefault()
+      select(target)
+      return
+    }
+  }
+  if (key === 'g') {
+    gKeyAt = Date.now()
+    return
+  }
+
+  switch (key) {
+    case 'j':
+    case 'n':
+    case 'arrowdown':
+      e.preventDefault()
+      navList(1)
+      break
+    case 'k':
+    case 'p':
+    case 'arrowup':
+      e.preventDefault()
+      navList(-1)
+      break
+    case 'o':
+      if (detail.value == null && items.value.length > 0) {
+        e.preventDefault()
+        navList(1)
+      }
+      break
+    case 'enter':
+      // solo cuando el foco no está en un botón/enlace (activarían su click)
+      if (detail.value == null && items.value.length > 0 && tag !== 'BUTTON' && tag !== 'A') {
+        e.preventDefault()
+        navList(1)
+      }
+      break
+    case 'm':
+      if (detail.value) toggleUnread(detail.value)
+      break
+    case 'f':
+      if (detail.value) toggleStar(detail.value)
+      break
+    case 'v':
+      if (detail.value) {
+        e.preventDefault()
+        openOriginal()
+      }
+      break
+    case 'a':
+      if (unreadCount.value > 0) markAllRead()
+      break
+    case 'r':
+      refreshNow()
+      break
+    case '/':
+      e.preventDefault()
+      focusSearch()
+      break
+    case '?':
+      showShortcuts.value = !showShortcuts.value
+      break
+  }
+}
+
 async function openItem(item: Item) {
-  detail.value = item
+  listIndex.value = items.value.findIndex((x) => x.id === item.id)
   fullBody.value = ''
   fullFailed.value = false
   if (item.unread) {
@@ -1616,6 +1787,7 @@ function restoreHostFavicon() {
 onMounted(async () => {
   applyNewsFavicon()
   mediaDark.addEventListener('change', onMediaChange)
+  window.addEventListener('keydown', onKeydown)
   try {
     await loadSettings()
     await loadSidebar()
@@ -1628,6 +1800,7 @@ onMounted(async () => {
 onUnmounted(() => {
   restoreHostFavicon()
   mediaDark.removeEventListener('change', onMediaChange)
+  window.removeEventListener('keydown', onKeydown)
   resizeEnd()
 })
 </script>
