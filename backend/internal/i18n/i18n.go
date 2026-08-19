@@ -148,6 +148,30 @@ var messages = map[string]map[Lang]string{
 		ES: "credenciales no válidas",
 		EN: "invalid credentials",
 	},
+	"invalid_rule": {
+		ES: "regla inválida (formato Campo=regex; campos: EntryTitle, EntryURL, EntryAuthor, EntryContent, EntryDate)",
+		EN: "invalid rule (format Field=regex; fields: EntryTitle, EntryURL, EntryAuthor, EntryContent, EntryDate)",
+	},
+	"invalid_search": {
+		ES: "nombre y consulta de búsqueda son obligatorios",
+		EN: "search name and query are required",
+	},
+	"search_not_found": {
+		ES: "búsqueda guardada no encontrada",
+		EN: "saved search not found",
+	},
+	"rule_not_found": {
+		ES: "regla no encontrada",
+		EN: "rule not found",
+	},
+	"invalid_ntfy_topic": {
+		ES: "topic ntfy inválido (letras, números, guiones y guion bajo, máx. 64)",
+		EN: "invalid ntfy topic (letters, numbers, dashes and underscores, max 64)",
+	},
+	"invalid_selector": {
+		ES: "selector CSS no válido",
+		EN: "invalid CSS selector",
+	},
 }
 
 // T devuelve el mensaje traducido; claves desconocidas caen en internal_error.

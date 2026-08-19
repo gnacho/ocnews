@@ -38,6 +38,7 @@ linters:
         - G703 # path traversal por taint: rutas de caché por hash interno, no input del usuario
         - G101 # hardcoded credentials: solo en tests (fakes de validator)
         - G115 # integer overflow int->rune: solo en test helpers (refresher_test)
+        - G505 # crypto/sha1 para verificar X-Hub-Signature de WebSub (integridad del body, NO confidencialidad; los hubs firman sha1/sha256)
   exclusions:
     rules:
       # la deuda preexistente de tests (fakes, helpers) no debe bloquear

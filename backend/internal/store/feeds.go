@@ -112,7 +112,7 @@ func (s *Store) createFeed(userID int64, url string, folderID *int64, title, lin
 	for _, it := range items {
 		r, err := tx.Exec(itemInsertSQL(), feedID, userID, it.GUID, it.GUIDHash, it.URL, it.Title,
 			it.Author, it.PubDate, it.Body, it.EnclosureMime, it.EnclosureLink,
-			it.MediaThumbnail, it.MediaDescription, it.Fingerprint, now(), boolInt(it.Filtered))
+			it.MediaThumbnail, it.MediaDescription, it.Fingerprint, it.ClusterKey, now(), boolInt(it.Filtered))
 		if err != nil {
 			return nil, err
 		}
@@ -137,6 +137,10 @@ func (s *Store) ReplaceFeedItems(feedID, userID int64, title, link string, items
 	if err := s.ApplyFilterToItems(feedID, items); err != nil {
 		return 0, err
 	}
+	auto, err := s.autoReadForFeed(userID, feedID)
+	if err != nil {
+		return 0, err
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return 0, err
@@ -150,12 +154,18 @@ func (s *Store) ReplaceFeedItems(feedID, userID int64, title, link string, items
 	for _, it := range items {
 		r, err := tx.Exec(itemInsertSQL(), feedID, userID, it.GUID, it.GUIDHash, it.URL, it.Title,
 			it.Author, it.PubDate, it.Body, it.EnclosureMime, it.EnclosureLink,
-			it.MediaThumbnail, it.MediaDescription, it.Fingerprint, now(), boolInt(it.Filtered))
+			it.MediaThumbnail, it.MediaDescription, it.Fingerprint, it.ClusterKey, now(), boolInt(it.Filtered))
 		if err != nil {
 			return 0, err
 		}
 		if n, _ := r.RowsAffected(); n > 0 {
 			inserted += n
+			// auto-mark-read (#40): reglas del usuario que casan con el título
+			if id, _ := r.LastInsertId(); id > 0 && autoReadMatches(auto, it.Title) {
+				if _, err := tx.Exec(`UPDATE items SET unread = 0, last_modified = ? WHERE id = ?`, now(), id); err != nil {
+					return 0, err
+				}
+			}
 		}
 	}
 	streak := 0
@@ -180,6 +190,17 @@ func hasMediaEnclosure(items []NewItem) bool {
 			if strings.HasPrefix(m, "audio/") || strings.HasPrefix(m, "video/") {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// autoReadMatches: true si algún patrón compilado de auto-read casa con el
+// título del item (reglas ya filtradas por feed en autoReadForFeed).
+func autoReadMatches(rules []compiledAutoRead, title string) bool {
+	for _, r := range rules {
+		if r.pattern.MatchString(title) {
+			return true
 		}
 	}
 	return false
@@ -353,11 +374,38 @@ func (s *Store) SetFeedCredentials(userID, feedID int64, user string, passEnc *s
 	return nil
 }
 
+// GetFeedScraperSelector devuelve el selector CSS de extracción del feed
+// ("" = usar readability genérico).
+func (s *Store) GetFeedScraperSelector(feedID int64) (string, error) {
+	var sel string
+	err := s.db.QueryRow(`SELECT COALESCE(scraper_selector, '') FROM feeds WHERE id = ?`, feedID).Scan(&sel)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return sel, nil
+}
+
+// SetFeedScraperSelector fija el selector CSS del feed ("" = quitar).
+func (s *Store) SetFeedScraperSelector(userID, feedID int64, selector string) error {
+	res, err := s.db.Exec(`UPDATE feeds SET scraper_selector = ? WHERE user_id = ? AND id = ?`,
+		selector, userID, feedID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func itemInsertSQL() string {
 	return `INSERT OR IGNORE INTO items
 		(feed_id, user_id, guid, guid_hash, url, title, author, pub_date, body,
-		 enclosure_mime, enclosure_link, media_thumbnail, media_description, fingerprint, last_modified, filtered)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		 enclosure_mime, enclosure_link, media_thumbnail, media_description, fingerprint, cluster_key, last_modified, filtered)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 }
 
 func md5Hex(s string) string {

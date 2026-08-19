@@ -223,3 +223,17 @@ func TestFetchBasicAuth(t *testing.T) {
 		t.Fatalf("feed con auth mal parseado: %+v (%d items)", f, len(items))
 	}
 }
+
+// TestClusterKey: la normalización agrupa títulos equivalentes y separa los
+// distintos (#42).
+func TestClusterKey(t *testing.T) {
+	a := clusterKey(store.NewItem{Title: "  OpenAI lanza  GPT-5  ", Body: "<p>noticia de IA</p>"})
+	b := clusterKey(store.NewItem{Title: "openai lanza gpt-5", Body: "<p>noticia de IA</p>"})
+	if a != b {
+		t.Errorf("títulos normalizados equivalentes deberían compartir cluster: %s != %s", a, b)
+	}
+	c := clusterKey(store.NewItem{Title: "OpenAI despide a su CEO", Body: "<p>otra cosa</p>"})
+	if a == c {
+		t.Error("noticias distintas no deberían compartir cluster")
+	}
+}

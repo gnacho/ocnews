@@ -16,8 +16,9 @@ type User struct {
 }
 
 type Folder struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	ParentID *int64 `json:"parentId"` // subcarpeta (#41); nil = raíz
 }
 
 type Feed struct {
@@ -42,6 +43,7 @@ type Feed struct {
 	IsPodcast        bool    `json:"isPodcast"` // feed con enclosures de audio/vídeo
 	AuthUser         string  `json:"authUser"`  // usuario Basic del feed ("" = sin auth)
 	AuthPassEnc      string  `json:"-"`         // contraseña cifrada (internal/cred); NUNCA sale por API
+	Hub              string  `json:"-"`         // hub WebSub detectado en el feed (#44)
 }
 
 // FeedFilter: keywords que descartan artículos de un feed (News 28.4.0).
@@ -87,6 +89,7 @@ type NewItem struct {
 	MediaThumbnail  *string
 	MediaDescription *string
 	Fingerprint     string
+	ClusterKey      string // agrupación de la misma noticia en varios feeds
 	Filtered        bool
 }
 
@@ -110,6 +113,8 @@ type Item struct {
 	RTL             bool    `json:"rtl"`
 	LastModified    int64   `json:"lastModified"`
 	Fingerprint     string  `json:"fingerprint"`
+	ClusterSize     int64   `json:"clusterSize,omitempty"`     // nº de items del cluster (#42)
+	ClusterPrimaryID int64  `json:"clusterPrimaryId,omitempty"` // id principal del cluster
 	FeedFullContent bool    `json:"feedFullContent"` // el feed ya sirve el artículo entero
 }
 

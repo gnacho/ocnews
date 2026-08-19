@@ -6,13 +6,17 @@ package scheduler
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"log/slog"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/gnacho/ocnews/backend/internal/favicon"
 	"github.com/gnacho/ocnews/backend/internal/refresher"
 	"github.com/gnacho/ocnews/backend/internal/store"
+	"github.com/gnacho/ocnews/backend/internal/websub"
 )
 
 type Scheduler struct {
@@ -23,10 +27,12 @@ type Scheduler struct {
 	tick        time.Duration // periodo de comprobación
 	concurrency int           // feeds en paralelo
 	retention   time.Duration // retención de items leídos; 0 = infinita
+	websub      *websub.Client
+	pubBase     string // URL pública del backend para callbacks WebSub (#44)
 }
 
 func New(st *store.Store, r *refresher.Refresher, fc *favicon.Cache, log *slog.Logger,
-	tick time.Duration, concurrency int, retention time.Duration) *Scheduler {
+	tick time.Duration, concurrency int, retention time.Duration, ws *websub.Client, pubBase string) *Scheduler {
 	if concurrency < 1 {
 		concurrency = 4
 	}
@@ -34,7 +40,7 @@ func New(st *store.Store, r *refresher.Refresher, fc *favicon.Cache, log *slog.L
 		tick = 30 * time.Second
 	}
 	return &Scheduler{store: st, refresher: r, favicons: fc, log: log,
-		tick: tick, concurrency: concurrency, retention: retention}
+		tick: tick, concurrency: concurrency, retention: retention, websub: ws, pubBase: pubBase}
 }
 
 // Run bloquea hasta que ctx se cancela. Toda goroutine interna es hija del
@@ -54,6 +60,17 @@ func (s *Scheduler) Run(ctx context.Context) {
 		defer wg.Done()
 		s.runRetention(retentionCtx)
 	}()
+
+	// WebSub: suscripciones y renovaciones de lease (#44)
+	if s.websub != nil && s.pubBase != "" {
+		wsCtx, wsCancel := context.WithCancel(ctx)
+		defer wsCancel()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s.runWebSub(wsCtx)
+		}()
+	}
 
 	s.cycle(ctx) // barrido inmediato al arrancar
 	for {
@@ -93,6 +110,12 @@ func (s *Scheduler) cycle(ctx context.Context) {
 				return
 			}
 			res := s.refresher.Refresh(ctx, &f)
+			// WebSub: registrar el hub detectado para suscribirse en el loop
+			if res.Err == nil && res.Hub != "" {
+				if err := s.store.UpsertWebSub(f.ID, res.Hub, f.URL); err != nil {
+					s.log.Warn("websub: registrar hub", "feed", f.ID, "err", err)
+				}
+			}
 			// favicon best-effort: solo cuando el feed trae novedades y no
 			// está cacheado (un sitio sin favicon no se reintenta cada ciclo)
 			if s.favicons != nil && res.Inserted > 0 && !s.favicons.Has(favicon.Hash(f.URL)) {
@@ -152,4 +175,59 @@ func (s *Scheduler) runRetention(ctx context.Context) {
 			purge()
 		}
 	}
+}
+
+// runWebSub suscribe y renueva las suscripciones de los feeds con hub.
+func (s *Scheduler) runWebSub(ctx context.Context) {
+	s.websubCycle(ctx)
+	t := time.NewTicker(5 * time.Minute)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			s.websubCycle(ctx)
+		}
+	}
+}
+
+// websubCycle re-suscribe las suscripciones sin lease o a punto de expirar.
+func (s *Scheduler) websubCycle(ctx context.Context) {
+	due, err := s.store.WebSubDue(time.Now().Unix(), time.Hour)
+	if err != nil {
+		s.log.Error("websub: listar suscripciones pendientes", "err", err)
+		return
+	}
+	for _, sub := range due {
+		if ctx.Err() != nil {
+			return
+		}
+		secret := sub.Secret
+		if secret == "" {
+			secret = randomSecret()
+		}
+		callback := s.pubBase + "/websub/callback/" + strconv.FormatInt(sub.FeedID, 10)
+		if err := s.store.SaveWebSubSecret(sub.FeedID, secret, callback); err != nil {
+			s.log.Warn("websub: guardar secret", "feed", sub.FeedID, "err", err)
+			continue
+		}
+		if err := s.websub.Subscribe(ctx, sub.Hub, sub.Topic, callback, secret); err != nil {
+			s.log.Warn("websub: suscribir falló", "feed", sub.FeedID, "hub", sub.Hub, "err", err)
+			_ = s.store.SaveWebSubStatus(sub.FeedID, "error")
+			continue
+		}
+		s.log.Info("websub: suscripción enviada", "feed", sub.FeedID, "hub", sub.Hub)
+		_ = s.store.SaveWebSubStatus(sub.FeedID, "pending")
+		// lease provisional mientras el hub verifica; la verificación lo ajusta
+		_ = s.store.SaveWebSubLease(sub.FeedID, time.Now().Add(6*time.Hour).Unix())
+	}
+}
+
+func randomSecret() string {
+	b := make([]byte, 24)
+	if _, err := rand.Read(b); err != nil {
+		return "ocnews-secret-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	}
+	return hex.EncodeToString(b)
 }

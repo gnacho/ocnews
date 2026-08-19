@@ -26,7 +26,8 @@ func (s *Server) listFolders(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) createFolder(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Name string `json:"name"`
+		Name     string `json:"name"`
+		ParentID *int64 `json:"parentId"`
 	}
 	if err := decodeBody(r, &body); err != nil {
 		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_body")
@@ -36,9 +37,13 @@ func (s *Server) createFolder(w http.ResponseWriter, r *http.Request) {
 		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_folder_name")
 		return
 	}
-	f, err := s.store.CreateFolder(user(r).ID, body.Name)
+	f, err := s.store.CreateFolder(user(r).ID, body.Name, body.ParentID)
 	if errors.Is(err, store.ErrConflict) {
 		errorStatus(w, r, http.StatusConflict, "folder_exists")
+		return
+	}
+	if errors.Is(err, store.ErrNotFound) {
+		errorStatus(w, r, http.StatusNotFound, "folder_not_found")
 		return
 	}
 	if err != nil {

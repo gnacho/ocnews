@@ -29,8 +29,13 @@ func (s *Server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /feeds/{feedId}/filter", s.getFeedFilter)
 	mux.HandleFunc("POST /feeds/{feedId}/filter", s.setFeedFilter)
 	mux.HandleFunc("DELETE /feeds/{feedId}/filter", s.deleteFeedFilter)
+	mux.HandleFunc("GET /feeds/{feedId}/rules", s.getFeedRules)
+	mux.HandleFunc("POST /feeds/{feedId}/rules", s.setFeedRules)
+	mux.HandleFunc("DELETE /feeds/{feedId}/rules", s.deleteFeedRules)
 	mux.HandleFunc("GET /feeds/{feedId}/retention", s.getFeedRetention)
 	mux.HandleFunc("POST /feeds/{feedId}/retention", s.setFeedRetention)
+	mux.HandleFunc("GET /feeds/{feedId}/scraper", s.getFeedScraper)
+	mux.HandleFunc("POST /feeds/{feedId}/scraper", s.setFeedScraper)
 	mux.HandleFunc("POST /feeds/{feedId}/credentials", s.setFeedCredentials)
 	mux.HandleFunc("GET /feeds/update", s.updateFeed) // updater API, solo admin
 
@@ -44,6 +49,8 @@ func (s *Server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /items/{itemId}/unread", s.markItem(true, "unread"))
 	mux.HandleFunc("POST /items/{itemId}/star", s.markItem(true, "starred"))
 	mux.HandleFunc("POST /items/{itemId}/unstar", s.markItem(false, "starred"))
+	mux.HandleFunc("POST /items/{itemId}/share", s.createShare)
+	mux.HandleFunc("DELETE /items/{itemId}/share", s.deleteShare)
 
 	// Marcado múltiple: la spec oficial se contradice (definiciones: POST con
 	// "itemIds"; sección How To Sync: PUT con "items") → registramos ambos
@@ -73,6 +80,17 @@ func (s *Server) routes(mux *http.ServeMux) {
 	// de la spec es solo-admin). OJO: NADA bajo /api/ — ese prefijo es de
 	// OpenCloud (api/v0/settings) y no se puede proxificar a ocnews.
 	mux.HandleFunc("POST /refresh", s.refreshUserFeeds)
+
+	// Búsquedas guardadas (extensión propia, feed virtual).
+	mux.HandleFunc("GET /searches", s.listSearches)
+	mux.HandleFunc("POST /searches", s.createSearch)
+	mux.HandleFunc("DELETE /searches/{searchId}", s.deleteSearch)
+	mux.HandleFunc("GET /searches/{searchId}/items", s.searchSavedItems)
+
+	// Auto-marcado como leído al llegar (extensión propia).
+	mux.HandleFunc("GET /auto-read", s.listAutoRead)
+	mux.HandleFunc("POST /auto-read", s.addAutoRead)
+	mux.HandleFunc("DELETE /auto-read/{ruleId}", s.deleteAutoRead)
 }
 
 // adminOnly envuelve un handler exigiendo rol admin.

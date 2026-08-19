@@ -176,7 +176,7 @@ func (s *Server) importOPML(w http.ResponseWriter, r *http.Request) {
 	for _, imp := range imports {
 		var folderID *int64
 		if imp.FolderName != "" {
-			f, err := s.store.CreateFolder(u.ID, imp.FolderName)
+			f, err := s.store.CreateFolder(u.ID, imp.FolderName, nil)
 			if err == store.ErrConflict {
 				existing, err2 := s.store.ListFolders(u.ID)
 				if err2 == nil {

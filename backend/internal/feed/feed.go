@@ -17,6 +17,7 @@ import (
 	"github.com/mmcdole/gofeed"
 
 	"github.com/gnacho/ocnews/backend/internal/netguard"
+	"github.com/gnacho/ocnews/backend/internal/privacy"
 	"github.com/gnacho/ocnews/backend/internal/sanitize"
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
@@ -130,6 +131,7 @@ func Parse(body []byte) (*store.Feed, []store.NewItem, error) {
 		Title:  strings.TrimSpace(parsed.Title),
 		Link:   websiteLink(parsed),
 		Added:  time.Now().Unix(),
+		Hub:    hubFromBody(body),
 	}
 	if f.Title == "" {
 		f.Title = "feed sin título"
@@ -173,10 +175,44 @@ func Parse(body []byte) (*store.Feed, []store.NewItem, error) {
 		if desc, ok := mediaExt(it, "description", ""); ok {
 			ni.MediaDescription = &desc
 		}
+		applyPrivacy(&ni)
 		ni.Fingerprint = fingerprint(ni)
+		ni.ClusterKey = clusterKey(ni)
 		items = append(items, ni)
 	}
 	return f, items, nil
+}
+
+// clusterKey agrupa la misma noticia en varios feeds: hash sobre el título
+// y el inicio del cuerpo normalizados (sin URL, que difiere por sitio).
+func clusterKey(ni store.NewItem) string {
+	title := normalizeText(ni.Title)
+	body := normalizeText(plainTextLen(ni.Body))
+	if len(body) > 300 {
+		body = body[:300]
+	}
+	sum := md5.Sum([]byte(title + "\x00" + body))
+	return fmt.Sprintf("%x", sum)
+}
+
+// normalizeText: minúsculas y whitespace colapsado para comparar títulos.
+func normalizeText(s string) string {
+	return strings.ToLower(strings.Join(strings.Fields(s), " "))
+}
+
+// applyPrivacy limpia parámetros de tracking y pixel trackers del item ANTES
+// del fingerprint (la URL y el body entran ya limpios al hash).
+func applyPrivacy(ni *store.NewItem) {
+	ni.URL = privacy.StripParams(ni.URL)
+	if ni.EnclosureLink != nil {
+		v := privacy.StripParams(*ni.EnclosureLink)
+		ni.EnclosureLink = &v
+	}
+	if ni.MediaThumbnail != nil {
+		v := privacy.StripParams(*ni.MediaThumbnail)
+		ni.MediaThumbnail = &v
+	}
+	ni.Body = privacy.RemovePixels(ni.Body)
 }
 
 func websiteLink(f *gofeed.Feed) string {
@@ -246,6 +282,17 @@ type DiscoveredFeed struct {
 }
 
 var feedLinkRe = regexp.MustCompile(`(?i)<link[^>]*rel=["']\s*alternate\s*["'][^>]*>`)
+var hubLinkRe = regexp.MustCompile(`(?i)<link[^>]*rel=["']\s*hub\s*["'][^>]*>`)
+
+// hubFromBody extrae el primer href rel="hub" del documento (WebSub, #44).
+func hubFromBody(body []byte) string {
+	for _, m := range hubLinkRe.FindAll(body, -1) {
+		if href := linkAttr(string(m), "href"); href != "" {
+			return href
+		}
+	}
+	return ""
+}
 
 // Discover descarga una página y detecta sus feeds RSS/Atom (autodetección).
 // Descarga UNA sola vez: primero intenta parsear el cuerpo como feed; si no
@@ -301,7 +348,7 @@ func (h *HTTPFetcher) Discover(ctx context.Context, url string) ([]DiscoveredFee
 			continue
 		}
 		seen[abs.String()] = true
-		out = append(out, DiscoveredFeed{URL: abs.String(), Title: titleFromFeedLink(string(m)), Type: kind})
+		out = append(out, DiscoveredFeed{URL: privacy.StripParams(abs.String()), Title: titleFromFeedLink(string(m)), Type: kind})
 	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("no se encontraron feeds en la página")

@@ -81,7 +81,7 @@
             style="display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer"
             :style="{
               background: isActive(entry) ? 'var(--news-active-bg)' : 'transparent',
-              paddingLeft: entry.indent ? '28px' : '8px',
+              paddingLeft: 8 + (entry.depth ?? 0) * 20 + 'px',
               fontWeight: entry.unread ? 600 : 400
             }"
             @mouseenter="hovered = entry.key"
@@ -106,7 +106,7 @@
             </span>
             <span v-if="entry.unread" style="font-size: 12px; opacity: 0.6; flex-shrink: 0">{{ entry.unread }}</span>
             <oc-button
-              v-if="entry.kind === 'feed' || entry.kind === 'folder'"
+              v-if="entry.kind === 'feed' || entry.kind === 'folder' || entry.kind === 'search'"
               variation="passive"
               appearance="raw"
               style="flex-shrink: 0"
@@ -127,15 +127,18 @@
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Move to folder…')" @click="moveFeed(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Credentials…')" @click="openCredentials(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Filter articles…')" @click="openFilter(entry)" />
+            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Rules…')" @click="openRules(entry)" />
+            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Scraper…')" @click="openScraper(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Retention…')" @click="openRetention(entry)" />
             <MenuBtn v-if="entry.kind === 'folder'" :label="$gettext('Rename')" @click="renameFolder(entry)" />
+            <MenuBtn v-if="entry.kind === 'folder'" :label="$gettext('New subfolder…')" @click="createSubfolder(entry)" />
             <MenuBtn
               v-if="entry.kind === 'feed' || entry.kind === 'folder'"
               :label="$gettext('Mark all read')"
               @click="markEntryRead(entry)"
             />
             <MenuBtn
-              v-if="entry.kind === 'feed' || entry.kind === 'folder'"
+              v-if="entry.kind === 'feed' || entry.kind === 'folder' || entry.kind === 'search'"
               :label="$gettext('Delete')"
               danger
               @click="deleteEntry(entry)"
@@ -176,6 +179,7 @@
           <Search style="width: 15px; height: 15px; opacity: 0.5; flex-shrink: 0" />
           <input
             v-model="searchQuery"
+            ref="searchInputEl"
             type="search"
             :placeholder="$gettext('Search articles…')"
             :aria-label="$gettext('Search articles')"
@@ -191,6 +195,17 @@
           >
             <X style="width: 14px; height: 14px" />
           </button>
+          <oc-button
+            v-if="searchActive"
+            variation="passive"
+            appearance="raw"
+            style="font-size: 12px; flex-shrink: 0"
+            :aria-label="$gettext('Save search')"
+            :title="$gettext('Save search')"
+            @click="saveCurrentSearch"
+          >
+            <BookmarkPlus style="width: 15px; height: 15px" />&nbsp;{{ $gettext('Save') }}
+          </oc-button>
         </div>
         <label style="font-size: 12px; display: flex; align-items: center; gap: 4px">
           {{ $gettext('Show') }}
@@ -206,6 +221,15 @@
             <option :value="true">{{ $gettext('Oldest first') }}</option>
           </select>
         </label>
+        <oc-button
+          variation="passive"
+          appearance="raw"
+          :aria-label="$gettext('Keyboard shortcuts')"
+          :title="$gettext('Keyboard shortcuts (?)')"
+          @click="showShortcuts = true"
+        >
+          <Keyboard style="width: 16px; height: 16px" />
+        </oc-button>
         <oc-button
           variation="passive"
           appearance="raw"
@@ -256,6 +280,13 @@
             <p style="margin: 3px 0 0; font-size: 12px; opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
               <img v-if="feedIcon(item.feedId)" :src="feedIcon(item.feedId)" alt="" width="12" height="12" loading="lazy" style="width: 12px; height: 12px; border-radius: 3px; object-fit: contain; vertical-align: -1px; margin-right: 4px" />
               {{ feedTitle(item.feedId) }}<span v-if="item.author"> · {{ item.author }}</span> · {{ fmtRelative(item.pubDate) }}
+              <span
+                v-if="item.clusterSize && item.clusterSize > 1"
+                :title="clusterTitle(item)"
+                style="display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; font-weight: 600; opacity: 0.8"
+              >
+                <Copy style="width: 11px; height: 11px" />{{ item.clusterSize }}
+              </span>
             </p>
           </div>
           <button
@@ -343,6 +374,15 @@
           @click="openOriginal"
         >
           <ExternalLink style="width: 20px; height: 20px" />
+        </oc-button>
+        <oc-button
+          variation="passive"
+          appearance="raw"
+          :aria-label="sharedUrl ? $gettext('Stop sharing') : $gettext('Share article')"
+          :title="sharedUrl ? $gettext('Stop sharing') : $gettext('Share article')"
+          @click="toggleShare"
+        >
+          <Share2 style="width: 20px; height: 20px" :style="sharedUrl ? 'color: var(--news-primary)' : ''" />
         </oc-button>
       </header>
       <div style="flex: 1; overflow-y: auto; padding: 12px 16px">
@@ -517,6 +557,15 @@
           style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 16px"
         />
         <p style="margin: 0 0 16px; font-size: 11px; opacity: 0.6">{{ $gettext('Leave empty for the server default (15 min).') }}</p>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Notification topic (ntfy)') }}</label>
+        <input
+          v-model="settingsForm.ntfyTopic"
+          type="text"
+          spellcheck="false"
+          placeholder="ocnews"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 4px"
+        />
+        <p style="margin: 0 0 16px; font-size: 11px; opacity: 0.6">{{ $gettext('Get a push notification when new articles arrive. Leave empty to use the server default (or none).') }}</p>
         <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 16px">
           <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="exportOpml">
             <Download style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Export OPML') }}
@@ -526,6 +575,12 @@
           </oc-button>
           <span style="font-size: 11px; opacity: 0.6">{{ $gettext('Back up or restore your subscriptions.') }}</span>
         </div>
+        <oc-button variation="passive" appearance="outline" style="font-size: 13px; width: 100%; justify-content: flex-start; margin-bottom: 8px" @click="openGlobalRules">
+          <Filter style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Global rules…') }}
+        </oc-button>
+        <oc-button variation="passive" appearance="outline" style="font-size: 13px; width: 100%; justify-content: flex-start; margin-bottom: 16px" @click="openAutoRead">
+          <CheckCheck style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Auto-read rules…') }}
+        </oc-button>
         <div style="display: flex; gap: 8px; justify-content: flex-end">
           <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="settingsOpen = false">
             {{ $gettext('Cancel') }}
@@ -669,6 +724,174 @@
         </div>
       </div>
     </div>
+
+    <!-- Reglas de auto-marcado como leído -->
+    <div
+      v-if="autoReadOpen"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Auto-read rules')"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="autoReadOpen = false"
+    >
+      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 460px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
+        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">{{ $gettext('Auto-read rules') }}</h3>
+        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.65">
+          {{ $gettext('Articles whose title matches a rule are marked as read automatically when they arrive.') }}
+        </p>
+        <div v-if="autoReadRules.length" style="margin-bottom: 12px; max-height: 200px; overflow-y: auto">
+          <div
+            v-for="rule in autoReadRules"
+            :key="rule.id"
+            style="display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 6px; font-size: 13px"
+          >
+            <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+              <span style="opacity: 0.6">{{ autoReadFeedLabel(rule.feedId) }}</span>
+              <code style="font-size: 12px">{{ rule.titlePattern }}</code>
+            </span>
+            <button
+              style="background: none; border: 0; cursor: pointer; padding: 2px; display: inline-flex"
+              :aria-label="$gettext('Delete rule')"
+              :title="$gettext('Delete rule')"
+              @click="removeAutoRead(rule)"
+            >
+              <X style="width: 15px; height: 15px; color: var(--news-muted)" />
+            </button>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px">
+          <label style="display: block; font-size: 12px; margin-bottom: -6px">{{ $gettext('New rule (regex on the title)') }}</label>
+          <div style="display: flex; gap: 8px; align-items: center">
+            <input
+              v-model="autoReadPattern"
+              type="text"
+              spellcheck="false"
+              :placeholder="'(?i)urgente'"
+              style="flex: 1; min-width: 0; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
+              @keydown.enter="addAutoReadRule"
+            />
+            <select v-model="autoReadFeedSel" style="font-size: 12px; padding: 5px 4px" :aria-label="$gettext('Feed')">
+              <option :value="0">{{ $gettext('All feeds') }}</option>
+              <option v-for="fo in feeds" :key="fo.id" :value="fo.id">{{ fo.title }}</option>
+            </select>
+            <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="autoReadSaving" @click="addAutoReadRule">
+              {{ $gettext('Add') }}
+            </oc-button>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end">
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" @click="autoReadOpen = false">
+            {{ $gettext('Close') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Selector CSS de extracción por feed (#39) -->
+    <div
+      v-if="scraperOpen"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Article scraper')"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="scraperOpen = false"
+    >
+      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 420px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
+        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">{{ $gettext('Article scraper') }}</h3>
+        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.65; line-height: 1.5">
+          {{ $gettext('CSS selector of the article body on the site, used before the automatic extraction when the feed only has summaries. Leave empty to use the automatic extraction.') }}
+        </p>
+        <input
+          v-model="scraperForm"
+          type="text"
+          spellcheck="false"
+          placeholder="div#articleBody, article"
+          style="width: 100%; box-sizing: border-box; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 16px"
+        />
+        <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center">
+          <oc-button v-if="scraperForm" variation="passive" appearance="raw" style="font-size: 13px; color: var(--news-error)" @click="scraperForm = ''">
+            {{ $gettext('Clear') }}
+          </oc-button>
+          <span style="flex: 1"></span>
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="scraperOpen = false">
+            {{ $gettext('Cancel') }}
+          </oc-button>
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="scraperSaving" @click="saveScraper">
+            {{ $gettext('Save') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reglas block/keep (feed o globales) -->
+    <div
+      v-if="rulesOpen"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Filter rules')"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="rulesOpen = false"
+    >
+      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 520px; max-width: 94vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
+        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">
+          {{ rulesTitle }}
+        </h3>
+        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.65; line-height: 1.5">
+          {{ $gettext('One rule per line: Field=regex (RE2). Fields: EntryTitle, EntryURL, EntryAuthor, EntryContent, EntryDate. For EntryDate: future, before:YYYY-MM-DD, after:YYYY-MM-DD, between:A,B or max-age:7d.') }}
+        </p>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Block rules (matching articles are hidden)') }}</label>
+        <textarea
+          v-model="rulesForm.block"
+          rows="4"
+          spellcheck="false"
+          style="width: 100%; box-sizing: border-box; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 12px"
+        ></textarea>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Keep rules (only matching articles are kept)') }}</label>
+        <textarea
+          v-model="rulesForm.keep"
+          rows="4"
+          spellcheck="false"
+          style="width: 100%; box-sizing: border-box; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 16px"
+        ></textarea>
+        <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center">
+          <oc-button v-if="rulesHasRules" variation="passive" appearance="raw" style="font-size: 13px; color: var(--news-error)" @click="clearRules">
+            {{ $gettext('Clear rules') }}
+          </oc-button>
+          <span style="flex: 1"></span>
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="rulesOpen = false">
+            {{ $gettext('Cancel') }}
+          </oc-button>
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="rulesSaving" @click="saveRules">
+            {{ $gettext('Save') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Atajos de teclado -->
+    <div
+      v-if="showShortcuts"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Keyboard shortcuts')"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="showShortcuts = false"
+    >
+      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 460px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
+        <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 600">{{ $gettext('Keyboard shortcuts') }}</h3>
+        <dl style="margin: 0; font-size: 13px; display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; max-height: 60vh; overflow-y: auto">
+          <template v-for="s in shortcutList" :key="s.keys">
+            <dt style="font-weight: 600"><code>{{ s.keys }}</code></dt>
+            <dd style="margin: 0; opacity: 0.85">{{ $gettext(s.label) }}</dd>
+          </template>
+        </dl>
+        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px">
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" @click="showShortcuts = false">
+            {{ $gettext('Close') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -699,9 +922,14 @@ import {
   Filter,
   Search,
   Settings,
-  Podcast
+  Podcast,
+  Keyboard,
+  Bookmark,
+  BookmarkPlus,
+  Share2,
+  Copy
 } from 'lucide-vue-next'
-import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings, DiscoveredFeed } from '../api'
+import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings, DiscoveredFeed, SavedSearch, Rules, AutoReadRule } from '../api'
 
 const { $gettext, $ngettext } = useGettext()
 const router = useRouter()
@@ -741,11 +969,13 @@ const MenuBtn = defineComponent({
 const folders = ref<Folder[]>([])
 const feeds = ref<Feed[]>([])
 const starredCount = ref(0)
+const savedSearches = ref<SavedSearch[]>([])
 const items = ref<Item[]>([])
 const detail = ref<Item | null>(null)
 const fullBody = ref('')
 const fullLoading = ref(false)
 const fullFailed = ref(false)
+const sharedUrl = ref('')
 const loading = ref(false)
 const error = ref('')
 const newFeedUrl = ref('')
@@ -761,6 +991,28 @@ const oldestFirst = ref(false)
 const moreAvailable = ref(false)
 const opmlInputEl = ref<HTMLInputElement | null>(null)
 const searchQuery = ref('')
+const searchInputEl = ref<HTMLInputElement | null>(null)
+
+// Atajos de teclado (#34): índice del item "en foco" de la lista y ayuda.
+const listIndex = ref(-1)
+const showShortcuts = ref(false)
+
+const shortcutList = [
+  { keys: 'j / n / ↓', label: 'Next article' },
+  { keys: 'k / p / ↑', label: 'Previous article' },
+  { keys: 'o / Enter', label: 'Open article' },
+  { keys: 'm', label: 'Toggle read/unread' },
+  { keys: 'f', label: 'Star / unstar' },
+  { keys: 'v', label: 'Open original link' },
+  { keys: 'g u', label: 'All articles' },
+  { keys: 'g b', label: 'Starred' },
+  { keys: 'g p', label: 'Podcasts' },
+  { keys: 'a', label: 'Mark all read' },
+  { keys: 'r', label: 'Refresh feeds' },
+  { keys: '/', label: 'Focus search' },
+  { keys: '?', label: 'Show this help' },
+  { keys: 'Esc', label: 'Close dialogs' }
+]
 
 // resize de la columna de titulares arrastrando el divisor derecho.
 const resizerEl = ref<HTMLElement | null>(null)
@@ -876,7 +1128,7 @@ const retentionForm = ref(0)
 
 const settingsOpen = ref(false)
 const settingsSaving = ref(false)
-const settingsForm = ref<UserSettings>({ theme: 'system', readerMaxWidth: 'wide', feedIntervalMin: '', readerFont: 'default', readerFontSize: '15' })
+const settingsForm = ref<UserSettings>({ theme: 'system', readerMaxWidth: 'wide', feedIntervalMin: '', readerFont: 'default', readerFontSize: '15', ntfyTopic: '' })
 
 const discoverPickerOpen = ref(false)
 const discoverCandidates = ref<DiscoveredFeed[]>([])
@@ -887,14 +1139,16 @@ const BATCH = 50
 
 type NavEntry = {
   key: string
-  kind: 'all' | 'starred' | 'podcasts' | 'folder' | 'feed'
+  kind: 'all' | 'starred' | 'podcasts' | 'search' | 'folder' | 'feed'
   label: string
   icon: typeof Rss
   sel: Selection
   unread: number
   error?: string
-  indent?: boolean
+  depth?: number
   favicon?: string
+  searchQuery?: string
+  searchId?: number
 }
 
 const selection = computed<Selection>(() => {
@@ -920,6 +1174,18 @@ const navEntries = computed<NavEntry[]>(() => {
     { key: 'starred', kind: 'starred', label: $gettext('Starred'), icon: Star, sel: { kind: 'starred' }, unread: starredCount.value },
     { key: 'podcasts', kind: 'podcasts', label: $gettext('Podcasts'), icon: Podcast, sel: { kind: 'podcasts' }, unread: 0 }
   ]
+  for (const ss of savedSearches.value) {
+    entries.push({
+      key: `search-${ss.id}`,
+      kind: 'search',
+      label: ss.name,
+      icon: Bookmark,
+      sel: { kind: 'all' },
+      unread: 0,
+      searchQuery: ss.query,
+      searchId: ss.id
+    })
+  }
   for (const folder of folders.value) {
     entries.push({
       key: `folder-${folder.id}`,
@@ -938,9 +1204,52 @@ const navEntries = computed<NavEntry[]>(() => {
         sel: { kind: 'feed', id: f.id },
         unread: f.unreadCount,
         error: f.updateErrorCount > 0 ? f.lastUpdateError ?? `${f.updateErrorCount} errors` : undefined,
-        indent: true,
+        depth: 1,
         favicon: f.faviconLink
       })
+    }
+  }
+  // subcarpetas (#41): un nivel; su unread incluye sus feeds; el padre no
+  // duplica contadores (los feeds viven en la subcarpeta).
+  const rootFolders = folders.value.filter((fo) => !fo.parentId)
+  const childByParent = new Map<number, Folder[]>()
+  for (const fo of folders.value) {
+    if (!fo.parentId) continue
+    const k = fo.parentId
+    childByParent.set(k, [...(childByParent.get(k) ?? []), fo])
+  }
+  for (const folder of rootFolders) {
+    const children = childByParent.get(folder.id) ?? []
+    const childIds = new Set(children.map((c) => c.id))
+    const childUnread = children.reduce(
+      (a, c) => a + (byFolder.get(c.id) ?? []).reduce((x, f) => x + f.unreadCount, 0),
+      0
+    )
+    const parentEntry = entries.find((e) => e.key === `folder-${folder.id}`)
+    if (parentEntry) parentEntry.unread += childUnread
+    for (const child of children) {
+      entries.push({
+        key: `folder-${child.id}`,
+        kind: 'folder',
+        label: child.name,
+        icon: FolderOpen,
+        sel: { kind: 'folder', id: child.id },
+        unread: (byFolder.get(child.id) ?? []).reduce((a, f) => a + f.unreadCount, 0),
+        depth: 1
+      })
+      for (const f of byFolder.get(child.id) ?? []) {
+        entries.push({
+          key: `feed-${f.id}`,
+          kind: 'feed',
+          label: f.title,
+          icon: Rss,
+          sel: { kind: 'feed', id: f.id },
+          unread: f.unreadCount,
+          error: f.updateErrorCount > 0 ? f.lastUpdateError ?? `${f.updateErrorCount} errors` : undefined,
+          depth: 2,
+          favicon: f.faviconLink
+        })
+      }
     }
   }
   for (const f of byFolder.get(0) ?? []) {
@@ -952,7 +1261,7 @@ const navEntries = computed<NavEntry[]>(() => {
       sel: { kind: 'feed', id: f.id },
       unread: f.unreadCount,
       error: f.updateErrorCount > 0 ? f.lastUpdateError ?? `${f.updateErrorCount} errors` : undefined,
-      indent: true,
+      depth: 1,
       favicon: f.faviconLink
     })
   }
@@ -994,11 +1303,19 @@ const currentTitle = computed(() => {
 })
 
 function isActive(entry: NavEntry) {
+  if (entry.kind === 'search') {
+    return searchActive.value && searchQuery.value.trim() === entry.searchQuery
+  }
   return JSON.stringify(entry.sel) === JSON.stringify(selection.value)
 }
 
 function select(entry: NavEntry) {
   detail.value = null
+  if (entry.kind === 'search') {
+    searchQuery.value = entry.searchQuery ?? ''
+    loadItems()
+    return
+  }
   switch (entry.sel.kind) {
     case 'all': router.push('/news/'); break
     case 'starred': router.push('/news/starred'); break
@@ -1041,6 +1358,12 @@ function fmtDate(epoch: number) {
   })
 }
 
+// clusterTitle: tooltip del badge de duplicados (#42).
+function clusterTitle(item: Item): string {
+  if (!item.clusterSize) return ''
+  return $gettext('This story also appears in ') + String(item.clusterSize - 1) + ' ' + $gettext('other feed(s)')
+}
+
 // fmtRelative: "hace 3 min", "hace 2 h" para tiempos cortos; fecha completa
 // más allá de un día. i18n con plurales básicos.
 function fmtRelative(epoch: number) {
@@ -1060,10 +1383,11 @@ function fmtRelative(epoch: number) {
 }
 
 async function loadSidebar() {
-  const [f, fd] = await Promise.all([api.feeds(), api.folders()])
+  const [f, fd, ss] = await Promise.all([api.feeds(), api.folders(), api.searches()])
   feeds.value = f.feeds
   starredCount.value = f.starredCount
   folders.value = fd.folders
+  savedSearches.value = ss.searches
 }
 
 async function loadItems(append = false) {
@@ -1075,6 +1399,7 @@ async function loadItems(append = false) {
       const res = await api.search(searchQuery.value.trim(), { getRead, batchSize: 100, oldestFirst: oldestFirst.value })
       items.value = res.items
       moreAvailable.value = false
+      if (!append) listIndex.value = -1
       return
     }
     const selForFetch: Selection = selection.value.kind === 'podcasts' ? { kind: 'all' } : selection.value
@@ -1085,6 +1410,7 @@ async function loadItems(append = false) {
       fetched = fetched.filter((i) => podcastIds.value.has(i.feedId))
     }
     items.value = fetched
+    if (!append) listIndex.value = -1
     moreAvailable.value = res.items.length >= BATCH
   } catch (e) {
     error.value = $gettext('Could not load items: ') + errText(e)
@@ -1103,10 +1429,123 @@ async function refreshCounts() {
   }
 }
 
+function navList(delta: number) {
+  if (items.value.length === 0) return
+  if (listIndex.value < 0) {
+    listIndex.value = delta > 0 ? 0 : items.value.length - 1
+  } else {
+    listIndex.value = Math.max(0, Math.min(items.value.length - 1, listIndex.value + delta))
+  }
+  openItem(items.value[listIndex.value])
+}
+
+function focusSearch() {
+  searchInputEl.value?.focus()
+}
+
+// handler global de teclado (#34). No interfiere con inputs (salvo Esc para
+// cerrar diálogos) ni con la secuencia g+letra.
+let gKeyAt = 0
+function onKeydown(e: KeyboardEvent) {
+  const t = e.target as HTMLElement | null
+  const tag = t?.tagName ?? ''
+  const isTyping =
+    !!t && (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable)
+
+  if (e.key === 'Escape') {
+    if (showShortcuts.value) showShortcuts.value = false
+    else if (filterOpen.value) filterOpen.value = false
+    else if (retentionOpen.value) retentionOpen.value = false
+    else if (settingsOpen.value) settingsOpen.value = false
+    else if (discoverPickerOpen.value) discoverPickerOpen.value = false
+    else if (textPrompt.value) textPrompt.value = null
+    else if (moveOpen.value) moveOpen.value = false
+    else if (credOpen.value) credOpen.value = false
+    else if (openMenu.value) openMenu.value = ''
+    return
+  }
+  if (isTyping) return
+  if (e.ctrlKey || e.metaKey || e.altKey) return
+
+  const key = e.key.toLowerCase()
+
+  if (gKeyAt && Date.now() - gKeyAt < 1500) {
+    gKeyAt = 0
+    const target =
+      key === 'u' ? navEntries.value.find((x) => x.kind === 'all') :
+      key === 'b' ? navEntries.value.find((x) => x.kind === 'starred') :
+      key === 'p' ? navEntries.value.find((x) => x.kind === 'podcasts') : undefined
+    if (target) {
+      e.preventDefault()
+      select(target)
+      return
+    }
+  }
+  if (key === 'g') {
+    gKeyAt = Date.now()
+    return
+  }
+
+  switch (key) {
+    case 'j':
+    case 'n':
+    case 'arrowdown':
+      e.preventDefault()
+      navList(1)
+      break
+    case 'k':
+    case 'p':
+    case 'arrowup':
+      e.preventDefault()
+      navList(-1)
+      break
+    case 'o':
+      if (detail.value == null && items.value.length > 0) {
+        e.preventDefault()
+        navList(1)
+      }
+      break
+    case 'enter':
+      // solo cuando el foco no está en un botón/enlace (activarían su click)
+      if (detail.value == null && items.value.length > 0 && tag !== 'BUTTON' && tag !== 'A') {
+        e.preventDefault()
+        navList(1)
+      }
+      break
+    case 'm':
+      if (detail.value) toggleUnread(detail.value)
+      break
+    case 'f':
+      if (detail.value) toggleStar(detail.value)
+      break
+    case 'v':
+      if (detail.value) {
+        e.preventDefault()
+        openOriginal()
+      }
+      break
+    case 'a':
+      if (unreadCount.value > 0) markAllRead()
+      break
+    case 'r':
+      refreshNow()
+      break
+    case '/':
+      e.preventDefault()
+      focusSearch()
+      break
+    case '?':
+      showShortcuts.value = !showShortcuts.value
+      break
+  }
+}
+
 async function openItem(item: Item) {
+  listIndex.value = items.value.findIndex((x) => x.id === item.id)
   detail.value = item
   fullBody.value = ''
   fullFailed.value = false
+  sharedUrl.value = ''
   if (item.unread) {
     item.unread = false
     await api.markRead(item.id)
@@ -1237,13 +1676,22 @@ async function subscribeDiscovered() {
 }
 
 // Diálogo de texto genérico (sustituye window.prompt, que el host puede
-// suprimir): nueva carpeta, renombrar feed, renombrar carpeta.
-type TextPromptAction = 'newFolder' | 'renameFeed' | 'renameFolder'
+// suprimir): nueva carpeta, renombrar feed, renombrar carpeta, guardar búsqueda.
+type TextPromptAction = 'newFolder' | 'newSubfolder' | 'renameFeed' | 'renameFolder' | 'saveSearch'
 const textPrompt = ref<{ action: TextPromptAction; title: string; value: string; entryKey?: string } | null>(null)
 const textPromptSaving = ref(false)
 
+function saveCurrentSearch() {
+  textPrompt.value = { action: 'saveSearch', title: $gettext('Save search'), value: searchQuery.value.trim() }
+}
+
 function createFolder() {
   textPrompt.value = { action: 'newFolder', title: $gettext('New folder'), value: '' }
+}
+
+function createSubfolder(entry: NavEntry) {
+  openMenu.value = ''
+  textPrompt.value = { action: 'newSubfolder', title: $gettext('New subfolder'), value: '', entryKey: entry.key }
 }
 
 async function confirmTextPrompt() {
@@ -1253,12 +1701,17 @@ async function confirmTextPrompt() {
   try {
     if (p.action === 'newFolder') {
       await api.addFolder(p.value.trim())
+    } else if (p.action === 'newSubfolder') {
+      const fo = folders.value.find((x) => `folder-${x.id}` === p.entryKey)
+      await api.addFolder(p.value.trim(), fo?.id ?? null)
     } else if (p.action === 'renameFeed') {
       const f = feeds.value.find((x) => `feed-${x.id}` === p.entryKey)
       if (f) await api.renameFeed(f.id, p.value.trim())
-    } else {
+    } else if (p.action === 'renameFolder') {
       const fo = folders.value.find((x) => `folder-${x.id}` === p.entryKey)
       if (fo) await api.renameFolder(fo.id, p.value.trim())
+    } else {
+      await api.addSearch(p.value.trim(), searchQuery.value.trim())
     }
     textPrompt.value = null
     await loadSidebar()
@@ -1371,6 +1824,34 @@ function openOriginal() {
   if (detail.value?.url) window.open(detail.value.url, '_blank', 'noopener,noreferrer')
 }
 
+// Compartir artículo con URL pública (#43): crea el token, copia el enlace y
+// permite revocarlo con un segundo clic.
+async function toggleShare() {
+  if (!detail.value) return
+  if (sharedUrl.value) {
+    try {
+      await api.unshareItem(detail.value.id)
+      sharedUrl.value = ''
+    } catch (e) {
+      error.value = $gettext('Could not stop sharing: ') + errText(e)
+    }
+    return
+  }
+  try {
+    const res = await api.shareItem(detail.value.id)
+    const url = window.location.origin + res.share.url
+    sharedUrl.value = url
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      /* sin permiso de portapapeles: se muestra el enlace como aviso */
+    }
+    error.value = $gettext('Share link copied')
+  } catch (e) {
+    error.value = $gettext('Could not share article: ') + errText(e)
+  }
+}
+
 async function markEntryRead(entry: NavEntry) {
   openMenu.value = ''
   const newest = await currentNewest()
@@ -1387,12 +1868,21 @@ async function currentNewest(): Promise<number> {
 
 async function deleteEntry(entry: NavEntry) {
   openMenu.value = ''
-  const isFeed = entry.kind === 'feed'
-  const label = isFeed ? entryFeed(entry)?.title : entryFolder(entry)?.name
-  if (!window.confirm($gettext('Delete') + ` "${label}"?` + (isFeed ? '' : ' ' + $gettext('(feeds inside will be deleted)')))) return
+  let label = entry.label
+  if (entry.kind === 'feed') label = entryFeed(entry)?.title ?? entry.label
+  else if (entry.kind === 'folder') label = entryFolder(entry)?.name ?? entry.label
+  const extra = entry.kind === 'folder' ? ' ' + $gettext('(feeds inside will be deleted)') : ''
+  if (!window.confirm($gettext('Delete') + ` "${label}"?` + extra)) return
   try {
-    if (isFeed) await api.deleteFeed((entry.sel as { id: number }).id)
-    else await api.deleteFolder((entry.sel as { id: number }).id)
+    if (entry.kind === 'feed') await api.deleteFeed((entry.sel as { id: number }).id)
+    else if (entry.kind === 'folder') await api.deleteFolder((entry.sel as { id: number }).id)
+    else if (entry.kind === 'search' && entry.searchId != null) {
+      await api.deleteSearch(entry.searchId)
+      if (searchActive.value) {
+        searchQuery.value = ''
+        detail.value = null
+      }
+    }
     if (isActive(entry)) router.push('/news/')
     await loadSidebar()
     await loadItems()
@@ -1455,8 +1945,156 @@ async function clearFilter() {
   }
 }
 
-async function openRetention(entry: NavEntry) {
+// Reglas block/keep por feed o globales (#35).
+const rulesOpen = ref(false)
+const rulesSaving = ref(false)
+const rulesFeedId = ref<number | null>(null)
+const rulesTitle = ref('')
+const rulesForm = ref<Rules>({ block: '', keep: '' })
+
+const rulesHasRules = computed(() => rulesForm.value.block.trim() !== '' || rulesForm.value.keep.trim() !== '')
+
+async function openRules(entry: NavEntry) {
   openMenu.value = ''
+  const f = entryFeed(entry)
+  if (!f) return
+  rulesFeedId.value = f.id
+  rulesTitle.value = $gettext('Rules for this feed')
+  rulesForm.value = { block: '', keep: '' }
+  try {
+    const res = await api.getFeedRules(f.id)
+    rulesForm.value = { block: res.rules.block ?? '', keep: res.rules.keep ?? '' }
+  } catch {
+    /* sin reglas previas */
+  }
+  rulesOpen.value = true
+}
+
+async function openGlobalRules() {
+  rulesFeedId.value = null
+  rulesTitle.value = $gettext('Global rules')
+  rulesForm.value = { block: '', keep: '' }
+  try {
+    const r = await api.myRules()
+    rulesForm.value = { block: r.block ?? '', keep: r.keep ?? '' }
+  } catch {
+    /* sin reglas previas */
+  }
+  rulesOpen.value = true
+}
+
+async function saveRules() {
+  rulesSaving.value = true
+  try {
+    const payload = { block: rulesForm.value.block.trim(), keep: rulesForm.value.keep.trim() }
+    if (rulesFeedId.value != null) await api.setFeedRules(rulesFeedId.value, payload)
+    else await api.updateMyRules(payload)
+    rulesOpen.value = false
+  } catch (e) {
+    error.value = $gettext('Could not save rules: ') + errText(e)
+  } finally {
+    rulesSaving.value = false
+  }
+}
+
+async function clearRules() {
+  rulesSaving.value = true
+  try {
+    if (rulesFeedId.value != null) await api.deleteFeedRules(rulesFeedId.value)
+    else await api.updateMyRules({ block: '', keep: '' })
+    rulesOpen.value = false
+  } catch (e) {
+    error.value = $gettext('Could not clear rules: ') + errText(e)
+  } finally {
+    rulesSaving.value = false
+  }
+}
+
+// Reglas de auto-marcado como leído (#40).
+const autoReadOpen = ref(false)
+const autoReadRules = ref<AutoReadRule[]>([])
+const autoReadPattern = ref('')
+const autoReadFeedSel = ref(0)
+const autoReadSaving = ref(false)
+
+async function openAutoRead() {
+  autoReadPattern.value = ''
+  autoReadFeedSel.value = 0
+  try {
+    const res = await api.autoRead()
+    autoReadRules.value = res.rules
+  } catch {
+    autoReadRules.value = []
+  }
+  autoReadOpen.value = true
+}
+
+function autoReadFeedLabel(feedId: number): string {
+  if (feedId === 0) return $gettext('All feeds') + ' · '
+  const f = feeds.value.find((x) => x.id === feedId)
+  return (f?.title ?? `#${feedId}`) + ' · '
+}
+
+async function addAutoReadRule() {
+  const pat = autoReadPattern.value.trim()
+  if (!pat) return
+  autoReadSaving.value = true
+  try {
+    await api.addAutoRead(autoReadFeedSel.value, pat)
+    autoReadPattern.value = ''
+    const res = await api.autoRead()
+    autoReadRules.value = res.rules
+  } catch (e) {
+    error.value = $gettext('Could not add auto-read rule: ') + errText(e)
+  } finally {
+    autoReadSaving.value = false
+  }
+}
+
+async function removeAutoRead(rule: AutoReadRule) {
+  try {
+    await api.deleteAutoRead(rule.id)
+    autoReadRules.value = autoReadRules.value.filter((x) => x.id !== rule.id)
+  } catch (e) {
+    error.value = $gettext('Could not delete rule: ') + errText(e)
+  }
+}
+
+// Selector CSS de extracción por feed (#39).
+const scraperOpen = ref(false)
+const scraperSaving = ref(false)
+const scraperFeedId = ref<number | null>(null)
+const scraperForm = ref('')
+
+async function openScraper(entry: NavEntry) {
+  openMenu.value = ''
+  const f = entryFeed(entry)
+  if (!f) return
+  scraperFeedId.value = f.id
+  scraperForm.value = ''
+  try {
+    const res = await api.getFeedScraper(f.id)
+    scraperForm.value = res.scraperSelector ?? ''
+  } catch {
+    /* sin selector previo */
+  }
+  scraperOpen.value = true
+}
+
+async function saveScraper() {
+  if (scraperFeedId.value == null) return
+  scraperSaving.value = true
+  try {
+    await api.setFeedScraper(scraperFeedId.value, scraperForm.value.trim())
+    scraperOpen.value = false
+  } catch (e) {
+    error.value = $gettext('Could not save scraper: ') + errText(e)
+  } finally {
+    scraperSaving.value = false
+  }
+}
+
+async function openRetention(entry: NavEntry) {  openMenu.value = ''
   const f = entryFeed(entry)
   if (!f) return
   retentionFeedId.value = f.id
@@ -1493,7 +2131,8 @@ async function openSettings() {
       readerMaxWidth: s.readerMaxWidth || 'wide',
       feedIntervalMin: s.feedIntervalMin ?? '',
       readerFont: s.readerFont || 'default',
-      readerFontSize: s.readerFontSize || '15'
+      readerFontSize: s.readerFontSize || '15',
+      ntfyTopic: s.ntfyTopic ?? ''
     }
   } catch {
     /* usar defaults */
@@ -1508,7 +2147,8 @@ async function saveSettings() {
       readerMaxWidth: settingsForm.value.readerMaxWidth,
       feedIntervalMin: settingsForm.value.feedIntervalMin.trim(),
       readerFont: settingsForm.value.readerFont,
-      readerFontSize: settingsForm.value.readerFontSize
+      readerFontSize: settingsForm.value.readerFontSize,
+      ntfyTopic: settingsForm.value.ntfyTopic?.trim() ?? ''
     })
     userTheme.value = updated.theme || 'system'
     userWidth.value = updated.readerMaxWidth || 'wide'
@@ -1616,6 +2256,7 @@ function restoreHostFavicon() {
 onMounted(async () => {
   applyNewsFavicon()
   mediaDark.addEventListener('change', onMediaChange)
+  window.addEventListener('keydown', onKeydown)
   try {
     await loadSettings()
     await loadSidebar()
@@ -1628,6 +2269,7 @@ onMounted(async () => {
 onUnmounted(() => {
   restoreHostFavicon()
   mediaDark.removeEventListener('change', onMediaChange)
+  window.removeEventListener('keydown', onKeydown)
   resizeEnd()
 })
 </script>

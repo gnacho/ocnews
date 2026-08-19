@@ -44,17 +44,29 @@ func (s *Store) DeleteFeedFilter(feedID int64) error {
 	return err
 }
 
-// ReapplyFeedFilter re-evalúa el filtro sobre los items ya guardados del feed:
-// fija filtered=1 para los que casen y filtered=0 para los que no. Con un
-// filtro vacío, limpia todos los filtered del feed (descongelar). Devuelve
-// el número de items marcados como filtered.
+// ReapplyFeedFilter re-evalúa el filtro (keywords + reglas regex) sobre los
+// items ya guardados del feed: fija filtered=1 para los que casen y
+// filtered=0 para los que no. Sin nada configurado, descongela todos los
+// items del feed. Devuelve el número de items marcados como filtered.
 func (s *Store) ReapplyFeedFilter(feedID int64, f FeedFilter) (int64, error) {
-	if !f.HasFilter() {
+	userID, err := s.FeedUserID(feedID)
+	if err != nil {
+		return 0, err
+	}
+	fn, err := s.itemFilter(userID, feedID, &f)
+	if err != nil {
+		return 0, err
+	}
+	has, err := s.HasAnyFilter(userID, feedID)
+	if err != nil {
+		return 0, err
+	}
+	if !has {
 		_, err := s.db.Exec(`UPDATE items SET filtered = 0 WHERE feed_id = ?`, feedID)
 		if err != nil {
 			return 0, err
 		}
-		return 0, nil // "marcados" aquí es 0 porque estamos descongelando
+		return 0, nil
 	}
 	rows, err := s.db.Query(
 		`SELECT id, url, title, body FROM items WHERE feed_id = ?`, feedID)
@@ -80,7 +92,7 @@ func (s *Store) ReapplyFeedFilter(feedID int64, f FeedFilter) (int64, error) {
 	var marked int64
 	for _, r := range pending {
 		val := 0
-		if f.Matches(r.ni) {
+		if fn(r.ni) {
 			val = 1
 		}
 		if _, err := s.db.Exec(`UPDATE items SET filtered = ? WHERE id = ?`, val, r.id); err != nil {
@@ -93,19 +105,87 @@ func (s *Store) ReapplyFeedFilter(feedID int64, f FeedFilter) (int64, error) {
 	return marked, nil
 }
 
-// ApplyFilterToItems marca los items que casan con el filtro del feed, en
-// memoria. Debe llamarse ANTES de abrir una transacción (el Store usa una
-// única conexión: consultar el filtro dentro de una tx causaría deadlock).
+// ReapplyGlobalRules re-evalúa las reglas globales del usuario sobre todos
+// sus items (tras cambiar las globales). Devuelve el número de items marcados.
+func (s *Store) ReapplyGlobalRules(userID int64) (int64, error) {
+	fn, err := s.itemFilter(userID, 0, &FeedFilter{})
+	if err != nil {
+		return 0, err
+	}
+	has, err := s.HasAnyFilter(userID, 0)
+	if err != nil {
+		return 0, err
+	}
+	if !has {
+		_, err := s.db.Exec(`UPDATE items SET filtered = 0 WHERE user_id = ?`, userID)
+		if err != nil {
+			return 0, err
+		}
+		return 0, nil
+	}
+	rows, err := s.db.Query(
+		`SELECT id, url, title, body FROM items WHERE user_id = ?`, userID)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = rows.Close() }()
+	type row struct {
+		id int64
+		ni NewItem
+	}
+	var pending []row
+	for rows.Next() {
+		var r row
+		if err := rows.Scan(&r.id, &r.ni.URL, &r.ni.Title, &r.ni.Body); err != nil {
+			return 0, err
+		}
+		pending = append(pending, r)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	var marked int64
+	for _, r := range pending {
+		val := 0
+		if fn(r.ni) {
+			val = 1
+		}
+		if _, err := s.db.Exec(`UPDATE items SET filtered = ? WHERE id = ?`, val, r.id); err != nil {
+			return 0, err
+		}
+		if val == 1 {
+			marked++
+		}
+	}
+	return marked, nil
+}
+
+// ApplyFilterToItems marca los items que casan con el filtro del feed o las
+// reglas globales/feed, en memoria. Debe llamarse ANTES de abrir una
+// transacción (el Store usa una única conexión: consultar el filtro dentro de
+// una tx causaría deadlock).
 func (s *Store) ApplyFilterToItems(feedID int64, items []NewItem) error {
+	userID, err := s.FeedUserID(feedID)
+	if err != nil {
+		return err
+	}
 	f, err := s.GetFeedFilter(feedID)
 	if err != nil {
 		return err
 	}
-	if !f.HasFilter() {
+	has, err := s.HasAnyFilter(userID, feedID)
+	if err != nil {
+		return err
+	}
+	if !has {
 		return nil
 	}
+	fn, err := s.itemFilter(userID, feedID, f)
+	if err != nil {
+		return err
+	}
 	for i := range items {
-		items[i].Filtered = f.Matches(items[i])
+		items[i].Filtered = fn(items[i])
 	}
 	return nil
 }

@@ -6,6 +6,7 @@ const BASE = '/index.php/apps/news/api/v1-3'
 export interface Folder {
   id: number
   name: string
+  parentId?: number | null
 }
 
 export interface Feed {
@@ -42,6 +43,8 @@ export interface Item {
   starred: boolean
   lastModified: number
   feedFullContent?: boolean
+  clusterSize?: number
+  clusterPrimaryId?: number
 }
 
 export interface FeedsResponse {
@@ -57,12 +60,18 @@ export interface FeedFilter {
   urlKeywords: string
 }
 
+export interface Rules {
+  block: string
+  keep: string
+}
+
 export interface UserSettings {
   theme: string
   readerMaxWidth: string
   feedIntervalMin: string
   readerFont: string
   readerFontSize: string
+  ntfyTopic?: string
 }
 
 // type: 0 feed, 1 folder, 2 starred, 3 all
@@ -77,6 +86,19 @@ export interface DiscoveredFeed {
   url: string
   title: string
   type: string
+}
+
+export interface SavedSearch {
+  id: number
+  name: string
+  query: string
+  createdAt: number
+}
+
+export interface AutoReadRule {
+  id: number
+  feedId: number
+  titlePattern: string
 }
 
 export function useNewsApi() {
@@ -146,10 +168,27 @@ export function useNewsApi() {
       client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/filter`, filter),
     deleteFilter: (feedId: number) =>
       client.httpAuthenticated.delete(`${BASE}/feeds/${feedId}/filter`),
+    getFeedRules: (feedId: number): Promise<{ rules: Rules }> => get(`/feeds/${feedId}/rules`),
+    setFeedRules: (feedId: number, rules: Rules) =>
+      client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/rules`, rules),
+    deleteFeedRules: (feedId: number) =>
+      client.httpAuthenticated.delete(`${BASE}/feeds/${feedId}/rules`),
+    myRules: async (): Promise<Rules> => {
+      const { data } = await client.httpAuthenticated.get('/api/me/rules')
+      return data.rules as Rules
+    },
+    updateMyRules: async (rules: Rules): Promise<Rules> => {
+      const { data } = await client.httpAuthenticated.put('/api/me/rules', rules)
+      return data.rules as Rules
+    },
     getRetention: (feedId: number): Promise<{ retentionDays: number }> =>
       get(`/feeds/${feedId}/retention`),
     setRetention: (feedId: number, retentionDays: number) =>
       client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/retention`, { retentionDays }),
+    getFeedScraper: (feedId: number): Promise<{ scraperSelector: string }> =>
+      get(`/feeds/${feedId}/scraper`),
+    setFeedScraper: (feedId: number, scraperSelector: string) =>
+      client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/scraper`, { scraperSelector }),
     mySettings: async (): Promise<UserSettings> => {
       const { data } = await client.httpAuthenticated.get('/api/me/settings')
       return data as UserSettings
@@ -158,7 +197,7 @@ export function useNewsApi() {
       const { data } = await client.httpAuthenticated.put('/api/me/settings', patch)
       return data as UserSettings
     },
-    addFolder: (name: string) => post('/folders', { name }),
+    addFolder: (name: string, parentId?: number | null) => post('/folders', { name, parentId }),
     renameFolder: (folderId: number, name: string) =>
       client.httpAuthenticated.put(`${BASE}/folders/${folderId}`, { name }),
     deleteFolder: (folderId: number) =>
@@ -177,6 +216,33 @@ export function useNewsApi() {
     },
     exportOpml: async () => {
       return client.httpAuthenticated.get(`${BASE}/export/opml`, { responseType: 'text' })
-    }
+    },
+    searches: (): Promise<{ searches: SavedSearch[] }> => get('/searches'),
+    addSearch: (name: string, query: string) =>
+      client.httpAuthenticated.post(`${BASE}/searches`, { name, query }),
+    deleteSearch: (searchId: number) =>
+      client.httpAuthenticated.delete(`${BASE}/searches/${searchId}`),
+    savedSearchItems: (
+      searchId: number,
+      opts: { batchSize?: number; getRead?: boolean; oldestFirst?: boolean } = {}
+    ): Promise<{ items: Item[] }> => {
+      const params: Record<string, string> = {
+        getRead: String(opts.getRead ?? true),
+        batchSize: String(opts.batchSize ?? 100),
+        oldestFirst: String(opts.oldestFirst ?? false)
+      }
+      return get(`/searches/${searchId}/items`, params) as Promise<{ items: Item[] }>
+    },
+    autoRead: (): Promise<{ rules: AutoReadRule[] }> => get('/auto-read'),
+    addAutoRead: (feedId: number, titlePattern: string) =>
+      client.httpAuthenticated.post(`${BASE}/auto-read`, { feedId, titlePattern }),
+    deleteAutoRead: (ruleId: number) =>
+      client.httpAuthenticated.delete(`${BASE}/auto-read/${ruleId}`),
+    shareItem: async (itemId: number): Promise<{ share: { token: string; url: string } }> => {
+      const { data } = await client.httpAuthenticated.post(`${BASE}/items/${itemId}/share`, {})
+      return data as { share: { token: string; url: string } }
+    },
+    unshareItem: (itemId: number) =>
+      client.httpAuthenticated.delete(`${BASE}/items/${itemId}/share`)
   }
 }

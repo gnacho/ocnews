@@ -70,6 +70,13 @@ mux.Handle("GET "+Base+"/img", http.StripPrefix(Base, withCORS(http.HandlerFunc(
 // cache en disco (sin fetch en demanda), así que no hay superficie SSRF.
 mux.Handle("GET "+Base+"/favicon/", http.StripPrefix(Base, withCORS(s.faviconRouter())))
 
+// Artículo compartido PÚBLICO: la URL lleva un token aleatorio (share).
+mux.Handle("GET "+Base+"/share/", http.StripPrefix(Base, withCORS(s.shareRouter())))
+
+// WebSub callback PÚBLICO (lo llama el hub): GET verificación + POST delivery.
+mux.Handle("GET "+Base+"/websub/", http.StripPrefix(Base, withCORS(s.websubRouter())))
+mux.Handle("POST "+Base+"/websub/", http.StripPrefix(Base, withCORS(s.websubRouter())))
+
 	mux.Handle(Base+"/", http.StripPrefix(Base, authed))
 	// API propia de la app (perfil/usuarios) bajo /api/, misma Basic auth
 	mux.Handle("/api/", auth.Middleware(s.validator, withCORS(s.userAPI())))

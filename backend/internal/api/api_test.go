@@ -103,7 +103,7 @@ func newTestEnv(t *testing.T, fetcher feed.Fetcher) *testEnv {
 	if err != nil {
 		t.Fatal(err)
 	}
-	refresh := refresher.New(st, fetcher, creds, log, time.Minute, time.Hour)
+	refresh := refresher.New(st, fetcher, creds, log, time.Minute, time.Hour, nil)
 	favDir := t.TempDir()
 	fc, err := favicon.NewCache(favDir, log)
 	if err != nil {

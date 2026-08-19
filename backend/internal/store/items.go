@@ -7,6 +7,13 @@ import (
 	"strings"
 )
 
+// itemsCols: columnas del item + full_content del feed (en el orden exacto
+// que espera scanItem).
+const itemsCols = "i.id, i.guid, i.guid_hash, i.url, i.title, i.author, i.pub_date, i.body, " +
+	"i.enclosure_mime, i.enclosure_link, i.media_thumbnail, i.media_description, " +
+	"i.feed_id, i.unread, i.starred, i.last_modified, i.fingerprint, i.filtered, " +
+	"COALESCE(x.full_content, 0)"
+
 // buildItemQuery construye el WHERE según el filtro (type 0=feed, 1=folder,
 // 2=starred, 3=all) + getRead/offset/updatedSince, y el ORDER/LIMIT.
 func buildItemQuery(f ItemFilter, countOnly bool) (string, []any, error) {
@@ -19,9 +26,9 @@ func buildItemQuery(f ItemFilter, countOnly bool) (string, []any, error) {
 	case 0: // feed
 		where = append(where, "i.feed_id = ?")
 		args = append(args, f.ID)
-	case 1: // folder
-		where = append(where, "i.feed_id IN (SELECT id FROM feeds WHERE user_id = ? AND folder_id = ?)")
-		args = append(args, f.UserID, f.ID)
+	case 1: // folder (incluye subcarpetas, un nivel; #41)
+		where = append(where, "i.feed_id IN (SELECT id FROM feeds WHERE user_id = ? AND (folder_id = ? OR folder_id IN (SELECT id FROM folders WHERE parent_id = ?)))")
+		args = append(args, f.UserID, f.ID, f.ID)
 	case 2: // starred
 		where = append(where, "i.starred = 1")
 	case 3: // all
@@ -44,11 +51,7 @@ func buildItemQuery(f ItemFilter, countOnly bool) (string, []any, error) {
 		where = append(where, "i.filtered = 0")
 	}
 
-	cols := "i.id, i.guid, i.guid_hash, i.url, i.title, i.author, i.pub_date, i.body, " +
-		"i.enclosure_mime, i.enclosure_link, i.media_thumbnail, i.media_description, " +
-		"i.feed_id, i.unread, i.starred, i.last_modified, i.fingerprint, i.filtered, " +
-		"COALESCE(x.full_content, 0)"
-	sel := "SELECT " + cols + " FROM items i LEFT JOIN feeds x ON x.id = i.feed_id"
+	sel := "SELECT " + itemsCols + " FROM items i LEFT JOIN feeds x ON x.id = i.feed_id"
 	if countOnly {
 		sel = "SELECT COUNT(*) FROM items i"
 	}
@@ -133,9 +136,9 @@ func (s *Store) SearchItems(f ItemFilter, query string, limit int) ([]Item, erro
 	case 0: // feed
 		where = append(where, "i.feed_id = ?")
 		args = append(args, f.ID)
-	case 1: // folder
-		where = append(where, "i.feed_id IN (SELECT id FROM feeds WHERE user_id = ? AND folder_id = ?)")
-		args = append(args, f.UserID, f.ID)
+	case 1: // folder (incluye subcarpetas, un nivel; #41)
+		where = append(where, "i.feed_id IN (SELECT id FROM feeds WHERE user_id = ? AND (folder_id = ? OR folder_id IN (SELECT id FROM folders WHERE parent_id = ?)))")
+		args = append(args, f.UserID, f.ID, f.ID)
 	case 2: // starred
 		where = append(where, "i.starred = 1")
 	case 3: // all
@@ -152,11 +155,7 @@ func (s *Store) SearchItems(f ItemFilter, query string, limit int) ([]Item, erro
 		"(LOWER(i.title) LIKE ? OR LOWER(i.body) LIKE ? OR LOWER(i.url) LIKE ?)")
 	args = append(args, like, like, like)
 
-	cols := "i.id, i.guid, i.guid_hash, i.url, i.title, i.author, i.pub_date, i.body, " +
-		"i.enclosure_mime, i.enclosure_link, i.media_thumbnail, i.media_description, " +
-		"i.feed_id, i.unread, i.starred, i.last_modified, i.fingerprint, i.filtered, " +
-		"COALESCE(x.full_content, 0)"
-	q := "SELECT " + cols + " FROM items i LEFT JOIN feeds x ON x.id = i.feed_id WHERE " +
+	q := "SELECT " + itemsCols + " FROM items i LEFT JOIN feeds x ON x.id = i.feed_id WHERE " +
 		strings.Join(where, " AND ")
 	if f.OldestFirst {
 		q += " ORDER BY i.id ASC"
@@ -264,8 +263,8 @@ func (s *Store) MarkAllRead(userID int64, maxID int64, scope string, scopeID int
 		q += ` AND feed_id = ?`
 		args = append(args, scopeID)
 	case "folder":
-		q += ` AND feed_id IN (SELECT id FROM feeds WHERE user_id = ? AND folder_id = ?)`
-		args = append(args, userID, scopeID)
+		q += ` AND feed_id IN (SELECT id FROM feeds WHERE user_id = ? AND (folder_id = ? OR folder_id IN (SELECT id FROM folders WHERE parent_id = ?)))`
+		args = append(args, userID, scopeID, scopeID)
 	default:
 		return 0, fmt.Errorf("scope inválido: %s", scope)
 	}
@@ -373,8 +372,90 @@ func (s *Store) GetItemURL(userID, itemID int64) (string, error) {
 	return u, err
 }
 
+// GetItemFeedID devuelve el feed al que pertenece un item del usuario.
+func (s *Store) GetItemFeedID(userID, itemID int64) (int64, error) {
+	var fid int64
+	err := s.db.QueryRow(`SELECT feed_id FROM items WHERE user_id = ? AND id = ?`, userID, itemID).Scan(&fid)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrNotFound
+	}
+	return fid, err
+}
+
 // SetItemURLForTesting reescribe la URL de un item (solo tests de extracción).
 func (s *Store) SetItemURLForTesting(itemID int64, url string) error {
 	_, err := s.db.Exec(`UPDATE items SET url = ? WHERE id = ?`, url, itemID)
 	return err
+}
+
+// ItemClusterKeys devuelve el cluster_key de los ids dados ("" si no tiene).
+func (s *Store) ItemClusterKeys(userID int64, ids []int64) (map[int64]string, error) {
+	out := map[int64]string{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	q := `SELECT id, cluster_key FROM items WHERE user_id = ? AND id IN (`
+	args := []any{userID}
+	for i, id := range ids {
+		if i > 0 {
+			q += ","
+		}
+		q += "?"
+		args = append(args, id)
+	}
+	q += `)`
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var id int64
+		var k string
+		if err := rows.Scan(&id, &k); err != nil {
+			return nil, err
+		}
+		out[id] = k
+	}
+	return out, rows.Err()
+}
+
+// Cluster: agrupación de una misma noticia en varios feeds.
+type Cluster struct {
+	Size      int64
+	PrimaryID int64
+}
+
+// Clusters devuelve, para los cluster_keys dados, el tamaño del cluster y el
+// item principal (el de mayor id = más recientemente insertado).
+func (s *Store) Clusters(userID int64, keys []string) (map[string]Cluster, error) {
+	out := map[string]Cluster{}
+	if len(keys) == 0 {
+		return out, nil
+	}
+	q := `SELECT cluster_key, COUNT(*), MAX(id) FROM items
+		WHERE user_id = ? AND cluster_key <> '' AND cluster_key IN (`
+	args := []any{userID}
+	for i, k := range keys {
+		if i > 0 {
+			q += ","
+		}
+		q += "?"
+		args = append(args, k)
+	}
+	q += `) GROUP BY cluster_key HAVING COUNT(*) > 1`
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var k string
+		var size, prim int64
+		if err := rows.Scan(&k, &size, &prim); err != nil {
+			return nil, err
+		}
+		out[k] = Cluster{Size: size, PrimaryID: prim}
+	}
+	return out, rows.Err()
 }
