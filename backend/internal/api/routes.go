@@ -76,6 +76,12 @@ func (s *Server) routes(mux *http.ServeMux) {
 	// de la spec es solo-admin). OJO: NADA bajo /api/ — ese prefijo es de
 	// OpenCloud (api/v0/settings) y no se puede proxificar a ocnews.
 	mux.HandleFunc("POST /refresh", s.refreshUserFeeds)
+
+	// Búsquedas guardadas (extensión propia, feed virtual).
+	mux.HandleFunc("GET /searches", s.listSearches)
+	mux.HandleFunc("POST /searches", s.createSearch)
+	mux.HandleFunc("DELETE /searches/{searchId}", s.deleteSearch)
+	mux.HandleFunc("GET /searches/{searchId}/items", s.searchSavedItems)
 }
 
 // adminOnly envuelve un handler exigiendo rol admin.

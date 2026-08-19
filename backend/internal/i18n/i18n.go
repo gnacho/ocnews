@@ -152,6 +152,14 @@ var messages = map[string]map[Lang]string{
 		ES: "regla inválida (formato Campo=regex; campos: EntryTitle, EntryURL, EntryAuthor, EntryContent, EntryDate)",
 		EN: "invalid rule (format Field=regex; fields: EntryTitle, EntryURL, EntryAuthor, EntryContent, EntryDate)",
 	},
+	"invalid_search": {
+		ES: "nombre y consulta de búsqueda son obligatorios",
+		EN: "search name and query are required",
+	},
+	"search_not_found": {
+		ES: "búsqueda guardada no encontrada",
+		EN: "saved search not found",
+	},
 }
 
 // T devuelve el mensaje traducido; claves desconocidas caen en internal_error.

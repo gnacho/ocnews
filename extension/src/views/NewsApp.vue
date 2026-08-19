@@ -106,7 +106,7 @@
             </span>
             <span v-if="entry.unread" style="font-size: 12px; opacity: 0.6; flex-shrink: 0">{{ entry.unread }}</span>
             <oc-button
-              v-if="entry.kind === 'feed' || entry.kind === 'folder'"
+              v-if="entry.kind === 'feed' || entry.kind === 'folder' || entry.kind === 'search'"
               variation="passive"
               appearance="raw"
               style="flex-shrink: 0"
@@ -136,7 +136,7 @@
               @click="markEntryRead(entry)"
             />
             <MenuBtn
-              v-if="entry.kind === 'feed' || entry.kind === 'folder'"
+              v-if="entry.kind === 'feed' || entry.kind === 'folder' || entry.kind === 'search'"
               :label="$gettext('Delete')"
               danger
               @click="deleteEntry(entry)"
@@ -193,6 +193,17 @@
           >
             <X style="width: 14px; height: 14px" />
           </button>
+          <oc-button
+            v-if="searchActive"
+            variation="passive"
+            appearance="raw"
+            style="font-size: 12px; flex-shrink: 0"
+            :aria-label="$gettext('Save search')"
+            :title="$gettext('Save search')"
+            @click="saveCurrentSearch"
+          >
+            <BookmarkPlus style="width: 15px; height: 15px" />&nbsp;{{ $gettext('Save') }}
+          </oc-button>
         </div>
         <label style="font-size: 12px; display: flex; align-items: center; gap: 4px">
           {{ $gettext('Show') }}
@@ -784,9 +795,11 @@ import {
   Search,
   Settings,
   Podcast,
-  Keyboard
+  Keyboard,
+  Bookmark,
+  BookmarkPlus
 } from 'lucide-vue-next'
-import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings, DiscoveredFeed } from '../api'
+import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings, DiscoveredFeed, SavedSearch, Rules } from '../api'
 
 const { $gettext, $ngettext } = useGettext()
 const router = useRouter()
@@ -826,6 +839,7 @@ const MenuBtn = defineComponent({
 const folders = ref<Folder[]>([])
 const feeds = ref<Feed[]>([])
 const starredCount = ref(0)
+const savedSearches = ref<SavedSearch[]>([])
 const items = ref<Item[]>([])
 const detail = ref<Item | null>(null)
 const fullBody = ref('')
@@ -994,7 +1008,7 @@ const BATCH = 50
 
 type NavEntry = {
   key: string
-  kind: 'all' | 'starred' | 'podcasts' | 'folder' | 'feed'
+  kind: 'all' | 'starred' | 'podcasts' | 'search' | 'folder' | 'feed'
   label: string
   icon: typeof Rss
   sel: Selection
@@ -1002,6 +1016,8 @@ type NavEntry = {
   error?: string
   indent?: boolean
   favicon?: string
+  searchQuery?: string
+  searchId?: number
 }
 
 const selection = computed<Selection>(() => {
@@ -1027,6 +1043,18 @@ const navEntries = computed<NavEntry[]>(() => {
     { key: 'starred', kind: 'starred', label: $gettext('Starred'), icon: Star, sel: { kind: 'starred' }, unread: starredCount.value },
     { key: 'podcasts', kind: 'podcasts', label: $gettext('Podcasts'), icon: Podcast, sel: { kind: 'podcasts' }, unread: 0 }
   ]
+  for (const ss of savedSearches.value) {
+    entries.push({
+      key: `search-${ss.id}`,
+      kind: 'search',
+      label: ss.name,
+      icon: Bookmark,
+      sel: { kind: 'all' },
+      unread: 0,
+      searchQuery: ss.query,
+      searchId: ss.id
+    })
+  }
   for (const folder of folders.value) {
     entries.push({
       key: `folder-${folder.id}`,
@@ -1101,11 +1129,19 @@ const currentTitle = computed(() => {
 })
 
 function isActive(entry: NavEntry) {
+  if (entry.kind === 'search') {
+    return searchActive.value && searchQuery.value.trim() === entry.searchQuery
+  }
   return JSON.stringify(entry.sel) === JSON.stringify(selection.value)
 }
 
 function select(entry: NavEntry) {
   detail.value = null
+  if (entry.kind === 'search') {
+    searchQuery.value = entry.searchQuery ?? ''
+    loadItems()
+    return
+  }
   switch (entry.sel.kind) {
     case 'all': router.push('/news/'); break
     case 'starred': router.push('/news/starred'); break
@@ -1167,10 +1203,11 @@ function fmtRelative(epoch: number) {
 }
 
 async function loadSidebar() {
-  const [f, fd] = await Promise.all([api.feeds(), api.folders()])
+  const [f, fd, ss] = await Promise.all([api.feeds(), api.folders(), api.searches()])
   feeds.value = f.feeds
   starredCount.value = f.starredCount
   folders.value = fd.folders
+  savedSearches.value = ss.searches
 }
 
 async function loadItems(append = false) {
@@ -1457,10 +1494,14 @@ async function subscribeDiscovered() {
 }
 
 // Diálogo de texto genérico (sustituye window.prompt, que el host puede
-// suprimir): nueva carpeta, renombrar feed, renombrar carpeta.
-type TextPromptAction = 'newFolder' | 'renameFeed' | 'renameFolder'
+// suprimir): nueva carpeta, renombrar feed, renombrar carpeta, guardar búsqueda.
+type TextPromptAction = 'newFolder' | 'renameFeed' | 'renameFolder' | 'saveSearch'
 const textPrompt = ref<{ action: TextPromptAction; title: string; value: string; entryKey?: string } | null>(null)
 const textPromptSaving = ref(false)
+
+function saveCurrentSearch() {
+  textPrompt.value = { action: 'saveSearch', title: $gettext('Save search'), value: searchQuery.value.trim() }
+}
 
 function createFolder() {
   textPrompt.value = { action: 'newFolder', title: $gettext('New folder'), value: '' }
@@ -1476,9 +1517,11 @@ async function confirmTextPrompt() {
     } else if (p.action === 'renameFeed') {
       const f = feeds.value.find((x) => `feed-${x.id}` === p.entryKey)
       if (f) await api.renameFeed(f.id, p.value.trim())
-    } else {
+    } else if (p.action === 'renameFolder') {
       const fo = folders.value.find((x) => `folder-${x.id}` === p.entryKey)
       if (fo) await api.renameFolder(fo.id, p.value.trim())
+    } else {
+      await api.addSearch(p.value.trim(), searchQuery.value.trim())
     }
     textPrompt.value = null
     await loadSidebar()
@@ -1607,12 +1650,21 @@ async function currentNewest(): Promise<number> {
 
 async function deleteEntry(entry: NavEntry) {
   openMenu.value = ''
-  const isFeed = entry.kind === 'feed'
-  const label = isFeed ? entryFeed(entry)?.title : entryFolder(entry)?.name
-  if (!window.confirm($gettext('Delete') + ` "${label}"?` + (isFeed ? '' : ' ' + $gettext('(feeds inside will be deleted)')))) return
+  let label = entry.label
+  if (entry.kind === 'feed') label = entryFeed(entry)?.title ?? entry.label
+  else if (entry.kind === 'folder') label = entryFolder(entry)?.name ?? entry.label
+  const extra = entry.kind === 'folder' ? ' ' + $gettext('(feeds inside will be deleted)') : ''
+  if (!window.confirm($gettext('Delete') + ` "${label}"?` + extra)) return
   try {
-    if (isFeed) await api.deleteFeed((entry.sel as { id: number }).id)
-    else await api.deleteFolder((entry.sel as { id: number }).id)
+    if (entry.kind === 'feed') await api.deleteFeed((entry.sel as { id: number }).id)
+    else if (entry.kind === 'folder') await api.deleteFolder((entry.sel as { id: number }).id)
+    else if (entry.kind === 'search' && entry.searchId != null) {
+      await api.deleteSearch(entry.searchId)
+      if (searchActive.value) {
+        searchQuery.value = ''
+        detail.value = null
+      }
+    }
     if (isActive(entry)) router.push('/news/')
     await loadSidebar()
     await loadItems()

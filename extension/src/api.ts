@@ -84,6 +84,13 @@ export interface DiscoveredFeed {
   type: string
 }
 
+export interface SavedSearch {
+  id: number
+  name: string
+  query: string
+  createdAt: number
+}
+
 export function useNewsApi() {
   const client = useClientService()
 
@@ -195,6 +202,22 @@ export function useNewsApi() {
     },
     exportOpml: async () => {
       return client.httpAuthenticated.get(`${BASE}/export/opml`, { responseType: 'text' })
+    },
+    searches: (): Promise<{ searches: SavedSearch[] }> => get('/searches'),
+    addSearch: (name: string, query: string) =>
+      client.httpAuthenticated.post(`${BASE}/searches`, { name, query }),
+    deleteSearch: (searchId: number) =>
+      client.httpAuthenticated.delete(`${BASE}/searches/${searchId}`),
+    savedSearchItems: (
+      searchId: number,
+      opts: { batchSize?: number; getRead?: boolean; oldestFirst?: boolean } = {}
+    ): Promise<{ items: Item[] }> => {
+      const params: Record<string, string> = {
+        getRead: String(opts.getRead ?? true),
+        batchSize: String(opts.batchSize ?? 100),
+        oldestFirst: String(opts.oldestFirst ?? false)
+      }
+      return get(`/searches/${searchId}/items`, params) as Promise<{ items: Item[] }>
     }
   }
 }
