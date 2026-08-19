@@ -26,7 +26,15 @@ func (s *Server) itemFull(w http.ResponseWriter, r *http.Request) {
 		errorStatus(w, r, http.StatusNotFound, "item_not_found")
 		return
 	}
-	body, err := s.extract.Article(r.Context(), itemURL)
+	// selector CSS de extracción por feed (#39): si el feed lo define, se usa
+	// antes que readability (fallback si el selector falla).
+	selector := ""
+	if feedID, err := s.store.GetItemFeedID(u.ID, id); err == nil {
+		if sel, err := s.store.GetFeedScraperSelector(feedID); err == nil {
+			selector = sel
+		}
+	}
+	body, err := s.extract.Article(r.Context(), itemURL, selector)
 	if err != nil {
 		// no es error del servidor: el sitio no permite extracción
 		s.log.Warn("extracción completa falló", "url", itemURL, "err", err)

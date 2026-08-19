@@ -168,6 +168,10 @@ var messages = map[string]map[Lang]string{
 		ES: "topic ntfy inválido (letras, números, guiones y guion bajo, máx. 64)",
 		EN: "invalid ntfy topic (letters, numbers, dashes and underscores, max 64)",
 	},
+	"invalid_selector": {
+		ES: "selector CSS no válido",
+		EN: "invalid CSS selector",
+	},
 }
 
 // T devuelve el mensaje traducido; claves desconocidas caen en internal_error.

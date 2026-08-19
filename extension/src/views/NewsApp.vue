@@ -128,6 +128,7 @@
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Credentials…')" @click="openCredentials(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Filter articles…')" @click="openFilter(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Rules…')" @click="openRules(entry)" />
+            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Scraper…')" @click="openScraper(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Retention…')" @click="openRetention(entry)" />
             <MenuBtn v-if="entry.kind === 'folder'" :label="$gettext('Rename')" @click="renameFolder(entry)" />
             <MenuBtn
@@ -773,6 +774,42 @@
         <div style="display: flex; gap: 8px; justify-content: flex-end">
           <oc-button variation="primary" appearance="filled" style="font-size: 13px" @click="autoReadOpen = false">
             {{ $gettext('Close') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Selector CSS de extracción por feed (#39) -->
+    <div
+      v-if="scraperOpen"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Article scraper')"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="scraperOpen = false"
+    >
+      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 420px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
+        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">{{ $gettext('Article scraper') }}</h3>
+        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.65; line-height: 1.5">
+          {{ $gettext('CSS selector of the article body on the site, used before the automatic extraction when the feed only has summaries. Leave empty to use the automatic extraction.') }}
+        </p>
+        <input
+          v-model="scraperForm"
+          type="text"
+          spellcheck="false"
+          placeholder="div#articleBody, article"
+          style="width: 100%; box-sizing: border-box; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 16px"
+        />
+        <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center">
+          <oc-button v-if="scraperForm" variation="passive" appearance="raw" style="font-size: 13px; color: var(--news-error)" @click="scraperForm = ''">
+            {{ $gettext('Clear') }}
+          </oc-button>
+          <span style="flex: 1"></span>
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="scraperOpen = false">
+            {{ $gettext('Cancel') }}
+          </oc-button>
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="scraperSaving" @click="saveScraper">
+            {{ $gettext('Save') }}
           </oc-button>
         </div>
       </div>
@@ -1957,8 +1994,41 @@ async function removeAutoRead(rule: AutoReadRule) {
   }
 }
 
-async function openRetention(entry: NavEntry) {
+// Selector CSS de extracción por feed (#39).
+const scraperOpen = ref(false)
+const scraperSaving = ref(false)
+const scraperFeedId = ref<number | null>(null)
+const scraperForm = ref('')
+
+async function openScraper(entry: NavEntry) {
   openMenu.value = ''
+  const f = entryFeed(entry)
+  if (!f) return
+  scraperFeedId.value = f.id
+  scraperForm.value = ''
+  try {
+    const res = await api.getFeedScraper(f.id)
+    scraperForm.value = res.scraperSelector ?? ''
+  } catch {
+    /* sin selector previo */
+  }
+  scraperOpen.value = true
+}
+
+async function saveScraper() {
+  if (scraperFeedId.value == null) return
+  scraperSaving.value = true
+  try {
+    await api.setFeedScraper(scraperFeedId.value, scraperForm.value.trim())
+    scraperOpen.value = false
+  } catch (e) {
+    error.value = $gettext('Could not save scraper: ') + errText(e)
+  } finally {
+    scraperSaving.value = false
+  }
+}
+
+async function openRetention(entry: NavEntry) {  openMenu.value = ''
   const f = entryFeed(entry)
   if (!f) return
   retentionFeedId.value = f.id

@@ -374,6 +374,33 @@ func (s *Store) SetFeedCredentials(userID, feedID int64, user string, passEnc *s
 	return nil
 }
 
+// GetFeedScraperSelector devuelve el selector CSS de extracción del feed
+// ("" = usar readability genérico).
+func (s *Store) GetFeedScraperSelector(feedID int64) (string, error) {
+	var sel string
+	err := s.db.QueryRow(`SELECT COALESCE(scraper_selector, '') FROM feeds WHERE id = ?`, feedID).Scan(&sel)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return sel, nil
+}
+
+// SetFeedScraperSelector fija el selector CSS del feed ("" = quitar).
+func (s *Store) SetFeedScraperSelector(userID, feedID int64, selector string) error {
+	res, err := s.db.Exec(`UPDATE feeds SET scraper_selector = ? WHERE user_id = ? AND id = ?`,
+		selector, userID, feedID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func itemInsertSQL() string {
 	return `INSERT OR IGNORE INTO items
 		(feed_id, user_id, guid, guid_hash, url, title, author, pub_date, body,

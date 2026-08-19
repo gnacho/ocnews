@@ -372,6 +372,16 @@ func (s *Store) GetItemURL(userID, itemID int64) (string, error) {
 	return u, err
 }
 
+// GetItemFeedID devuelve el feed al que pertenece un item del usuario.
+func (s *Store) GetItemFeedID(userID, itemID int64) (int64, error) {
+	var fid int64
+	err := s.db.QueryRow(`SELECT feed_id FROM items WHERE user_id = ? AND id = ?`, userID, itemID).Scan(&fid)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrNotFound
+	}
+	return fid, err
+}
+
 // SetItemURLForTesting reescribe la URL de un item (solo tests de extracción).
 func (s *Store) SetItemURLForTesting(itemID int64, url string) error {
 	_, err := s.db.Exec(`UPDATE items SET url = ? WHERE id = ?`, url, itemID)

@@ -34,6 +34,8 @@ func (s *Server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /feeds/{feedId}/rules", s.deleteFeedRules)
 	mux.HandleFunc("GET /feeds/{feedId}/retention", s.getFeedRetention)
 	mux.HandleFunc("POST /feeds/{feedId}/retention", s.setFeedRetention)
+	mux.HandleFunc("GET /feeds/{feedId}/scraper", s.getFeedScraper)
+	mux.HandleFunc("POST /feeds/{feedId}/scraper", s.setFeedScraper)
 	mux.HandleFunc("POST /feeds/{feedId}/credentials", s.setFeedCredentials)
 	mux.HandleFunc("GET /feeds/update", s.updateFeed) // updater API, solo admin
 

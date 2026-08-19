@@ -182,6 +182,10 @@ export function useNewsApi() {
       get(`/feeds/${feedId}/retention`),
     setRetention: (feedId: number, retentionDays: number) =>
       client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/retention`, { retentionDays }),
+    getFeedScraper: (feedId: number): Promise<{ scraperSelector: string }> =>
+      get(`/feeds/${feedId}/scraper`),
+    setFeedScraper: (feedId: number, scraperSelector: string) =>
+      client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/scraper`, { scraperSelector }),
     mySettings: async (): Promise<UserSettings> => {
       const { data } = await client.httpAuthenticated.get('/api/me/settings')
       return data as UserSettings
