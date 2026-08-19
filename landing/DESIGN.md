@@ -221,5 +221,5 @@
 
 ## Changelog
 
-- 2026-08-19: initial design system for ocnews landing based on Colorlib Unapp and Cloudless conventions
-- 2026-08-19: darkened light accent to #c24a00 for AA contrast on text/links; brand icon color stays #ee7318
+- 2026-08-19: initial design system for ocnews landing
+- 2026-08-19: re-skinned to the Colorlib Unapp original palette (blue gradient hero, green accent, whitesmoke bg, Poppins/Nunito); accent/gray nudged minimally for WCAG AA
