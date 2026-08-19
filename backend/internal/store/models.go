@@ -16,8 +16,9 @@ type User struct {
 }
 
 type Folder struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	ParentID *int64 `json:"parentId"` // subcarpeta (#41); nil = raíz
 }
 
 type Feed struct {

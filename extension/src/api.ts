@@ -6,6 +6,7 @@ const BASE = '/index.php/apps/news/api/v1-3'
 export interface Folder {
   id: number
   name: string
+  parentId?: number | null
 }
 
 export interface Feed {
@@ -196,7 +197,7 @@ export function useNewsApi() {
       const { data } = await client.httpAuthenticated.put('/api/me/settings', patch)
       return data as UserSettings
     },
-    addFolder: (name: string) => post('/folders', { name }),
+    addFolder: (name: string, parentId?: number | null) => post('/folders', { name, parentId }),
     renameFolder: (folderId: number, name: string) =>
       client.httpAuthenticated.put(`${BASE}/folders/${folderId}`, { name }),
     deleteFolder: (folderId: number) =>

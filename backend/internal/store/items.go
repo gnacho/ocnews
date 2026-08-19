@@ -26,9 +26,9 @@ func buildItemQuery(f ItemFilter, countOnly bool) (string, []any, error) {
 	case 0: // feed
 		where = append(where, "i.feed_id = ?")
 		args = append(args, f.ID)
-	case 1: // folder
-		where = append(where, "i.feed_id IN (SELECT id FROM feeds WHERE user_id = ? AND folder_id = ?)")
-		args = append(args, f.UserID, f.ID)
+	case 1: // folder (incluye subcarpetas, un nivel; #41)
+		where = append(where, "i.feed_id IN (SELECT id FROM feeds WHERE user_id = ? AND (folder_id = ? OR folder_id IN (SELECT id FROM folders WHERE parent_id = ?)))")
+		args = append(args, f.UserID, f.ID, f.ID)
 	case 2: // starred
 		where = append(where, "i.starred = 1")
 	case 3: // all
@@ -136,9 +136,9 @@ func (s *Store) SearchItems(f ItemFilter, query string, limit int) ([]Item, erro
 	case 0: // feed
 		where = append(where, "i.feed_id = ?")
 		args = append(args, f.ID)
-	case 1: // folder
-		where = append(where, "i.feed_id IN (SELECT id FROM feeds WHERE user_id = ? AND folder_id = ?)")
-		args = append(args, f.UserID, f.ID)
+	case 1: // folder (incluye subcarpetas, un nivel; #41)
+		where = append(where, "i.feed_id IN (SELECT id FROM feeds WHERE user_id = ? AND (folder_id = ? OR folder_id IN (SELECT id FROM folders WHERE parent_id = ?)))")
+		args = append(args, f.UserID, f.ID, f.ID)
 	case 2: // starred
 		where = append(where, "i.starred = 1")
 	case 3: // all
@@ -263,8 +263,8 @@ func (s *Store) MarkAllRead(userID int64, maxID int64, scope string, scopeID int
 		q += ` AND feed_id = ?`
 		args = append(args, scopeID)
 	case "folder":
-		q += ` AND feed_id IN (SELECT id FROM feeds WHERE user_id = ? AND folder_id = ?)`
-		args = append(args, userID, scopeID)
+		q += ` AND feed_id IN (SELECT id FROM feeds WHERE user_id = ? AND (folder_id = ? OR folder_id IN (SELECT id FROM folders WHERE parent_id = ?)))`
+		args = append(args, userID, scopeID, scopeID)
 	default:
 		return 0, fmt.Errorf("scope inválido: %s", scope)
 	}

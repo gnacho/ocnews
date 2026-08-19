@@ -6,7 +6,7 @@ import (
 )
 
 func (s *Store) ListFolders(userID int64) ([]Folder, error) {
-	rows, err := s.db.Query(`SELECT id, name FROM folders WHERE user_id = ? ORDER BY name`, userID)
+	rows, err := s.db.Query(`SELECT id, name, parent_id FROM folders WHERE user_id = ? ORDER BY name`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -14,8 +14,13 @@ func (s *Store) ListFolders(userID int64) ([]Folder, error) {
 	out := []Folder{}
 	for rows.Next() {
 		f := Folder{}
-		if err := rows.Scan(&f.ID, &f.Name); err != nil {
+		var parent sql.NullInt64
+		if err := rows.Scan(&f.ID, &f.Name, &parent); err != nil {
 			return nil, err
+		}
+		if parent.Valid {
+			p := parent.Int64
+			f.ParentID = &p
 		}
 		out = append(out, f)
 	}
@@ -23,11 +28,21 @@ func (s *Store) ListFolders(userID int64) ([]Folder, error) {
 }
 
 // CreateFolder devuelve ErrConflict si ya existe una carpeta con ese nombre.
-func (s *Store) CreateFolder(userID int64, name string) (*Folder, error) {
+// parentID != nil crea una subcarpeta (debe pertenecer al usuario).
+func (s *Store) CreateFolder(userID int64, name string, parentID *int64) (*Folder, error) {
 	if name == "" {
 		return nil, ErrConflict
 	}
-	res, err := s.db.Exec(`INSERT INTO folders (user_id, name) VALUES (?, ?)`, userID, name)
+	if parentID != nil {
+		exists, err := s.FolderExists(userID, *parentID)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, ErrNotFound
+		}
+	}
+	res, err := s.db.Exec(`INSERT INTO folders (user_id, name, parent_id) VALUES (?, ?, ?)`, userID, name, parentID)
 	if err != nil {
 		return nil, ErrConflict
 	}
@@ -35,18 +50,27 @@ func (s *Store) CreateFolder(userID int64, name string) (*Folder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Folder{ID: id, Name: name}, nil
+	return &Folder{ID: id, Name: name, ParentID: parentID}, nil
 }
 
 func (s *Store) DeleteFolder(userID, folderID int64) error {
-	res, err := s.db.Exec(`DELETE FROM folders WHERE user_id = ? AND id = ?`, userID, folderID)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	// las subcarpetas de la carpeta borrada suben a la raíz
+	if _, err := tx.Exec(`UPDATE folders SET parent_id = NULL WHERE parent_id = ? AND user_id = ?`, folderID, userID); err != nil {
+		return err
+	}
+	res, err := tx.Exec(`DELETE FROM folders WHERE user_id = ? AND id = ?`, userID, folderID)
 	if err != nil {
 		return err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound
 	}
-	return nil
+	return tx.Commit()
 }
 
 // RenameFolder devuelve ErrConflict si el nuevo nombre ya existe.

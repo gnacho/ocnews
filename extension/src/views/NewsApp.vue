@@ -81,7 +81,7 @@
             style="display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer"
             :style="{
               background: isActive(entry) ? 'var(--news-active-bg)' : 'transparent',
-              paddingLeft: entry.indent ? '28px' : '8px',
+              paddingLeft: 8 + (entry.depth ?? 0) * 20 + 'px',
               fontWeight: entry.unread ? 600 : 400
             }"
             @mouseenter="hovered = entry.key"
@@ -131,6 +131,7 @@
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Scraper…')" @click="openScraper(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Retention…')" @click="openRetention(entry)" />
             <MenuBtn v-if="entry.kind === 'folder'" :label="$gettext('Rename')" @click="renameFolder(entry)" />
+            <MenuBtn v-if="entry.kind === 'folder'" :label="$gettext('New subfolder…')" @click="createSubfolder(entry)" />
             <MenuBtn
               v-if="entry.kind === 'feed' || entry.kind === 'folder'"
               :label="$gettext('Mark all read')"
@@ -1144,7 +1145,7 @@ type NavEntry = {
   sel: Selection
   unread: number
   error?: string
-  indent?: boolean
+  depth?: number
   favicon?: string
   searchQuery?: string
   searchId?: number
@@ -1203,9 +1204,52 @@ const navEntries = computed<NavEntry[]>(() => {
         sel: { kind: 'feed', id: f.id },
         unread: f.unreadCount,
         error: f.updateErrorCount > 0 ? f.lastUpdateError ?? `${f.updateErrorCount} errors` : undefined,
-        indent: true,
+        depth: 1,
         favicon: f.faviconLink
       })
+    }
+  }
+  // subcarpetas (#41): un nivel; su unread incluye sus feeds; el padre no
+  // duplica contadores (los feeds viven en la subcarpeta).
+  const rootFolders = folders.value.filter((fo) => !fo.parentId)
+  const childByParent = new Map<number, Folder[]>()
+  for (const fo of folders.value) {
+    if (!fo.parentId) continue
+    const k = fo.parentId
+    childByParent.set(k, [...(childByParent.get(k) ?? []), fo])
+  }
+  for (const folder of rootFolders) {
+    const children = childByParent.get(folder.id) ?? []
+    const childIds = new Set(children.map((c) => c.id))
+    const childUnread = children.reduce(
+      (a, c) => a + (byFolder.get(c.id) ?? []).reduce((x, f) => x + f.unreadCount, 0),
+      0
+    )
+    const parentEntry = entries.find((e) => e.key === `folder-${folder.id}`)
+    if (parentEntry) parentEntry.unread += childUnread
+    for (const child of children) {
+      entries.push({
+        key: `folder-${child.id}`,
+        kind: 'folder',
+        label: child.name,
+        icon: FolderOpen,
+        sel: { kind: 'folder', id: child.id },
+        unread: (byFolder.get(child.id) ?? []).reduce((a, f) => a + f.unreadCount, 0),
+        depth: 1
+      })
+      for (const f of byFolder.get(child.id) ?? []) {
+        entries.push({
+          key: `feed-${f.id}`,
+          kind: 'feed',
+          label: f.title,
+          icon: Rss,
+          sel: { kind: 'feed', id: f.id },
+          unread: f.unreadCount,
+          error: f.updateErrorCount > 0 ? f.lastUpdateError ?? `${f.updateErrorCount} errors` : undefined,
+          depth: 2,
+          favicon: f.faviconLink
+        })
+      }
     }
   }
   for (const f of byFolder.get(0) ?? []) {
@@ -1217,7 +1261,7 @@ const navEntries = computed<NavEntry[]>(() => {
       sel: { kind: 'feed', id: f.id },
       unread: f.unreadCount,
       error: f.updateErrorCount > 0 ? f.lastUpdateError ?? `${f.updateErrorCount} errors` : undefined,
-      indent: true,
+      depth: 1,
       favicon: f.faviconLink
     })
   }
@@ -1633,7 +1677,7 @@ async function subscribeDiscovered() {
 
 // Diálogo de texto genérico (sustituye window.prompt, que el host puede
 // suprimir): nueva carpeta, renombrar feed, renombrar carpeta, guardar búsqueda.
-type TextPromptAction = 'newFolder' | 'renameFeed' | 'renameFolder' | 'saveSearch'
+type TextPromptAction = 'newFolder' | 'newSubfolder' | 'renameFeed' | 'renameFolder' | 'saveSearch'
 const textPrompt = ref<{ action: TextPromptAction; title: string; value: string; entryKey?: string } | null>(null)
 const textPromptSaving = ref(false)
 
@@ -1645,6 +1689,11 @@ function createFolder() {
   textPrompt.value = { action: 'newFolder', title: $gettext('New folder'), value: '' }
 }
 
+function createSubfolder(entry: NavEntry) {
+  openMenu.value = ''
+  textPrompt.value = { action: 'newSubfolder', title: $gettext('New subfolder'), value: '', entryKey: entry.key }
+}
+
 async function confirmTextPrompt() {
   const p = textPrompt.value
   if (!p || !p.value.trim()) return
@@ -1652,6 +1701,9 @@ async function confirmTextPrompt() {
   try {
     if (p.action === 'newFolder') {
       await api.addFolder(p.value.trim())
+    } else if (p.action === 'newSubfolder') {
+      const fo = folders.value.find((x) => `folder-${x.id}` === p.entryKey)
+      await api.addFolder(p.value.trim(), fo?.id ?? null)
     } else if (p.action === 'renameFeed') {
       const f = feeds.value.find((x) => `feed-${x.id}` === p.entryKey)
       if (f) await api.renameFeed(f.id, p.value.trim())
