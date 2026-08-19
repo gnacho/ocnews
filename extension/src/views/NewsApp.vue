@@ -65,15 +65,27 @@
           <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; opacity: 0.6">
             {{ $gettext('Subscriptions') }}
           </span>
-          <oc-button
-            variation="passive"
-            appearance="raw"
-            :aria-label="$gettext('New folder')"
-            :title="$gettext('New folder')"
-            @click="createFolder"
-          >
-            <FolderPlus style="width: 16px; height: 16px" />&nbsp;<span style="font-size: 12px">{{ $gettext('New folder') }}</span>
-          </oc-button>
+          <span style="display: flex; align-items: center; gap: 4px">
+            <oc-button
+              variation="passive"
+              appearance="raw"
+              :aria-label="$gettext('Refresh')"
+              :title="$gettext('Refresh')"
+              :disabled="refreshing"
+              @click="refreshNow"
+            >
+              <RefreshCw style="width: 15px; height: 15px" :style="refreshing ? 'animation: news-spin 1s linear infinite' : ''" />
+            </oc-button>
+            <oc-button
+              variation="passive"
+              appearance="raw"
+              :aria-label="$gettext('New folder')"
+              :title="$gettext('New folder')"
+              @click="createFolder"
+            >
+              <FolderPlus style="width: 16px; height: 16px" />&nbsp;<span style="font-size: 12px">{{ $gettext('New folder') }}</span>
+            </oc-button>
+          </span>
         </div>
 
         <template v-for="entry in navEntries" :key="entry.key">
@@ -196,16 +208,6 @@
             <CheckCheck style="width: 14px; height: 14px" />
           </oc-button>
         </h1>
-        <oc-button
-          variation="passive"
-          appearance="raw"
-          :aria-label="$gettext('Refresh')"
-          :title="$gettext('Refresh')"
-          :disabled="refreshing"
-          @click="refreshNow"
-        >
-          <RefreshCw style="width: 16px; height: 16px" :style="refreshing ? 'animation: news-spin 1s linear infinite' : ''" />
-        </oc-button>
         <label style="font-size: 12px; display: flex; align-items: center; gap: 4px">
           {{ $gettext('Show') }}
           <select v-model="showAll" style="font-size: 12px; padding: 2px 4px" :aria-label="$gettext('Show')">
@@ -1023,12 +1025,32 @@ const shortcutList = [
   { keys: 'Esc', label: 'Close dialogs' }
 ]
 
-// resize de la columna de titulares arrastrando el divisor derecho.
+// resize de la columna de titulares arrastrando el divisor derecho. El ancho
+// seleccionado persiste en localStorage.
+const listWidthKey = 'ocnews:listWidth'
 const resizerEl = ref<HTMLElement | null>(null)
-const listWidth = ref(380)
+const listWidth = ref<number>(loadListWidth())
 const resizing = ref(false)
 const resizeStartX = ref(0)
 const resizeStartW = ref(380)
+
+function loadListWidth(): number {
+  try {
+    const v = parseInt(localStorage.getItem(listWidthKey) ?? '', 10)
+    if (Number.isFinite(v) && v >= 240 && v <= 700) return v
+  } catch {
+    /* sin storage: usar default */
+  }
+  return 380
+}
+
+function saveListWidth() {
+  try {
+    localStorage.setItem(listWidthKey, String(listWidth.value))
+  } catch {
+    /* sin storage */
+  }
+}
 
 function resizeStart(e: MouseEvent) {
   if (e.button !== 0) return
@@ -1053,6 +1075,7 @@ function resizeEnd() {
   document.body.style.userSelect = ''
   window.removeEventListener('mousemove', resizeMove)
   window.removeEventListener('mouseup', resizeEnd)
+  saveListWidth()
 }
 
 const searchActive = computed(() => searchQuery.value.trim() !== '')
