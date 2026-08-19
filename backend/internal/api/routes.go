@@ -82,6 +82,11 @@ func (s *Server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /searches", s.createSearch)
 	mux.HandleFunc("DELETE /searches/{searchId}", s.deleteSearch)
 	mux.HandleFunc("GET /searches/{searchId}/items", s.searchSavedItems)
+
+	// Auto-marcado como leído al llegar (extensión propia).
+	mux.HandleFunc("GET /auto-read", s.listAutoRead)
+	mux.HandleFunc("POST /auto-read", s.addAutoRead)
+	mux.HandleFunc("DELETE /auto-read/{ruleId}", s.deleteAutoRead)
 }
 
 // adminOnly envuelve un handler exigiendo rol admin.

@@ -137,6 +137,10 @@ func (s *Store) ReplaceFeedItems(feedID, userID int64, title, link string, items
 	if err := s.ApplyFilterToItems(feedID, items); err != nil {
 		return 0, err
 	}
+	auto, err := s.autoReadForFeed(userID, feedID)
+	if err != nil {
+		return 0, err
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return 0, err
@@ -156,6 +160,12 @@ func (s *Store) ReplaceFeedItems(feedID, userID int64, title, link string, items
 		}
 		if n, _ := r.RowsAffected(); n > 0 {
 			inserted += n
+			// auto-mark-read (#40): reglas del usuario que casan con el título
+			if id, _ := r.LastInsertId(); id > 0 && autoReadMatches(auto, it.Title) {
+				if _, err := tx.Exec(`UPDATE items SET unread = 0, last_modified = ? WHERE id = ?`, now(), id); err != nil {
+					return 0, err
+				}
+			}
 		}
 	}
 	streak := 0
@@ -180,6 +190,17 @@ func hasMediaEnclosure(items []NewItem) bool {
 			if strings.HasPrefix(m, "audio/") || strings.HasPrefix(m, "video/") {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// autoReadMatches: true si algún patrón compilado de auto-read casa con el
+// título del item (reglas ya filtradas por feed en autoReadForFeed).
+func autoReadMatches(rules []compiledAutoRead, title string) bool {
+	for _, r := range rules {
+		if r.pattern.MatchString(title) {
+			return true
 		}
 	}
 	return false

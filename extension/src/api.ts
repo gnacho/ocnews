@@ -91,6 +91,12 @@ export interface SavedSearch {
   createdAt: number
 }
 
+export interface AutoReadRule {
+  id: number
+  feedId: number
+  titlePattern: string
+}
+
 export function useNewsApi() {
   const client = useClientService()
 
@@ -218,6 +224,11 @@ export function useNewsApi() {
         oldestFirst: String(opts.oldestFirst ?? false)
       }
       return get(`/searches/${searchId}/items`, params) as Promise<{ items: Item[] }>
-    }
+    },
+    autoRead: (): Promise<{ rules: AutoReadRule[] }> => get('/auto-read'),
+    addAutoRead: (feedId: number, titlePattern: string) =>
+      client.httpAuthenticated.post(`${BASE}/auto-read`, { feedId, titlePattern }),
+    deleteAutoRead: (ruleId: number) =>
+      client.httpAuthenticated.delete(`${BASE}/auto-read/${ruleId}`)
   }
 }

@@ -548,8 +548,11 @@
           </oc-button>
           <span style="font-size: 11px; opacity: 0.6">{{ $gettext('Back up or restore your subscriptions.') }}</span>
         </div>
-        <oc-button variation="passive" appearance="outline" style="font-size: 13px; width: 100%; justify-content: flex-start; margin-bottom: 16px" @click="openGlobalRules">
+        <oc-button variation="passive" appearance="outline" style="font-size: 13px; width: 100%; justify-content: flex-start; margin-bottom: 8px" @click="openGlobalRules">
           <Filter style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Global rules…') }}
+        </oc-button>
+        <oc-button variation="passive" appearance="outline" style="font-size: 13px; width: 100%; justify-content: flex-start; margin-bottom: 16px" @click="openAutoRead">
+          <CheckCheck style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Auto-read rules…') }}
         </oc-button>
         <div style="display: flex; gap: 8px; justify-content: flex-end">
           <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="settingsOpen = false">
@@ -695,6 +698,68 @@
       </div>
     </div>
 
+    <!-- Reglas de auto-marcado como leído -->
+    <div
+      v-if="autoReadOpen"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Auto-read rules')"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="autoReadOpen = false"
+    >
+      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 460px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
+        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">{{ $gettext('Auto-read rules') }}</h3>
+        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.65">
+          {{ $gettext('Articles whose title matches a rule are marked as read automatically when they arrive.') }}
+        </p>
+        <div v-if="autoReadRules.length" style="margin-bottom: 12px; max-height: 200px; overflow-y: auto">
+          <div
+            v-for="rule in autoReadRules"
+            :key="rule.id"
+            style="display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 6px; font-size: 13px"
+          >
+            <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+              <span style="opacity: 0.6">{{ autoReadFeedLabel(rule.feedId) }}</span>
+              <code style="font-size: 12px">{{ rule.titlePattern }}</code>
+            </span>
+            <button
+              style="background: none; border: 0; cursor: pointer; padding: 2px; display: inline-flex"
+              :aria-label="$gettext('Delete rule')"
+              :title="$gettext('Delete rule')"
+              @click="removeAutoRead(rule)"
+            >
+              <X style="width: 15px; height: 15px; color: var(--news-muted)" />
+            </button>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px">
+          <label style="display: block; font-size: 12px; margin-bottom: -6px">{{ $gettext('New rule (regex on the title)') }}</label>
+          <div style="display: flex; gap: 8px; align-items: center">
+            <input
+              v-model="autoReadPattern"
+              type="text"
+              spellcheck="false"
+              :placeholder="'(?i)urgente'"
+              style="flex: 1; min-width: 0; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
+              @keydown.enter="addAutoReadRule"
+            />
+            <select v-model="autoReadFeedSel" style="font-size: 12px; padding: 5px 4px" :aria-label="$gettext('Feed')">
+              <option :value="0">{{ $gettext('All feeds') }}</option>
+              <option v-for="fo in feeds" :key="fo.id" :value="fo.id">{{ fo.title }}</option>
+            </select>
+            <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="autoReadSaving" @click="addAutoReadRule">
+              {{ $gettext('Add') }}
+            </oc-button>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end">
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" @click="autoReadOpen = false">
+            {{ $gettext('Close') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
+
     <!-- Reglas block/keep (feed o globales) -->
     <div
       v-if="rulesOpen"
@@ -799,7 +864,7 @@ import {
   Bookmark,
   BookmarkPlus
 } from 'lucide-vue-next'
-import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings, DiscoveredFeed, SavedSearch, Rules } from '../api'
+import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings, DiscoveredFeed, SavedSearch, Rules, AutoReadRule } from '../api'
 
 const { $gettext, $ngettext } = useGettext()
 const router = useRouter()
@@ -1789,6 +1854,56 @@ async function clearRules() {
     error.value = $gettext('Could not clear rules: ') + errText(e)
   } finally {
     rulesSaving.value = false
+  }
+}
+
+// Reglas de auto-marcado como leído (#40).
+const autoReadOpen = ref(false)
+const autoReadRules = ref<AutoReadRule[]>([])
+const autoReadPattern = ref('')
+const autoReadFeedSel = ref(0)
+const autoReadSaving = ref(false)
+
+async function openAutoRead() {
+  autoReadPattern.value = ''
+  autoReadFeedSel.value = 0
+  try {
+    const res = await api.autoRead()
+    autoReadRules.value = res.rules
+  } catch {
+    autoReadRules.value = []
+  }
+  autoReadOpen.value = true
+}
+
+function autoReadFeedLabel(feedId: number): string {
+  if (feedId === 0) return $gettext('All feeds') + ' · '
+  const f = feeds.value.find((x) => x.id === feedId)
+  return (f?.title ?? `#${feedId}`) + ' · '
+}
+
+async function addAutoReadRule() {
+  const pat = autoReadPattern.value.trim()
+  if (!pat) return
+  autoReadSaving.value = true
+  try {
+    await api.addAutoRead(autoReadFeedSel.value, pat)
+    autoReadPattern.value = ''
+    const res = await api.autoRead()
+    autoReadRules.value = res.rules
+  } catch (e) {
+    error.value = $gettext('Could not add auto-read rule: ') + errText(e)
+  } finally {
+    autoReadSaving.value = false
+  }
+}
+
+async function removeAutoRead(rule: AutoReadRule) {
+  try {
+    await api.deleteAutoRead(rule.id)
+    autoReadRules.value = autoReadRules.value.filter((x) => x.id !== rule.id)
+  } catch (e) {
+    error.value = $gettext('Could not delete rule: ') + errText(e)
   }
 }
 

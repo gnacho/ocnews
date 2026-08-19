@@ -160,6 +160,10 @@ var messages = map[string]map[Lang]string{
 		ES: "búsqueda guardada no encontrada",
 		EN: "saved search not found",
 	},
+	"rule_not_found": {
+		ES: "regla no encontrada",
+		EN: "rule not found",
+	},
 }
 
 // T devuelve el mensaje traducido; claves desconocidas caen en internal_error.
