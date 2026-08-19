@@ -83,7 +83,7 @@
               :title="$gettext('New folder')"
               @click="createFolder"
             >
-              <FolderPlus style="width: 16px; height: 16px" />&nbsp;<span style="font-size: 12px">{{ $gettext('New folder') }}</span>
+              <FolderPlus style="width: 16px; height: 16px" />
             </oc-button>
           </span>
         </div>
@@ -189,70 +189,74 @@
       :style="{ width: listWidth + 'px' }"
     >
       <header
-        style="display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--news-border); flex-wrap: wrap"
+        style="display: flex; flex-direction: column; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--news-border); flex-shrink: 0"
       >
-        <h1
-          style="font-size: 14px; font-weight: 600; margin: 0; flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px"
-        >
-          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{ currentTitle }}</span>
-          <span v-if="unreadCount > 0" style="font-weight: 400; opacity: 0.6; flex-shrink: 0">· {{ unreadCount }}</span>
-          <oc-button
-            v-if="unreadCount > 0"
-            variation="passive"
-            appearance="raw"
-            style="flex-shrink: 0; padding: 1px"
-            :aria-label="$gettext('Mark all read')"
-            :title="$gettext('Mark all read')"
-            @click="markAllRead"
+        <div style="display: flex; align-items: center; gap: 12px; min-width: 0">
+          <h1
+            style="font-size: 14px; font-weight: 600; margin: 0; flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px"
           >
-            <CheckCheck style="width: 14px; height: 14px" />
-          </oc-button>
-        </h1>
-        <label style="font-size: 12px; display: flex; align-items: center; gap: 4px">
-          {{ $gettext('Show') }}
-          <select v-model="showAll" style="font-size: 12px; padding: 2px 4px" :aria-label="$gettext('Show')">
-            <option :value="false">{{ $gettext('Unread') }}</option>
-            <option :value="true">{{ $gettext('All') }}</option>
-          </select>
-        </label>
-        <label style="font-size: 12px; display: flex; align-items: center; gap: 4px">
-          {{ $gettext('Order') }}
-          <select v-model="oldestFirst" style="font-size: 12px; padding: 2px 4px" :aria-label="$gettext('Order')">
-            <option :value="false">{{ $gettext('Newest first') }}</option>
-            <option :value="true">{{ $gettext('Oldest first') }}</option>
-          </select>
-        </label>
-        <div style="display: flex; align-items: center; gap: 6px; min-width: 0">
-          <Search style="width: 15px; height: 15px; opacity: 0.5; flex-shrink: 0" />
-          <input
-            v-model="searchQuery"
-            ref="searchInputEl"
-            type="search"
-            :placeholder="$gettext('Search articles…')"
-            :aria-label="$gettext('Search articles')"
-            style="width: 200px; max-width: 30vw; font-size: 13px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
-            @keydown.enter="doSearch"
-          />
-          <button
-            v-if="searchQuery"
-            style="background: none; border: 0; cursor: pointer; padding: 2px; display: inline-flex"
-            :aria-label="$gettext('Clear search')"
-            :title="$gettext('Clear search')"
-            @click="clearSearch"
-          >
-            <X style="width: 14px; height: 14px" />
-          </button>
-          <oc-button
-            v-if="searchActive"
-            variation="passive"
-            appearance="raw"
-            style="font-size: 12px; flex-shrink: 0"
-            :aria-label="$gettext('Save search')"
-            :title="$gettext('Save search')"
-            @click="saveCurrentSearch"
-          >
-            <BookmarkPlus style="width: 15px; height: 15px" />&nbsp;{{ $gettext('Save') }}
-          </oc-button>
+            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{ currentTitle }}</span>
+            <span v-if="unreadCount > 0" style="font-weight: 400; opacity: 0.6; flex-shrink: 0">· {{ unreadCount }}</span>
+            <oc-button
+              v-if="unreadCount > 0"
+              variation="passive"
+              appearance="raw"
+              style="flex-shrink: 0; padding: 1px"
+              :aria-label="$gettext('Mark all read')"
+              :title="$gettext('Mark all read')"
+              @click="markAllRead"
+            >
+              <CheckCheck style="width: 14px; height: 14px" />
+            </oc-button>
+          </h1>
+          <label style="font-size: 12px; display: flex; align-items: center; gap: 4px">
+            {{ $gettext('Show') }}
+            <select v-model="showAll" style="font-size: 12px; padding: 2px 4px" :aria-label="$gettext('Show')">
+              <option :value="false">{{ $gettext('Unread') }}</option>
+              <option :value="true">{{ $gettext('All') }}</option>
+            </select>
+          </label>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex-wrap: wrap">
+          <label style="font-size: 12px; display: flex; align-items: center; gap: 4px">
+            {{ $gettext('Order') }}
+            <select v-model="oldestFirst" style="font-size: 12px; padding: 2px 4px" :aria-label="$gettext('Order')">
+              <option :value="false">{{ $gettext('Newest first') }}</option>
+              <option :value="true">{{ $gettext('Oldest first') }}</option>
+            </select>
+          </label>
+          <div style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1">
+            <Search style="width: 15px; height: 15px; opacity: 0.5; flex-shrink: 0" />
+            <input
+              v-model="searchQuery"
+              ref="searchInputEl"
+              type="search"
+              :placeholder="$gettext('Search articles…')"
+              :aria-label="$gettext('Search articles')"
+              style="flex: 1; min-width: 0; font-size: 13px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
+              @keydown.enter="doSearch"
+            />
+            <button
+              v-if="searchQuery"
+              style="background: none; border: 0; cursor: pointer; padding: 2px; display: inline-flex"
+              :aria-label="$gettext('Clear search')"
+              :title="$gettext('Clear search')"
+              @click="clearSearch"
+            >
+              <X style="width: 14px; height: 14px" />
+            </button>
+            <oc-button
+              v-if="searchActive"
+              variation="passive"
+              appearance="raw"
+              style="font-size: 12px; flex-shrink: 0"
+              :aria-label="$gettext('Save search')"
+              :title="$gettext('Save search')"
+              @click="saveCurrentSearch"
+            >
+              <BookmarkPlus style="width: 15px; height: 15px" />&nbsp;{{ $gettext('Save') }}
+            </oc-button>
+          </div>
         </div>
       </header>
 
@@ -1044,11 +1048,21 @@ function loadListWidth(): number {
   return 380
 }
 
-function saveListWidth() {
+function saveListWidthLocal() {
   try {
     localStorage.setItem(listWidthKey, String(listWidth.value))
   } catch {
     /* sin storage */
+  }
+}
+
+// persiste el ancho en el backend (user_settings) para que sobreviva a
+// cualquier refresco, incluso si localStorage no está disponible en el iframe.
+async function persistListWidth() {
+  try {
+    await api.updateSettings({ readerListWidth: String(listWidth.value) })
+  } catch {
+    /* best-effort: el local ya quedó guardado */
   }
 }
 
@@ -1075,7 +1089,8 @@ function resizeEnd() {
   document.body.style.userSelect = ''
   window.removeEventListener('mousemove', resizeMove)
   window.removeEventListener('mouseup', resizeEnd)
-  saveListWidth()
+  saveListWidthLocal()
+  persistListWidth()
 }
 
 const searchActive = computed(() => searchQuery.value.trim() !== '')
@@ -1124,6 +1139,12 @@ async function loadSettings() {
     userWidth.value = s.readerMaxWidth || 'wide'
     userFont.value = s.readerFont || 'default'
     userFontSize.value = s.readerFontSize || '15'
+    // ancho de lista persistido en el backend (tras cualquier refresco)
+    const w = parseInt(s.readerListWidth ?? '', 10)
+    if (Number.isFinite(w) && w >= 240 && w <= 700) {
+      listWidth.value = w
+      saveListWidthLocal()
+    }
   } catch {
     /* defaults */
   }
