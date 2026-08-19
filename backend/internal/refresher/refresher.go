@@ -37,6 +37,7 @@ type Result struct {
 	FeedID   int64
 	Inserted int64
 	Err      error
+	Hub      string // hub WebSub detectado en el feed (#44)
 }
 
 // Refresh re-descarga el feed, persiste items nuevos (sanitizados) y
@@ -62,6 +63,27 @@ func (r *Refresher) refresh(ctx context.Context, f *store.Feed) Result {
 		r.log.Warn("fetch falló", "url", f.URL, "err", err)
 		return Result{FeedID: f.ID, Err: err}
 	}
+	return r.ingest(ctx, f, parsed, items)
+}
+
+// Ingest procesa un body recibido por WebSub (#44) sin volver a descargar el
+// feed: parsea, sanitiza y persiste como un refresco normal.
+func (r *Refresher) Ingest(ctx context.Context, feedID int64, body []byte) Result {
+	f, err := r.store.GetFeedByID(feedID)
+	if err != nil {
+		r.log.Warn("websub: feed desconocido", "feed", feedID, "err", err)
+		return Result{FeedID: feedID, Err: err}
+	}
+	parsed, items, err := feed.Parse(body)
+	if err != nil {
+		r.log.Warn("websub: parsear body falló", "feed", feedID, "err", err)
+		return Result{FeedID: feedID, Err: err}
+	}
+	return r.ingest(ctx, f, parsed, items)
+}
+
+// ingest persiste la tanda parseada (compartido entre fetch y WebSub).
+func (r *Refresher) ingest(ctx context.Context, f *store.Feed, parsed *store.Feed, items []store.NewItem) Result {
 	title, link := f.Title, f.Link
 	if parsed.Title != "" {
 		title = parsed.Title
@@ -81,7 +103,7 @@ func (r *Refresher) refresh(ctx context.Context, f *store.Feed) Result {
 		r.log.Info("feed actualizado", "url", f.URL, "nuevos", inserted)
 		r.notifyNewItems(ctx, f, inserted, items)
 	}
-	return Result{FeedID: f.ID, Inserted: inserted}
+	return Result{FeedID: f.ID, Inserted: inserted, Hub: parsed.Hub}
 }
 
 // notifyNewItems: notificación push (ntfy) cuando el feed trae artículos

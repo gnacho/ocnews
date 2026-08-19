@@ -26,6 +26,8 @@ type Config struct {
 
 	NtfyURL   string // OCNEWS_NTFY_URL, default https://ntfy.sh (base de notificaciones)
 	NtfyTopic string // OCNEWS_NTFY_TOPIC: topic global de ntfy (vacío = desactivado salvo per-usuario)
+
+	PublicURL string // OCNEWS_PUBLIC_URL: URL pública del backend (callbacks WebSub, #44)
 }
 
 func Load() (*Config, error) {
@@ -43,6 +45,7 @@ func Load() (*Config, error) {
 		OpenCloudURL:   os.Getenv("OCNEWS_OPENCOLOUD_URL"),
 		NtfyURL:        env("OCNEWS_NTFY_URL", "https://ntfy.sh"),
 		NtfyTopic:      os.Getenv("OCNEWS_NTFY_TOPIC"),
+		PublicURL:      os.Getenv("OCNEWS_PUBLIC_URL"),
 	}
 	for _, e := range []struct {
 		key string

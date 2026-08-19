@@ -43,6 +43,7 @@ type Feed struct {
 	IsPodcast        bool    `json:"isPodcast"` // feed con enclosures de audio/vídeo
 	AuthUser         string  `json:"authUser"`  // usuario Basic del feed ("" = sin auth)
 	AuthPassEnc      string  `json:"-"`         // contraseña cifrada (internal/cred); NUNCA sale por API
+	Hub              string  `json:"-"`         // hub WebSub detectado en el feed (#44)
 }
 
 // FeedFilter: keywords que descartan artículos de un feed (News 28.4.0).

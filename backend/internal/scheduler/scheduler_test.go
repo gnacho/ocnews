@@ -79,7 +79,7 @@ func TestSchedulerPicksUpNewItems(t *testing.T) {
 	}
 	refresh := refresher.New(st, feed.NewHTTPFetcherAllowLocal(5*time.Second), creds, log, 200*time.Millisecond, time.Hour, nil)
 	fc, _ := favicon.NewCache(filepath.Join(dir, "fav"), log)
-	s := New(st, refresh, fc, log, 100*time.Millisecond, 2, 0)
+	s := New(st, refresh, fc, log, 100*time.Millisecond, 2, 0, nil, "")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	var done = make(chan struct{})

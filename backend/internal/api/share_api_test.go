@@ -65,7 +65,10 @@ func TestShareAPI(t *testing.T) {
 	if code, _ := e.do(t, "DELETE", fmt.Sprintf("/items/%d/share", itemID), e.user, e.pass, nil); code != 204 {
 		t.Fatalf("borrar share: %d", code)
 	}
-	resp2, _ := e.client.Get(e.ts.URL + Base + "/share/" + share.Share.Token)
+	resp2, err := e.client.Get(e.ts.URL + Base + "/share/" + share.Share.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer resp2.Body.Close()
 	if resp2.StatusCode != http.StatusNotFound {
 		t.Fatalf("vista pública tras borrar esperaba 404, tengo %d", resp2.StatusCode)

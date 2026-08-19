@@ -25,6 +25,7 @@ import (
 	"github.com/gnacho/ocnews/backend/internal/refresher"
 	"github.com/gnacho/ocnews/backend/internal/scheduler"
 	"github.com/gnacho/ocnews/backend/internal/store"
+	"github.com/gnacho/ocnews/backend/internal/websub"
 )
 
 var (
@@ -113,7 +114,8 @@ func run() error {
 	defer stop()
 
 	// scheduler: refresco periódico + retención; se drena al cancelar ctx
-	sched := scheduler.New(st, refresh, favicons, log, 30*time.Second, 4, cfg.Retention)
+	ws := websub.New()
+	sched := scheduler.New(st, refresh, favicons, log, 30*time.Second, 4, cfg.Retention, ws, cfg.PublicURL)
 	go func() {
 		sched.Run(ctx)
 	}()

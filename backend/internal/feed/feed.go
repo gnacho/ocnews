@@ -131,6 +131,7 @@ func Parse(body []byte) (*store.Feed, []store.NewItem, error) {
 		Title:  strings.TrimSpace(parsed.Title),
 		Link:   websiteLink(parsed),
 		Added:  time.Now().Unix(),
+		Hub:    hubFromBody(body),
 	}
 	if f.Title == "" {
 		f.Title = "feed sin título"
@@ -281,6 +282,17 @@ type DiscoveredFeed struct {
 }
 
 var feedLinkRe = regexp.MustCompile(`(?i)<link[^>]*rel=["']\s*alternate\s*["'][^>]*>`)
+var hubLinkRe = regexp.MustCompile(`(?i)<link[^>]*rel=["']\s*hub\s*["'][^>]*>`)
+
+// hubFromBody extrae el primer href rel="hub" del documento (WebSub, #44).
+func hubFromBody(body []byte) string {
+	for _, m := range hubLinkRe.FindAll(body, -1) {
+		if href := linkAttr(string(m), "href"); href != "" {
+			return href
+		}
+	}
+	return ""
+}
 
 // Discover descarga una página y detecta sus feeds RSS/Atom (autodetección).
 // Descarga UNA sola vez: primero intenta parsear el cuerpo como feed; si no
