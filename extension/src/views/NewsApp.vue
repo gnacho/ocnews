@@ -90,6 +90,7 @@
 
         <template v-for="entry in navEntries" :key="entry.key">
           <div
+            class="news-nav-entry"
             style="display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer"
             :style="{
               background: isActive(entry) ? 'var(--news-active-bg)' : 'transparent',
@@ -161,7 +162,7 @@
 
       <!-- Pie: Ajustes (OPML vive dentro del diálogo de ajustes) + atajos -->
       <div style="display: flex; align-items: center; gap: 8px; padding: 8px; border-top: 1px solid var(--news-border-light)">
-        <oc-button variation="passive" appearance="outline" style="flex: 1; justify-content: flex-start; font-size: 13px" @click="openSettings">
+        <oc-button variation="primary" appearance="filled" style="flex: 1; justify-content: flex-start; font-size: 13px" @click="openSettings">
           <Settings style="width: 16px; height: 16px" />&nbsp;{{ $gettext('News settings') }}
         </oc-button>
         <oc-button
@@ -960,6 +961,7 @@ const MenuBtn = defineComponent({
       h(
         'button',
         {
+          class: 'news-menu-btn',
           style: {
             all: 'unset',
             cursor: 'pointer',
@@ -2380,6 +2382,13 @@ main.news-theme-dark {
 @keyframes news-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+/* hover de navegación (carpetas/suscripciones) y de opciones del menú (#48) */
+.news-nav-entry:hover {
+  background: var(--news-hover-bg);
+}
+.news-menu-btn:hover {
+  background: var(--news-hover-bg);
 }
 .news-body p { margin: 0 0 0.9em; line-height: 1.65; }
 .news-body h1, .news-body h2, .news-body h3, .news-body h4 {
