@@ -127,6 +127,7 @@
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Move to folder…')" @click="moveFeed(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Credentials…')" @click="openCredentials(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Filter articles…')" @click="openFilter(entry)" />
+            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Rules…')" @click="openRules(entry)" />
             <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Retention…')" @click="openRetention(entry)" />
             <MenuBtn v-if="entry.kind === 'folder'" :label="$gettext('Rename')" @click="renameFolder(entry)" />
             <MenuBtn
@@ -536,6 +537,9 @@
           </oc-button>
           <span style="font-size: 11px; opacity: 0.6">{{ $gettext('Back up or restore your subscriptions.') }}</span>
         </div>
+        <oc-button variation="passive" appearance="outline" style="font-size: 13px; width: 100%; justify-content: flex-start; margin-bottom: 16px" @click="openGlobalRules">
+          <Filter style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Global rules…') }}
+        </oc-button>
         <div style="display: flex; gap: 8px; justify-content: flex-end">
           <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="settingsOpen = false">
             {{ $gettext('Cancel') }}
@@ -674,6 +678,51 @@
             {{ $gettext('Cancel') }}
           </oc-button>
           <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="credSaving" @click="saveCredentials">
+            {{ $gettext('Save') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reglas block/keep (feed o globales) -->
+    <div
+      v-if="rulesOpen"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Filter rules')"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="rulesOpen = false"
+    >
+      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 520px; max-width: 94vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
+        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">
+          {{ rulesTitle }}
+        </h3>
+        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.65; line-height: 1.5">
+          {{ $gettext('One rule per line: Field=regex (RE2). Fields: EntryTitle, EntryURL, EntryAuthor, EntryContent, EntryDate. For EntryDate: future, before:YYYY-MM-DD, after:YYYY-MM-DD, between:A,B or max-age:7d.') }}
+        </p>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Block rules (matching articles are hidden)') }}</label>
+        <textarea
+          v-model="rulesForm.block"
+          rows="4"
+          spellcheck="false"
+          style="width: 100%; box-sizing: border-box; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 12px"
+        ></textarea>
+        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Keep rules (only matching articles are kept)') }}</label>
+        <textarea
+          v-model="rulesForm.keep"
+          rows="4"
+          spellcheck="false"
+          style="width: 100%; box-sizing: border-box; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 16px"
+        ></textarea>
+        <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center">
+          <oc-button v-if="rulesHasRules" variation="passive" appearance="raw" style="font-size: 13px; color: var(--news-error)" @click="clearRules">
+            {{ $gettext('Clear rules') }}
+          </oc-button>
+          <span style="flex: 1"></span>
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="rulesOpen = false">
+            {{ $gettext('Cancel') }}
+          </oc-button>
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="rulesSaving" @click="saveRules">
             {{ $gettext('Save') }}
           </oc-button>
         </div>
@@ -1623,6 +1672,71 @@ async function clearFilter() {
     error.value = $gettext('Could not clear filter: ') + errText(e)
   } finally {
     filterSaving.value = false
+  }
+}
+
+// Reglas block/keep por feed o globales (#35).
+const rulesOpen = ref(false)
+const rulesSaving = ref(false)
+const rulesFeedId = ref<number | null>(null)
+const rulesTitle = ref('')
+const rulesForm = ref<Rules>({ block: '', keep: '' })
+
+const rulesHasRules = computed(() => rulesForm.value.block.trim() !== '' || rulesForm.value.keep.trim() !== '')
+
+async function openRules(entry: NavEntry) {
+  openMenu.value = ''
+  const f = entryFeed(entry)
+  if (!f) return
+  rulesFeedId.value = f.id
+  rulesTitle.value = $gettext('Rules for this feed')
+  rulesForm.value = { block: '', keep: '' }
+  try {
+    const res = await api.getFeedRules(f.id)
+    rulesForm.value = { block: res.rules.block ?? '', keep: res.rules.keep ?? '' }
+  } catch {
+    /* sin reglas previas */
+  }
+  rulesOpen.value = true
+}
+
+async function openGlobalRules() {
+  rulesFeedId.value = null
+  rulesTitle.value = $gettext('Global rules')
+  rulesForm.value = { block: '', keep: '' }
+  try {
+    const r = await api.myRules()
+    rulesForm.value = { block: r.block ?? '', keep: r.keep ?? '' }
+  } catch {
+    /* sin reglas previas */
+  }
+  rulesOpen.value = true
+}
+
+async function saveRules() {
+  rulesSaving.value = true
+  try {
+    const payload = { block: rulesForm.value.block.trim(), keep: rulesForm.value.keep.trim() }
+    if (rulesFeedId.value != null) await api.setFeedRules(rulesFeedId.value, payload)
+    else await api.updateMyRules(payload)
+    rulesOpen.value = false
+  } catch (e) {
+    error.value = $gettext('Could not save rules: ') + errText(e)
+  } finally {
+    rulesSaving.value = false
+  }
+}
+
+async function clearRules() {
+  rulesSaving.value = true
+  try {
+    if (rulesFeedId.value != null) await api.deleteFeedRules(rulesFeedId.value)
+    else await api.updateMyRules({ block: '', keep: '' })
+    rulesOpen.value = false
+  } catch (e) {
+    error.value = $gettext('Could not clear rules: ') + errText(e)
+  } finally {
+    rulesSaving.value = false
   }
 }
 

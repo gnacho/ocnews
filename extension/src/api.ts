@@ -57,6 +57,11 @@ export interface FeedFilter {
   urlKeywords: string
 }
 
+export interface Rules {
+  block: string
+  keep: string
+}
+
 export interface UserSettings {
   theme: string
   readerMaxWidth: string
@@ -146,6 +151,19 @@ export function useNewsApi() {
       client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/filter`, filter),
     deleteFilter: (feedId: number) =>
       client.httpAuthenticated.delete(`${BASE}/feeds/${feedId}/filter`),
+    getFeedRules: (feedId: number): Promise<{ rules: Rules }> => get(`/feeds/${feedId}/rules`),
+    setFeedRules: (feedId: number, rules: Rules) =>
+      client.httpAuthenticated.post(`${BASE}/feeds/${feedId}/rules`, rules),
+    deleteFeedRules: (feedId: number) =>
+      client.httpAuthenticated.delete(`${BASE}/feeds/${feedId}/rules`),
+    myRules: async (): Promise<Rules> => {
+      const { data } = await client.httpAuthenticated.get('/api/me/rules')
+      return data.rules as Rules
+    },
+    updateMyRules: async (rules: Rules): Promise<Rules> => {
+      const { data } = await client.httpAuthenticated.put('/api/me/rules', rules)
+      return data.rules as Rules
+    },
     getRetention: (feedId: number): Promise<{ retentionDays: number }> =>
       get(`/feeds/${feedId}/retention`),
     setRetention: (feedId: number, retentionDays: number) =>

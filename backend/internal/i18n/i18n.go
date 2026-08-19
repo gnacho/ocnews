@@ -148,6 +148,10 @@ var messages = map[string]map[Lang]string{
 		ES: "credenciales no válidas",
 		EN: "invalid credentials",
 	},
+	"invalid_rule": {
+		ES: "regla inválida (formato Campo=regex; campos: EntryTitle, EntryURL, EntryAuthor, EntryContent, EntryDate)",
+		EN: "invalid rule (format Field=regex; fields: EntryTitle, EntryURL, EntryAuthor, EntryContent, EntryDate)",
+	},
 }
 
 // T devuelve el mensaje traducido; claves desconocidas caen en internal_error.

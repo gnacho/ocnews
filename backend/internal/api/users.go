@@ -23,6 +23,8 @@ func (s *Server) userAPI() http.Handler {
 	mux.HandleFunc("PUT /api/me/password", s.changeMyPassword)
 	mux.HandleFunc("GET /api/me/settings", s.mySettings)
 	mux.HandleFunc("PUT /api/me/settings", s.updateMySettings)
+	mux.HandleFunc("GET /api/me/rules", s.myRules)
+	mux.HandleFunc("PUT /api/me/rules", s.updateMyRules)
 	mux.HandleFunc("GET /api/users", s.adminOnly(s.listUsers))
 	mux.HandleFunc("POST /api/users", s.adminOnly(s.createUser))
 	mux.HandleFunc("PUT /api/users/{id}", s.adminOnly(s.updateUser))
