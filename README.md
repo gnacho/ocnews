@@ -33,13 +33,11 @@ workflow.
 
 ## What works today
 
-**Backend** (single static Go binary, SQLite, no external services):
+**Backend** (part of [ocapps](https://github.com/gnacho/ocapps), a single static Go binary, SQLite, no external services):
 
 - Full News API v1.3: folders, feeds, items, read/unread/starred state,
   sync endpoints (`/items`, `/items/updated`, bulk marking)
-- Users come from OpenCloud itself: login validates against the server's
-  Graph API (app passwords for clients, session tokens for the web), no
-  separate user database to maintain
+- **Multi-user**: each OpenCloud account gets its own feeds, folders and rules automatically. Login validates against the server's Graph API (app passwords for clients, session tokens for the web).
 - Feed daemon: adaptive refresh intervals (quiet feeds back off, busy
   ones stay fresh), exponential backoff on errors, jitter so feeds never
   sync up, nightly retention of old read items
@@ -51,6 +49,7 @@ workflow.
   feeds that already ship full text are detected and left alone
 - OPML import/export, favicon cache, updater routes from the spec
 - Spanish/English error messages negotiated per user
+- WebSub support, saved searches, filter rules, push notifications (ntfy)
 
 **Web extension** (Vue 3, installed like any OpenCloud web app):
 
@@ -70,7 +69,8 @@ enclosures: all tested against it.
 
 OpenCloud web extensions are frontend only, so the feed engine lives in a
 companion service (the same pattern Collabora or the webmail extensions
-use):
+use). Since 2026, the backend is part of `ocapps`, a unified server that
+also covers Notes and ocphotos:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -80,82 +80,28 @@ use):
 └────────┼────────────────────────────────────────────────────┘
          │  /index.php/apps/news/api/v1-3/   (reverse proxy)
          ▼
-   ocnews backend (Go, single binary)
-   • News API v1.3          • feed fetcher daemon
-   • sanitization           • signed media proxy
-   • SQLite (multi-user)    • OpenCloud Graph auth
-         ▲
-         │  Basic auth (app password)
-   Nextcloud News Android app (unmodified)
+    ocapps backend (Go, single binary)
+    • News API v1.3          • feed fetcher daemon
+    • sanitization           • signed media proxy
+    • SQLite (multi-user)    • OpenCloud Graph auth
+    • Notes API v1.4         • Photos API
+          ▲
+          │  Basic auth (app password)
+    Nextcloud News Android app (unmodified)
 ```
 
 ## Install
 
-### Backend
+### The easy way (OpenCloud App Store)
+
+Download the latest release zip from the [releases page](https://github.com/gnacho/ocnews/releases):
 
 ```bash
-git clone https://github.com/gnacho/ocnews
-cd ocnews/backend
-go test ./...
-CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o ocnews ./cmd/ocnews
+# Download news-X.Y.Z.zip and extract to your OpenCloud apps folder
+# (commonly /var/lib/opencloud/web/assets/apps or /etc/opencloud/web/assets/apps)
 ```
 
-Run it with an environment file (systemd unit with a dedicated user
-recommended, see below):
-
-```ini
-OCNEWS_ADDR=:8094
-OCNEWS_DATA_DIR=/var/lib/ocnews
-OCNEWS_AUTH_MODE=opencloud
-OCNEWS_OPENCOLOUD_URL=https://cloud.example.com
-```
-
-| Variable | Default | Meaning |
-|---|---|---|
-| `OCNEWS_ADDR` | `:8094` | listen address |
-| `OCNEWS_DATA_DIR` | `./data` | SQLite, favicons, media cache, HMAC secret |
-| `OCNEWS_AUTH_MODE` | `local` | `local` (own user table) or `opencloud` (Graph API) |
-| `OCNEWS_OPENCOLOUD_URL` | - | OpenCloud server root, required in `opencloud` mode |
-| `OCNEWS_FEED_INTERVAL` | `15m` | base refresh interval |
-| `OCNEWS_MAX_GAP` | `6h` | ceiling for adaptive intervals |
-| `OCNEWS_RETENTION_DAYS` | `90` | purge read non-starred items older than this, `0` disables |
-| `OCNEWS_FETCH_TIMEOUT` | `20s` | per-feed HTTP timeout |
-| `OCNEWS_LOG_LEVEL` | `info` | debug/info/warn/error |
-
-In `local` mode, `AUTH_USER`/`AUTH_PASS` bootstrap the first admin.
-
-### Reverse proxy
-
-Expose the backend under the OpenCloud domain, the same path Nextcloud
-would use. For nginx, inside the server block of your OpenCloud host:
-
-```nginx
-location /index.php/apps/news/ {
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_pass http://127.0.0.1:8094;
-}
-```
-
-Do not route `/api/` or other prefixes to ocnews; the OpenCloud web client
-uses them.
-
-### Web extension
-
-```bash
-cd extension
-npm install && npm run build
-```
-
-Copy `dist/` to the OpenCloud apps folder (one directory per app, this is
-`WEB_ASSET_APPS_PATH`, commonly `/var/lib/opencloud/web/assets/apps` or
-`/etc/opencloud/web/assets/apps`):
-
-```
-.../assets/apps/news/          # contents of extension/dist
-```
-
-Add `/etc/opencloud/apps.yaml` if it does not exist yet:
+Add to `/etc/opencloud/apps.yaml`:
 
 ```yaml
 news:
@@ -163,6 +109,41 @@ news:
 ```
 
 Restart OpenCloud. The News app appears in the app switcher.
+
+### Build from source
+
+```bash
+cd extension
+pnpm install && pnpm build
+```
+
+Copy `dist/` to the OpenCloud apps folder as `news/`.
+
+### Backend (ocapps)
+
+The backend lives in the [ocapps](https://github.com/gnacho/ocapps) repo.
+See its `deploy/README.md` for the full installation guide (systemd,
+environment variables, reverse proxy snippets).
+
+Quick reference for the proxy:
+
+```nginx
+location /index.php/apps/news/ {
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_pass http://127.0.0.1:8096;
+}
+```
+
+Do not route `/api/` or other prefixes to the news backend; the OpenCloud web client
+uses them.
+
+## Store package / release zip
+
+Releases are built automatically by GitHub Actions when a tag `news-v*` is pushed.
+The workflow installs dependencies, builds the extension, creates the zip with the
+official layout (`news/manifest.json` + `news/js/remoteEntry-*.mjs`), and attaches it
+to the GitHub release.
 
 ## Screenshots
 

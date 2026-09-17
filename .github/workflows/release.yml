@@ -1,41 +1,54 @@
-name: release
+name: Release
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'news-v*'
 
 permissions:
   contents: write
-  packages: read
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          fetch-depth: 0
+          version: 10
 
-      - uses: actions/setup-go@v5
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          go-version-file: backend/go.mod
+          node-version: 24
+          cache: 'pnpm'
+          cache-dependency-path: extension/pnpm-lock.yaml
 
-      - name: Run backend tests
-        working-directory: backend
-        run: go test ./...
+      - name: Install dependencies
+        working-directory: extension
+        run: pnpm install
 
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: '~> v2'
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build
+        working-directory: extension
+        run: pnpm build
 
-      - name: Upload install.sh to release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Package
         run: |
-          gh release upload "${GITHUB_REF_NAME}" install.sh --clobber
+          TAG=${GITHUB_REF_NAME}
+          APP=${TAG%-v*}
+          VERSION=${TAG##*-v}
+          mkdir -p "apps/${APP}"
+          cp -r extension/dist/. "apps/${APP}/"
+          cd apps
+          zip -r "../${APP}-${VERSION}.zip" "${APP}/"
+          cd ..
+          ls -la *.zip
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: '*.zip'
+          generate_release_notes: true
