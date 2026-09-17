@@ -34,15 +34,15 @@ seguir con tu flujo de siempre.
 
 ## Qué funciona hoy
 
-**Backend** (un único binario estático de Go, SQLite, sin servicios
-externos):
+**Backend** (parte de [ocapps](https://github.com/gnacho/ocapps), un único
+binario estático de Go, SQLite, sin servicios externos):
 
 - API de News v1.3 completa: carpetas, feeds, items, estado leído/no leído/
   destacado, endpoints de sync (`/items`, `/items/updated`, marcado por
   lotes)
-- Los usuarios son los de OpenCloud: el login se valida contra la Graph API
-  del servidor (app passwords para clientes, token de sesión para la web),
-  sin base de datos de usuarios paralela que mantener
+- **Multiusuario**: cada cuenta de OpenCloud obtiene sus propios feeds,
+  carpetas y reglas automáticamente. El login se valida contra la Graph API
+  del servidor (app passwords para clientes, token de sesión para la web).
 - Demonio de feeds: intervalos adaptativos (los feeds tranquilos se espacian,
   los activos se mantienen frescos), backoff exponencial ante errores,
   jitter para que los feeds no se sincronicen a la vez, retención nocturna
@@ -57,6 +57,7 @@ externos):
   completo se detectan y se dejan tal cual
 - Import/export OPML, caché de favicons, rutas updater de la spec
 - Mensajes de error en español/inglés negociados por usuario
+- WebSub, búsquedas guardadas, reglas de filtro, notificaciones push (ntfy)
 
 **Extensión web** (Vue 3, instalable como cualquier app web de OpenCloud):
 
@@ -77,8 +78,8 @@ enclosures de pódcast: todo probado contra él.
 ## Arquitectura
 
 Las extensiones web de OpenCloud son solo frontend, así que el motor de
-feeds vive en un servicio acompañante (el mismo patrón que usan Collabora o
-las extensiones de webmail):
+feeds vive en un servicio acompañante. Desde 2026, el backend forma parte
+de `ocapps`, un servidor unificado que también cubre Notes y ocphotos:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -88,82 +89,28 @@ las extensiones de webmail):
 └────────┼────────────────────────────────────────────────────┘
          │  /index.php/apps/news/api/v1-3/   (reverse proxy)
          ▼
-   backend ocnews (Go, binario único)
-   • API News v1.3           • demonio de feeds
-   • saneamiento             • proxy firmado de medios
-   • SQLite (multiusuario)   • auth Graph de OpenCloud
-         ▲
-         │  Basic auth (app password)
-   App de Nextcloud News para Android (sin modificar)
+    ocapps backend (Go, binario único)
+    • API News v1.3           • demonio de feeds
+    • saneamiento             • proxy firmado de medios
+    • SQLite (multiusuario)   • auth Graph de OpenCloud
+    • API Notes v1.4          • API de fotos
+          ▲
+          │  Basic auth (app password)
+    App de Nextcloud News para Android (sin modificar)
 ```
 
 ## Instalación
 
-### Backend
+### La forma fácil (OpenCloud App Store)
+
+Descarga el zip de la última release desde la [página de releases](https://github.com/gnacho/ocnews/releases):
 
 ```bash
-git clone https://github.com/gnacho/ocnews
-cd ocnews/backend
-go test ./...
-CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o ocnews ./cmd/ocnews
+# Descarga news-X.Y.Z.zip y extrae a la carpeta de apps de OpenCloud
+# (normalmente /var/lib/opencloud/web/assets/apps o /etc/opencloud/web/assets/apps)
 ```
 
-Arráncalo con un fichero de entorno (recomendado: unidad de systemd con
-usuario dedicado):
-
-```ini
-OCNEWS_ADDR=:8094
-OCNEWS_DATA_DIR=/var/lib/ocnews
-OCNEWS_AUTH_MODE=opencloud
-OCNEWS_OPENCOLOUD_URL=https://cloud.ejemplo.com
-```
-
-| Variable | Defecto | Significado |
-|---|---|---|
-| `OCNEWS_ADDR` | `:8094` | dirección de escucha |
-| `OCNEWS_DATA_DIR` | `./data` | SQLite, favicons, caché de medios, secreto HMAC |
-| `OCNEWS_AUTH_MODE` | `local` | `local` (tabla propia) o `opencloud` (Graph API) |
-| `OCNEWS_OPENCOLOUD_URL` | - | raíz del servidor OpenCloud, obligatoria en modo `opencloud` |
-| `OCNEWS_FEED_INTERVAL` | `15m` | intervalo base de refresco |
-| `OCNEWS_MAX_GAP` | `6h` | techo de los intervalos adaptativos |
-| `OCNEWS_RETENTION_DAYS` | `90` | purga de items leídos no destacados, `0` la desactiva |
-| `OCNEWS_FETCH_TIMEOUT` | `20s` | timeout HTTP por feed |
-| `OCNEWS_LOG_LEVEL` | `info` | debug/info/warn/error |
-
-En modo `local`, `AUTH_USER`/`AUTH_PASS` crean el primer admin.
-
-### Reverse proxy
-
-Expón el backend bajo el dominio de OpenCloud, en el mismo path que usaría
-Nextcloud. Para nginx, dentro del server block de tu host OpenCloud:
-
-```nginx
-location /index.php/apps/news/ {
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_pass http://127.0.0.1:8094;
-}
-```
-
-No enrutes `/api/` ni otros prefijos hacia ocnews; el cliente web de
-OpenCloud los usa.
-
-### Extensión web
-
-```bash
-cd extension
-npm install && npm run build
-```
-
-Copia `dist/` a la carpeta de apps de OpenCloud (un directorio por app; es
-`WEB_ASSET_APPS_PATH`, normalmente `/var/lib/opencloud/web/assets/apps` o
-`/etc/opencloud/web/assets/apps`):
-
-```
-.../assets/apps/news/          # contenido de extension/dist
-```
-
-Crea `/etc/opencloud/apps.yaml` si no existe:
+Añade a `/etc/opencloud/apps.yaml`:
 
 ```yaml
 news:
@@ -171,6 +118,41 @@ news:
 ```
 
 Reinicia OpenCloud. La app News aparece en el conmutador de aplicaciones.
+
+### Compilar desde fuente
+
+```bash
+cd extension
+pnpm install && pnpm build
+```
+
+Copia `dist/` a la carpeta de apps de OpenCloud como `news/`.
+
+### Backend (ocapps)
+
+El backend vive en el repo [ocapps](https://github.com/gnacho/ocapps).
+Consulta su `deploy/README.md` para la guía completa de instalación
+(systemd, variables de entorno, snippets de proxy).
+
+Referencia rápida para el proxy:
+
+```nginx
+location /index.php/apps/news/ {
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_pass http://127.0.0.1:8096;
+}
+```
+
+No enrutes `/api/` ni otros prefijos hacia el backend de news; el cliente
+web de OpenCloud los usa.
+
+## Paquete de Store / zip de release
+
+Las releases se construyen automáticamente con GitHub Actions cuando se
+empuja un tag `news-v*`. El workflow instala dependencias, compila la
+extensión, crea el zip con el layout oficial (`news/manifest.json` +
+`news/js/remoteEntry-*.mjs`) y lo adjunta a la release de GitHub.
 
 ## Capturas
 
