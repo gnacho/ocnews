@@ -135,6 +135,10 @@ location /index.php/apps/news/ {
 }
 ```
 
+The port depends on how you run the backend: ocapps listens on 8096 by
+default; a standalone ocnews install via install.sh prints its port at the
+end ("URL: http://IP:PORT", default 8094).
+
 Do not route `/api/` or other prefixes to the news backend; the OpenCloud web client
 uses them.
 
