@@ -27,8 +27,8 @@
 
 ## Typography
 
-- Display: "Poppins", sans-serif | source: Google Fonts | license: OFL
-- Body: "Nunito", sans-serif | source: Google Fonts | license: OFL
+- Display: "Nunito", Arial, sans-serif | source: Google Fonts | license: OFL (used for headings)
+- Body: "Poppins", Arial, sans-serif | source: Google Fonts | license: OFL (weight 300, the Unapp default)
 - Mono: "JetBrains Mono", ui-monospace, monospace | source: Google Fonts | license: OFL
 - Scale: ratio 1.25 (Major Third), base 16px
 
@@ -47,30 +47,32 @@
 
 ## Color
 
-- Strategy: warm neutral dominant plus a single energetic orange accent pulled from the ocnews app icon (#ee7318). Avoid the indigo/violet band entirely.
+- Strategy: faithful reproduction of the Colorlib Unapp template palette. Blue diagonal gradient hero, green accent for actions, whitesmoke background. Avoids the indigo/violet band as a dominant (the hero gradient uses blue #499bea to periwinkle #798eea as a background wash, not as text/UI accent).
 - Distribution: 60 neutral / 30 brand / 10 accent
 
-| role | OKLCH | hex |
-|---|---|---|
-| bg | oklch(0.99 0.005 75) | #fdfcfa |
-| surface | oklch(0.97 0.004 75) | #f7f5f2 |
-| fg | oklch(0.22 0.01 75) | #1f1d1b |
-| muted | oklch(0.5 0.01 75) | #6b6864 |
-| border | oklch(0.88 0.008 75) | #e3e0db |
-| accent | oklch(0.53 0.16 55) | #c24a00 |
-| accent-fg | oklch(0.99 0 0) | #ffffff |
-| success | oklch(0.65 0.12 145) | #2d8a4e |
-| warning | oklch(0.75 0.13 80) | #c87f0a |
-| error | oklch(0.6 0.18 25) | #b93b3b |
+| role | hex |
+|---|---|
+| bg | #f5f5f5 (whitesmoke) |
+| surface | #ffffff |
+| fg | #303133 |
+| muted | gray (#808080) |
+| border | #e6e6e6 |
+| accent | #4aca85 (Unapp green) |
+| accent-hover | #5ed092 |
+| accent-fg | #ffffff |
+| hero-a | #499bea |
+| hero-b | #798eea |
+| success | #4aca85 |
+| warning | #e6a23c |
+| error | #d9534f |
 
 - Dark mode overrides:
-  - bg: oklch(0.13 0.01 75) | #141210
-  - surface: oklch(0.18 0.01 75) | #1d1b18
-  - fg: oklch(0.95 0.005 75) | #f2f0ed
-  - muted: oklch(0.6 0.01 75) | #9b9894
-  - border: oklch(0.28 0.01 75) | #36332f
-  - accent: oklch(0.72 0.14 55) | #f58a3c
-  - accent-fg: oklch(0.15 0 0) | #1a120c
+  - bg: #1c1e21
+  - surface: #25272b
+  - fg: #e8e9ea
+  - muted: #9a9da1
+  - border: #35383d
+  - accent: #4aca85 (kept, passes on dark)
 
 ## Spacing, radius, shadow
 
@@ -219,5 +221,5 @@
 
 ## Changelog
 
-- 2026-08-19: initial design system for ocnews landing based on Colorlib Unapp and Cloudless conventions
-- 2026-08-19: darkened light accent to #c24a00 for AA contrast on text/links; brand icon color stays #ee7318
+- 2026-08-19: initial design system for ocnews landing
+- 2026-08-19: re-skinned to the Colorlib Unapp original palette (blue gradient hero, green accent, whitesmoke bg, Poppins/Nunito); accent/gray nudged minimally for WCAG AA

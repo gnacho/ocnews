@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ocnews - Lector RSS para OpenCloud</title>
-  <meta name="description" content="ocnews es un lector RSS/Atom para OpenCloud. Compatible con la API de Noticias de Nextcloud. Un binario en Go, SQLite, sin PHP ni cron por separado. AGPL-3.0." />
+  <title data-i18n="meta.title">ocnews - Lector RSS para OpenCloud</title>
+  <meta name="description" data-i18n="meta.description" content="ocnews es un lector RSS/Atom para OpenCloud. Compatible con la API de Noticias de Nextcloud. Un binario en Go, SQLite, sin PHP ni cron por separado. AGPL-3.0." />
   <meta name="theme-color" content="#fdfcfa" />
   <link rel="canonical" href="https://ocnews.cloudless.club/" />
   <link rel="alternate" hreflang="es" href="https://ocnews.cloudless.club/" />
@@ -24,11 +24,11 @@
   <meta name="twitter:title" content="ocnews - Lector RSS para OpenCloud" />
   <meta name="twitter:description" content="Lector RSS/Atom para OpenCloud. Compatible con la API de Noticias de Nextcloud. Un binario en Go, SQLite, AGPL-3.0." />
   <meta name="twitter:image" content="https://ocnews.cloudless.club/og.png" />
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='14' fill='%23ee7318'/%3E%3Ccircle cx='30' cy='70' r='10' fill='%23fff'/%3E%3Cpath d='M48 70c0-22 18-40 40-40v12c-15 0-28 13-28 28zM48 90c0-33 27-60 60-60v12c-26 0-48 22-48 48z' fill='%23fff'/%3E%3C/svg%3E" />
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Poppins:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@200;400;700&family=Poppins:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css?v=8" />
   <script data-goatcounter="https://stats.ocnews.cloudless.club/count" async src="//stats.ocnews.cloudless.club/count.js"></script>
   <script type="application/ld+json">
   {
@@ -84,49 +84,36 @@
 <body>
   <a class="skip-link" href="#main" data-i18n="misc.skip">Saltar al contenido</a>
 
-  <nav class="nav" aria-label="Principal">
+  <nav class="nav" aria-label="Principal" data-i18n-aria="nav.main">
     <div class="container nav-inner">
       <a class="nav-logo" href="/" aria-label="ocnews home">
-        <svg width="28" height="28" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="14" fill="currentColor"/><circle cx="30" cy="70" r="10" fill="#fff"/><path d="M48 70c0-22 18-40 40-40v12c-15 0-28 13-28 28zM48 90c0-33 27-60 60-60v12c-26 0-48 22-48 48z" fill="#fff"/></svg>
+        <img src="assets/icon.svg" alt="" width="30" height="30" />
         <span>ocnews</span>
       </a>
-      <div class="nav-links">
+      <div class="nav-links" id="nav-menu">
         <a href="#features" data-i18n="nav.features">Funciones</a>
         <a href="#compare" data-i18n="nav.compare">Comparativa</a>
         <a href="#install" data-i18n="nav.install">Instalar</a>
         <a href="#about" data-i18n="nav.about">Acerca de</a>
+        <a href="#faq" data-i18n="nav.faq">FAQ</a>
         <a href="https://github.com/gnacho/ocnews" target="_blank" rel="noopener" data-i18n="nav.github">GitHub</a>
       </div>
       <div class="nav-actions">
-        <button id="langBtn" class="icon-btn" aria-label="Cambiar idioma" data-i18n="nav.langLabel" data-i18n-aria="nav.langAria">ES</button>
-        <button id="themeBtn" class="icon-btn" aria-label="Cambiar tema" data-i18n-aria="theme.toggle">
+        <button id="langBtn" class="icon-btn" aria-label="Cambiar idioma" aria-pressed="false" data-i18n-aria="nav.langAria">ES</button>
+        <button id="themeBtn" class="icon-btn" aria-label="Cambiar tema" aria-pressed="false" data-i18n-aria="theme.toggle">
           <svg class="theme-icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
           <svg class="theme-icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
         </button>
         <a class="nav-cta" href="#install" data-i18n="hero.cta1">Instalar</a>
       </div>
-      <button class="nav-mobile-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="nav-menu">
+      <button class="nav-mobile-toggle" aria-label="Abrir menú" data-i18n-aria="nav.menuOpen" aria-expanded="false" aria-controls="nav-menu">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
     </div>
   </nav>
 
-  <main id="main">
+  <main id="main" tabindex="-1">
     <header class="hero">
-      <div class="hero-pattern" aria-hidden="true">
-        <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern id="feedlines" x="0" y="0" width="200" height="80" patternUnits="userSpaceOnUse">
-              <rect x="0" y="12" width="120" height="8" rx="4" fill="rgba(255,255,255,0.08)" />
-              <rect x="0" y="28" width="180" height="6" rx="3" fill="rgba(255,255,255,0.05)" />
-              <rect x="0" y="40" width="160" height="6" rx="3" fill="rgba(255,255,255,0.05)" />
-              <rect x="0" y="52" width="90" height="6" rx="3" fill="rgba(255,255,255,0.05)" />
-              <rect x="140" y="12" width="40" height="8" rx="4" fill="rgba(238,115,24,0.25)" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#feedlines)" />
-        </svg>
-      </div>
       <div class="hero-overlay" aria-hidden="true"></div>
       <div class="container hero-content">
         <span class="eyebrow" data-i18n="hero.eyebrow">Lector RSS para OpenCloud</span>
@@ -134,31 +121,25 @@
           <span data-i18n="hero.t1">Tus feeds,</span><br />
           <span class="text-accent" data-i18n="hero.t2">sin el centro de datos.</span>
         </h1>
-        <p class="hero-sub" data-i18n="hero.sub">Un lector RSS/Atom compatible con la API de Noticias de Nextcloud. Un unico binario en Go, SQLite, sin PHP ni cron por separado.</p>
+        <p class="hero-sub" data-i18n="hero.sub">Un lector RSS/Atom compatible con la API de Noticias de Nextcloud. Un único binario en Go, SQLite, sin PHP ni cron por separado.</p>
         <div class="hero-actions">
           <a class="btn-primary" href="https://github.com/gnacho/ocnews" target="_blank" rel="noopener" data-i18n="hero.cta2">Ver en GitHub</a>
           <a class="btn-ghost btn-ghost-light" href="#install" data-i18n="hero.cta1">Instalar</a>
-        </div>
-        <div class="hero-facts">
-          <span class="fact" data-i18n="hero.fact1">AGPL-3.0</span>
-          <span class="fact" data-i18n="hero.fact2">Binario unico</span>
-          <span class="fact" data-i18n="hero.fact3">Android oficial</span>
-          <span class="fact" data-i18n="hero.fact4">ES / EN</span>
         </div>
       </div>
     </header>
 
     <section class="slider-band" aria-labelledby="shots-title">
       <div class="container">
-        <h2 id="shots-title" class="visually-hidden" data-i18n="shots.title">Capturas de la aplicacion</h2>
+        <h2 id="shots-title" class="visually-hidden" data-i18n="shots.title">Capturas de la aplicación</h2>
         <div class="slider">
-          <button class="slider-arrow slider-prev" aria-label="Anterior captura">
+          <button class="slider-arrow slider-prev" aria-label="Anterior captura" data-i18n-aria="slider.prev">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
           </button>
           <div class="slider-viewport">
             <img id="shotImg" class="slider-image" src="assets/shot-reader-es-light.webp" alt="Vista de lectura de ocnews" loading="lazy" width="1440" height="900" />
           </div>
-          <button class="slider-arrow slider-next" aria-label="Siguiente captura">
+          <button class="slider-arrow slider-next" aria-label="Siguiente captura" data-i18n-aria="slider.next">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
         </div>
@@ -171,7 +152,7 @@
         <div class="club-inner">
           <div class="club-copy">
             <span class="eyebrow" data-i18n="club.eyebrow">Club Cloudless</span>
-            <h2 data-i18n="club.title">Mismo espiritu, menos peso.</h2>
+            <h2 data-i18n="club.title">Mismo espíritu, menos peso.</h2>
             <p data-i18n="club.text">ocnews sigue los principios del Club Cloudless: software libre, sin nube de terceros, pensado para quien quiere tener el control de sus datos sin montar un centro de datos en casa.</p>
           </div>
           <a class="btn-primary" href="https://cloudless.club" target="_blank" rel="noopener" data-i18n="club.cta">Leer los principios</a>
@@ -184,69 +165,84 @@
         <div class="section-header">
           <span class="eyebrow" data-i18n="features.eyebrow">Funciones</span>
           <h2 data-i18n="features.title">Lo que hace hoy</h2>
-          <p data-i18n="features.lead">Sin promesas. Cada funcion esta en el codigo, probada en produccion propia.</p>
+          <p data-i18n="features.lead">Sin promesas. Cada función está en el código, probada en producción propia.</p>
         </div>
 
         <div class="feature-grid">
           <article class="feature-card">
             <span class="feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg></span>
             <h3 data-i18n="feature.api.title">API Nextcloud News v1.3</h3>
-            <p data-i18n="feature.api.text">Implementa la API completa: carpetas, feeds, articulos, estados leido/no leido y destacados. No inventa un protocolo nuevo.</p>
+            <p data-i18n="feature.api.text">Implementa la API completa: carpetas, feeds, artículos, estados leído/no leído y destacados. No inventa un protocolo nuevo.</p>
           </article>
           <article class="feature-card">
             <span class="feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
             <h3 data-i18n="feature.android.title">Cliente Android oficial</h3>
-            <p data-i18n="feature.android.text">La app Nextcloud News de Android funciona contra ocnews con un token de aplicacion de OpenCloud. Sincronizacion, lectura y podcasts probados.</p>
+            <p data-i18n="feature.android.text">La app Nextcloud News de Android funciona contra ocnews con un token de aplicación de OpenCloud. Sincronización, lectura y podcasts probados.</p>
           </article>
           <article class="feature-card">
             <span class="feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg></span>
             <h3 data-i18n="feature.daemon.title">Refresco adaptativo</h3>
-            <p data-i18n="feature.daemon.text">Un daemon en segundo plano ajusta el intervalo de cada feed: los silenciosos esperan mas, los activos se refrescan antes. Con backoff exponencial y jitter.</p>
+            <p data-i18n="feature.daemon.text">Un daemon en segundo plano ajusta el intervalo de cada feed: los silenciosos esperan más, los activos se refrescan antes. Con backoff exponencial y jitter.</p>
           </article>
           <article class="feature-card">
             <span class="feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></span>
             <h3 data-i18n="feature.proxy.title">Proxy de medios firmado</h3>
-            <p data-i18n="feature.proxy.text">Imagenes y audio o video de los feeds se sirven con firma HMAC, incluso bajo CSP estrictas. Streaming con Range para poder hacer seek.</p>
+            <p data-i18n="feature.proxy.text">Imágenes y audio o vídeo de los feeds se sirven con firma HMAC, incluso bajo CSP estrictas. Streaming con Range para poder hacer seek.</p>
           </article>
           <article class="feature-card">
             <span class="feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>
             <h3 data-i18n="feature.full.title">Texto completo</h3>
-            <p data-i18n="feature.full.text">Los feeds que solo envian resumen pueden extraer el articulo completo del origen, sanitizarlo y cachearlo. Los que ya traen texto completo se respetan.</p>
+            <p data-i18n="feature.full.text">Los feeds que solo envían resumen pueden extraer el artículo completo del origen, sanitizarlo y cachearlo. Los que ya traen texto completo se respetan.</p>
           </article>
           <article class="feature-card">
             <span class="feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2 2 4-4"/></svg></span>
             <h3 data-i18n="feature.opml.title">OPML import/export</h3>
-            <p data-i18n="feature.opml.text">Migra tus suscripciones desde cualquier lector compatible. Tambien disponible en la interfaz web para arrastrar y restaurar.</p>
+            <p data-i18n="feature.opml.text">Migra tus suscripciones desde cualquier lector compatible. También disponible en la interfaz web para arrastrar y restaurar.</p>
           </article>
           <article class="feature-card">
             <span class="feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.5 10 19 14 21 14 12.5 22 3"/></svg></span>
             <h3 data-i18n="feature.filters.title">Filtros por palabras clave</h3>
-            <p data-i18n="feature.filters.text">Define reglas por feed sobre titulo, cuerpo o URL. Los articulos que coinciden se marcan como filtrados y puedes mostrarlos u ocultarlos.</p>
+            <p data-i18n="feature.filters.text">Define reglas por feed sobre título, cuerpo o URL. Los artículos que coinciden se marcan como filtrados y puedes mostrarlos u ocultarlos.</p>
           </article>
           <article class="feature-card">
             <span class="feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-            <h3 data-i18n="feature.search.title">Busqueda de articulos</h3>
-            <p data-i18n="feature.search.text">Busca en titulo, cuerpo o URL dentro de tus feeds. Excluye los articulos filtrados por defecto.</p>
+            <h3 data-i18n="feature.search.title">Búsqueda de artículos</h3>
+            <p data-i18n="feature.search.text">Busca en título, cuerpo o URL dentro de tus feeds. Excluye los artículos filtrados por defecto.</p>
           </article>
           <article class="feature-card">
             <span class="feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg></span>
             <h3 data-i18n="feature.podcasts.title">Podcasts</h3>
-            <p data-i18n="feature.podcasts.text">Detecta feeds con audio o video y los agrupa en una seccion propia, con reproductor in-app a traves del proxy firmado.</p>
+            <p data-i18n="feature.podcasts.text">Detecta feeds con audio o vídeo y los agrupa en una sección propia, con reproductor in-app a través del proxy firmado.</p>
           </article>
           <article class="feature-card">
             <span class="feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
-            <h3 data-i18n="feature.auth.title">Autenticacion OpenCloud</h3>
-            <p data-i18n="feature.auth.text">Los usuarios se validan contra la Graph API de OpenCloud. No hay otra base de usuarios que mantener ni contrasenas duplicadas.</p>
+            <h3 data-i18n="feature.auth.title">Autenticación OpenCloud</h3>
+            <p data-i18n="feature.auth.text">Los usuarios se validan contra la Graph API de OpenCloud. No hay otra base de usuarios que mantener ni contraseñas duplicadas.</p>
           </article>
           <article class="feature-card">
             <span class="feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>
-            <h3 data-i18n="feature.sanitize.title">Sanitizacion HTML</h3>
-            <p data-i18n="feature.sanitize.text">Cada articulo se limpia con una politica blanca al entrar, tanto en la suscripcion como en el refresco. Ningun body llega tal cual.</p>
+            <h3 data-i18n="feature.sanitize.title">Sanitización HTML</h3>
+            <p data-i18n="feature.sanitize.text">Cada artículo se limpia con una política blanca al entrar, tanto en la suscripción como en el refresco. Ningún body llega tal cual.</p>
           </article>
           <article class="feature-card">
             <span class="feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
-            <h3 data-i18n="feature.i18n.title">Ingles y espanol</h3>
+            <h3 data-i18n="feature.i18n.title">Inglés y español</h3>
             <p data-i18n="feature.i18n.text">La interfaz y los mensajes de error negocian el idioma por usuario. No depende del idioma del sistema.</p>
+          </article>
+          <article class="feature-card">
+            <span class="feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <h3 data-i18n="feature.cred.title">Feeds protegidos</h3>
+            <p data-i18n="feature.cred.text">Suscríbete a feeds que piden usuario y contraseña. Las credenciales se cifran en el servidor y nunca salen por la API.</p>
+          </article>
+          <article class="feature-card">
+            <span class="feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
+            <h3 data-i18n="feature.reader.title">Lectura a tu medida</h3>
+            <p data-i18n="feature.reader.text">Tema claro u oscuro, fuente serif o sans, tamaño y ancho del lector por usuario. Tus preferencias se guardan en tu cuenta.</p>
+          </article>
+          <article class="feature-card">
+            <span class="feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg></span>
+            <h3 data-i18n="feature.retention.title">Retención configurable</h3>
+            <p data-i18n="feature.retention.text">Purga automática de artículos leídos antiguos, con retención global y excepciones por feed para guardar lo que importa.</p>
           </article>
         </div>
       </div>
@@ -256,17 +252,17 @@
       <div class="container">
         <div class="section-header">
           <span class="eyebrow" data-i18n="shots.eyebrow">Interfaz</span>
-          <h2 data-i18n="shots.title2">Asi se ve</h2>
-          <p data-i18n="shots.lead">Capturas reales de la extension web. Tema claro y oscuro. Idioma ingles en las imagenes; la interfaz tambien habla espanol.</p>
+          <h2 data-i18n="shots.title2">Así se ve</h2>
+          <p data-i18n="shots.lead">Capturas reales de la extensión web. Tema claro y oscuro. Idioma inglés en las imágenes; la interfaz también habla español.</p>
         </div>
         <div class="shots-grid">
           <figure>
-            <img src="assets/shot-reader-es-light.webp" alt="Vista de lectura en tema claro" loading="lazy" width="1440" height="900" />
+            <img src="assets/shot-reader-es-light.webp" alt="Vista de lectura" data-i18n="shots.caption1" loading="lazy" width="1440" height="900" />
             <figcaption data-i18n="shots.caption1">Vista de lectura</figcaption>
           </figure>
           <figure>
-            <img src="assets/shot-article-es-light.webp" alt="Articulo abierto en tema claro" loading="lazy" width="1440" height="900" />
-            <figcaption data-i18n="shots.caption2">Articulo completo</figcaption>
+            <img src="assets/shot-article-es-light.webp" alt="Artículo completo" data-i18n="shots.caption2" loading="lazy" width="1440" height="900" />
+            <figcaption data-i18n="shots.caption2">Artículo completo</figcaption>
           </figure>
         </div>
       </div>
@@ -277,7 +273,7 @@
         <div class="section-header">
           <span class="eyebrow" data-i18n="compare.eyebrow">Comparativa</span>
           <h2 data-i18n="compare.title">Donde encaja ocnews</h2>
-          <p data-i18n="compare.lead">Contrastado contra las fuentes publicas de cada proyecto en agosto de 2026. Sin humo: marcamos lo que ocnews aun no hace.</p>
+          <p data-i18n="compare.lead">Contrastado contra las fuentes públicas de cada proyecto en agosto de 2026. Sin humo: marcamos lo que ocnews aún no hace.</p>
         </div>
 
         <div class="compare-table-wrap">
@@ -285,7 +281,7 @@
             <caption class="visually-hidden" data-i18n="compare.caption">Comparativa con otros lectores RSS</caption>
             <thead>
               <tr>
-                <th scope="col" data-i18n="compare.col.feature">Funcion</th>
+                <th scope="col" data-i18n="compare.col.feature">Función</th>
                 <th scope="col" class="compare-self" data-i18n="compare.col.ocnews">ocnews</th>
                 <th scope="col" data-i18n="compare.col.nextcloud">Nextcloud News</th>
                 <th scope="col" data-i18n="compare.col.freshrss">FreshRSS</th>
@@ -301,74 +297,74 @@
                 <td>Go + PostgreSQL</td>
               </tr>
               <tr>
-                <th scope="row" data-i18n="compare.row.opencloud">Integracion OpenCloud</th>
-                <td class="compare-self"><span class="check" aria-label="Si">✓</span></td>
-                <td>No aplica</td>
-                <td>No aplica</td>
-                <td>No aplica</td>
+                <th scope="row" data-i18n="compare.row.opencloud">Integración OpenCloud</th>
+                <td class="compare-self"><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td data-i18n="compare.notApplicable">No aplica</td>
+                <td data-i18n="compare.notApplicable">No aplica</td>
+                <td data-i18n="compare.notApplicable">No aplica</td>
               </tr>
               <tr>
                 <th scope="row" data-i18n="compare.row.ncapi">API Nextcloud News v1.3</th>
-                <td class="compare-self"><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="partial" aria-label="Parcial">◐</span> API Google Reader</td>
-                <td><span class="partial" aria-label="Parcial">◐</span> API Fever / Google Reader</td>
+                <td class="compare-self"><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="partial" role="img" aria-label="Parcial" data-i18n-aria="compare.partial">◐</span> API Google Reader</td>
+                <td><span class="partial" role="img" aria-label="Parcial" data-i18n-aria="compare.partial">◐</span> API Fever / Google Reader</td>
               </tr>
               <tr>
                 <th scope="row" data-i18n="compare.row.android">App Android oficial</th>
-                <td class="compare-self"><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="partial" aria-label="Parcial">◐</span> apps de terceros</td>
-                <td><span class="partial" aria-label="Parcial">◐</span> apps de terceros</td>
+                <td class="compare-self"><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="partial" role="img" aria-label="Parcial" data-i18n-aria="compare.partial">◐</span> <span data-i18n="compare.thirdParty">apps de terceros</span></td>
+                <td><span class="partial" role="img" aria-label="Parcial" data-i18n-aria="compare.partial">◐</span> <span data-i18n="compare.thirdParty">apps de terceros</span></td>
               </tr>
               <tr>
-                <th scope="row" data-i18n="compare.row.fulltext">Extraccion de texto completo</th>
-                <td class="compare-self"><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
+                <th scope="row" data-i18n="compare.row.fulltext">Extracción de texto completo</th>
+                <td class="compare-self"><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
               </tr>
               <tr>
                 <th scope="row" data-i18n="compare.row.filters">Filtros por palabras clave</th>
-                <td class="compare-self"><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
+                <td class="compare-self"><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
               </tr>
               <tr>
-                <th scope="row" data-i18n="compare.row.search">Busqueda de articulos</th>
-                <td class="compare-self"><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
+                <th scope="row" data-i18n="compare.row.search">Búsqueda de artículos</th>
+                <td class="compare-self"><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
               </tr>
               <tr>
                 <th scope="row" data-i18n="compare.row.opml">OPML import/export</th>
-                <td class="compare-self"><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
+                <td class="compare-self"><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
               </tr>
               <tr>
                 <th scope="row" data-i18n="compare.row.podcasts">Soporte de podcasts</th>
-                <td class="compare-self"><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
+                <td class="compare-self"><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
               </tr>
               <tr>
-                <th scope="row" data-i18n="compare.row.webext">Extension web integrada</th>
-                <td class="compare-self"><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="cross" aria-label="No">✗</span> interfaz web propia</td>
-                <td><span class="cross" aria-label="No">✗</span> interfaz web propia</td>
+                <th scope="row" data-i18n="compare.row.webext">Extensión web integrada</th>
+                <td class="compare-self"><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="cross" role="img" aria-label="No" data-i18n-aria="compare.no">✗</span> <span data-i18n="compare.ownWebUI">interfaz web propia</span></td>
+                <td><span class="cross" role="img" aria-label="No" data-i18n-aria="compare.no">✗</span> <span data-i18n="compare.ownWebUI">interfaz web propia</span></td>
               </tr>
               <tr>
                 <th scope="row" data-i18n="compare.row.multiuser">Multiusuario</th>
-                <td class="compare-self"><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
-                <td><span class="check" aria-label="Si">✓</span></td>
+                <td class="compare-self"><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
+                <td><span class="check" role="img" aria-label="Sí" data-i18n-aria="compare.yes">✓</span></td>
               </tr>
               <tr>
                 <th scope="row" data-i18n="compare.row.license">Licencia</th>
@@ -383,7 +379,7 @@
 
         <div class="honest-note">
           <h3 data-i18n="compare.honest.title">El lado honesto</h3>
-          <p data-i18n="compare.honest.text">ocnews no sustituye a un ecosistema maduro como FreshRSS ni a la comunidad de Nextcloud. Es un lector enfocado: sirve si ya usas OpenCloud y quieres la menor superficie de ataque posible. No tiene estadisticas de lectura avanzadas, ni themes de comunidad, ni un catalogo de plugins. Si necesitas eso, FreshRSS o Nextcloud News son mejores opciones hoy.</p>
+          <p data-i18n="compare.honest.text">ocnews no sustituye a un ecosistema maduro como FreshRSS ni a la comunidad de Nextcloud. Es un lector enfocado: sirve si ya usas OpenCloud y quieres la menor superficie de ataque posible. No tiene estadísticas de lectura avanzadas, ni themes de comunidad, ni un catálogo de plugins. Si necesitas eso, FreshRSS o Nextcloud News son mejores opciones hoy.</p>
         </div>
       </div>
     </section>
@@ -391,9 +387,9 @@
     <section class="block" id="install">
       <div class="container">
         <div class="section-header">
-          <span class="eyebrow" data-i18n="install.eyebrow">Instalacion</span>
+          <span class="eyebrow" data-i18n="install.eyebrow">Instalación</span>
           <h2 data-i18n="install.title">Un binario y un proxy</h2>
-          <p data-i18n="install.lead">No hay instalador magico. Compila el binario, configura unas variables y anade una location a nginx.</p>
+          <p data-i18n="install.lead">No hay instalador mágico. Compila el binario, configura unas variables y añade una location a nginx.</p>
         </div>
 
         <div class="install-card">
@@ -403,7 +399,7 @@
 cd ocnews/backend
 go test ./...
 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o ocnews ./cmd/ocnews</code>
-            <button class="copy-btn" id="copyInstall" aria-label="Copiar comandos">
+            <button class="copy-btn" id="copyInstall" aria-label="Copiar comandos" data-i18n-aria="install.copyAria">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
               <span data-i18n="install.copy">Copiar</span>
             </button>
@@ -417,7 +413,7 @@ OCNEWS_AUTH_MODE=opencloud
 OCNEWS_OPENCOLOUD_URL=https://cloud.example.com</code>
           </div>
 
-          <p class="install-label" data-i18n="install.step3">3. Anade la location a nginx</p>
+          <p class="install-label" data-i18n="install.step3">3. Añade la location a nginx</p>
           <div class="codebox">
             <code>location /index.php/apps/news/ {
     proxy_set_header Host $host;
@@ -426,7 +422,7 @@ OCNEWS_OPENCOLOUD_URL=https://cloud.example.com</code>
 }</code>
           </div>
 
-          <p class="install-hint" data-i18n="install.hint">Para la extension web, compila <code>extension/</code> y copia <code>dist/</code> a la carpeta de apps de OpenCloud. Los detalles completos estan en el README del repositorio.</p>
+          <p class="install-hint" data-i18n="install.hint">Para la extensión web, compila <code>extension/</code> y copia <code>dist/</code> a la carpeta de apps de OpenCloud. Los detalles completos están en el README del repositorio.</p>
         </div>
 
         <div class="requirements">
@@ -441,22 +437,48 @@ OCNEWS_OPENCOLOUD_URL=https://cloud.example.com</code>
       </div>
     </section>
 
-    <section class="block block-alt" id="about">
+    <section class="block block-about" id="about">
       <div class="container">
         <div class="about-inner">
           <div class="about-copy">
             <span class="eyebrow" data-i18n="about.eyebrow">Acerca de</span>
-            <h2 data-i18n="about.title">Por que ocnews existe</h2>
-            <p data-i18n="about.p1">Llevo anos usando Nextcloud y me gusta su ecosistema, pero la pila de debajo se fue haciendo demasiado para mi gusto: PHP, servidor web, base de datos, cron y actualizaciones que arrastran medio Composer. Cada maquina en la que lo ponia acababa pareciendo un pequeno centro de datos.</p>
-            <p data-i18n="about.p2">OpenCloud apuesta por lo contrario: todo, incluido lo que Nextcloud hace en PHP, dentro de un unico binario en Go. Es mas joven, con menos apps y menos madurez, pero la base es prometedora. ocnews es mi primera aportacion: mover la experiencia de lector RSS que me importa a OpenCloud sin romper los clientes que ya uso.</p>
-            <p data-i18n="about.p3">Es software libre bajo AGPL-3.0, gratuito y sin nube de terceros. Cada version se prueba primero en mi propia instancia. Con ayuda o apoyo podria crecer mas rapido, pero no puedo prometer nada.</p>
+            <h2 data-i18n="about.title">Por qué ocnews existe</h2>
+            <p data-i18n="about.p1">Llevo años usando Nextcloud y me gusta su ecosistema, pero la pila de debajo se fue haciendo demasiado para mi gusto: PHP, servidor web, base de datos, cron y actualizaciones que arrastran medio Composer. Cada máquina en la que lo ponía acababa pareciendo un pequeño centro de datos.</p>
+            <p data-i18n="about.p2">OpenCloud apuesta por lo contrario: todo, incluido lo que Nextcloud hace en PHP, dentro de un único binario en Go. Es más joven, con menos apps y menos madurez, pero la base es prometedora. ocnews es mi primera aportación: mover la experiencia de lector RSS que me importa a OpenCloud sin romper los clientes que ya uso.</p>
+            <p data-i18n="about.p3">Es software libre bajo AGPL-3.0, gratuito y sin nube de terceros. Cada versión se prueba primero en mi propia instancia. Con ayuda o apoyo podría crecer más rápido, pero no puedo prometer nada.</p>
           </div>
           <div class="about-support">
             <div class="support-card">
               <h3 data-i18n="about.support.title">Apoya el proyecto</h3>
-              <p data-i18n="about.support.text">Si te resulta util, puedes invitarme a un cafe. No compra caracteristicas: solo tiempo para seguir puliendo.</p>
+              <p data-i18n="about.support.text">Si te resulta útil, puedes invitarme a un café. No compra características: solo tiempo para seguir puliendo.</p>
               <a class="btn-primary" href="https://ko-fi.com/gnacho" target="_blank" rel="noopener" data-i18n="about.support.cta">Invitar en Ko-fi</a>
             </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block block-alt" id="faq">
+      <div class="container">
+        <div class="section-header">
+          <h2 data-i18n="faq.title">Preguntas frecuentes</h2>
+        </div>
+        <div class="faq-list">
+          <div class="faq-item">
+            <h3 data-i18n="faq.q1">¿Qué es ocnews?</h3>
+            <p data-i18n="faq.a1">ocnews es un lector RSS/Atom para OpenCloud. Implementa la API de Nextcloud News v1.3, así que la app oficial de Nextcloud News para Android funciona con él, y se sirve como extensión web dentro de la interfaz de OpenCloud.</p>
+          </div>
+          <div class="faq-item">
+            <h3 data-i18n="faq.q2">¿Cuánto cuesta?</h3>
+            <p data-i18n="faq.a2">ocnews es software libre bajo AGPL-3.0. No hay suscripción, ni rastreo, ni componente en la nube.</p>
+          </div>
+          <div class="faq-item">
+            <h3 data-i18n="faq.q3">¿Funciona con la app Android de Nextcloud News?</h3>
+            <p data-i18n="faq.a3">Sí. Crea un token de aplicación en OpenCloud y configura la app Nextcloud News de Android con la URL de tu servidor, tu usuario y el token.</p>
+          </div>
+          <div class="faq-item">
+            <h3 data-i18n="faq.q4">¿Cuáles son los requisitos?</h3>
+            <p data-i18n="faq.a4">Un único binario estático en Go, una base de datos SQLite y una ruta de reverse proxy bajo tu dominio de OpenCloud. Sin PHP, sin servidor de base de datos aparte y sin cron.</p>
           </div>
         </div>
       </div>
@@ -468,7 +490,7 @@ OCNEWS_OPENCOLOUD_URL=https://cloud.example.com</code>
       <div class="footer-grid">
         <div class="footer-brand">
           <a class="footer-logo" href="/" aria-label="ocnews home">
-            <svg width="24" height="24" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="14" fill="currentColor"/><circle cx="30" cy="70" r="10" fill="#fff"/><path d="M48 70c0-22 18-40 40-40v12c-15 0-28 13-28 28zM48 90c0-33 27-60 60-60v12c-26 0-48 22-48 48z" fill="#fff"/></svg>
+            <img src="assets/icon.svg" alt="" width="26" height="26" />
             <span>ocnews</span>
           </a>
           <p data-i18n="footer.tagline">Lector RSS para OpenCloud, sin la pila de siempre.</p>
@@ -504,13 +526,13 @@ OCNEWS_OPENCOLOUD_URL=https://cloud.example.com</code>
   </footer>
 
   <div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="Vista ampliada">
-    <button class="lightbox-close" aria-label="Cerrar">
+    <button class="lightbox-close" aria-label="Cerrar" data-i18n-aria="lightbox.close">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
     <img id="lightboxImg" src="" alt="" />
   </div>
 
-  <script src="i18n.js?v=1"></script>
-  <script src="app.js?v=1"></script>
+  <script src="i18n.js?v=8"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>
