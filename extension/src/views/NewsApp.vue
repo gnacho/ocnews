@@ -7,56 +7,12 @@
     <aside
       style="display: flex; flex-direction: column; width: 280px; flex-shrink: 0; border-right: 1px solid var(--news-border); overflow: hidden"
     >
-      <!-- Add feed -->
+      <!-- Add feed: solo el botón; URL y credenciales se piden al pulsar (#49) -->
       <div style="padding: 12px; border-bottom: 1px solid var(--news-border-light)">
-        <label
-          for="news-add-feed"
-          style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.65; margin-bottom: 6px"
-        >
+        <button class="news-cta" type="button" @click="openAddFeed">
+          <Plus style="width: 16px; height: 16px" />
           {{ $gettext('Add feed') }}
-        </label>
-        <div style="display: flex; gap: 8px; align-items: center">
-          <input
-            id="news-add-feed"
-            v-model="newFeedUrl"
-            type="url"
-            :placeholder="$gettext('https://site.example/feed')"
-            :aria-label="$gettext('Feed URL')"
-            style="flex: 1; min-width: 0; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
-            @keydown.enter="subscribeFeed"
-          />
-          <oc-button
-            variation="primary"
-            appearance="filled"
-            :disabled="!newFeedUrl.trim() || subscribing"
-            @click="subscribeFeed"
-          >
-            <Plus style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Add') }}
-          </oc-button>
-        </div>
-        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 8px; cursor: pointer; opacity: 0.8">
-          <input v-model="newFeedAuth" type="checkbox" />
-          {{ $gettext('Requires authentication') }}
-        </label>
-        <div v-if="newFeedAuth" style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px">
-          <input
-            v-model="newFeedUser"
-            type="text"
-            autocomplete="off"
-            :placeholder="$gettext('Username')"
-            :aria-label="$gettext('Username')"
-            style="font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
-          />
-          <input
-            v-model="newFeedPass"
-            type="password"
-            autocomplete="new-password"
-            :placeholder="$gettext('Password')"
-            :aria-label="$gettext('Password')"
-            style="font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
-            @keydown.enter="subscribeFeed"
-          />
-        </div>
+        </button>
       </div>
 
       <!-- Sidebar nav -->
@@ -65,20 +21,33 @@
           <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; opacity: 0.6">
             {{ $gettext('Subscriptions') }}
           </span>
-          <oc-button
-            variation="passive"
-            appearance="raw"
-            :aria-label="$gettext('New folder')"
-            :title="$gettext('New folder')"
-            @click="createFolder"
-          >
-            <FolderPlus style="width: 16px; height: 16px" />&nbsp;<span style="font-size: 12px">{{ $gettext('New folder') }}</span>
-          </oc-button>
+          <span style="display: flex; align-items: center; gap: 4px">
+            <oc-button
+              variation="passive"
+              appearance="raw"
+              :aria-label="$gettext('Refresh')"
+              :title="$gettext('Refresh')"
+              :disabled="refreshing"
+              @click="refreshNow"
+            >
+              <RefreshCw style="width: 15px; height: 15px" :style="refreshing ? 'animation: news-spin 1s linear infinite' : ''" />
+            </oc-button>
+            <oc-button
+              variation="passive"
+              appearance="raw"
+              :aria-label="$gettext('New folder')"
+              :title="$gettext('New folder')"
+              @click="createFolder"
+            >
+              <FolderPlus style="width: 16px; height: 16px" />
+            </oc-button>
+          </span>
         </div>
 
         <template v-for="entry in navEntries" :key="entry.key">
           <div
-            style="display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer"
+            class="news-nav-entry"
+            style="display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 12px; cursor: pointer"
             :style="{
               background: isActive(entry) ? 'var(--news-active-bg)' : 'transparent',
               paddingLeft: 8 + (entry.depth ?? 0) * 20 + 'px',
@@ -147,10 +116,20 @@
         </template>
       </nav>
 
-      <!-- Pie: Ajustes (OPML vive dentro del diálogo de ajustes) -->
-      <div style="padding: 8px; border-top: 1px solid var(--news-border-light)">
-        <oc-button variation="passive" appearance="outline" style="width: 100%; justify-content: flex-start; font-size: 13px" @click="openSettings">
-          <Settings style="width: 16px; height: 16px" />&nbsp;{{ $gettext('News settings') }}
+      <!-- Pie: Ajustes (OPML vive dentro del diálogo de ajustes) + atajos -->
+      <div style="display: flex; align-items: center; gap: 8px; padding: 8px; border-top: 1px solid var(--news-border-light)">
+        <button class="news-cta" type="button" style="flex: 1; font-size: 13px" @click="openSettings">
+          <Settings style="width: 16px; height: 16px" />
+          {{ $gettext('News settings') }}
+        </button>
+        <oc-button
+          variation="passive"
+          appearance="raw"
+          :aria-label="$gettext('Keyboard shortcuts')"
+          :title="$gettext('Keyboard shortcuts (?)')"
+          @click="showShortcuts = true"
+        >
+          <Keyboard style="width: 16px; height: 16px" />
         </oc-button>
         <input
           ref="opmlInputEl"
@@ -168,81 +147,75 @@
       :style="{ width: listWidth + 'px' }"
     >
       <header
-        style="display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--news-border); flex-wrap: wrap"
+        style="display: flex; flex-direction: column; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--news-border); flex-shrink: 0"
       >
-        <h1
-          style="font-size: 14px; font-weight: 600; margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
-        >
-          {{ currentTitle }}
-        </h1>
-        <div style="display: flex; align-items: center; gap: 6px; min-width: 0">
-          <Search style="width: 15px; height: 15px; opacity: 0.5; flex-shrink: 0" />
-          <input
-            v-model="searchQuery"
-            ref="searchInputEl"
-            type="search"
-            :placeholder="$gettext('Search articles…')"
-            :aria-label="$gettext('Search articles')"
-            style="width: 200px; max-width: 30vw; font-size: 13px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
-            @keydown.enter="doSearch"
-          />
-          <button
-            v-if="searchQuery"
-            style="background: none; border: 0; cursor: pointer; padding: 2px; display: inline-flex"
-            :aria-label="$gettext('Clear search')"
-            :title="$gettext('Clear search')"
-            @click="clearSearch"
+        <div style="display: flex; align-items: center; gap: 12px; min-width: 0">
+          <h1
+            style="font-size: 14px; font-weight: 600; margin: 0; flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px"
           >
-            <X style="width: 14px; height: 14px" />
-          </button>
-          <oc-button
-            v-if="searchActive"
-            variation="passive"
-            appearance="raw"
-            style="font-size: 12px; flex-shrink: 0"
-            :aria-label="$gettext('Save search')"
-            :title="$gettext('Save search')"
-            @click="saveCurrentSearch"
-          >
-            <BookmarkPlus style="width: 15px; height: 15px" />&nbsp;{{ $gettext('Save') }}
-          </oc-button>
+            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{ currentTitle }}</span>
+            <span v-if="unreadCount > 0" style="font-weight: 400; opacity: 0.6; flex-shrink: 0">· {{ unreadCount }}</span>
+            <oc-button
+              v-if="unreadCount > 0"
+              variation="passive"
+              appearance="raw"
+              style="flex-shrink: 0; padding: 1px"
+              :aria-label="$gettext('Mark all read')"
+              :title="$gettext('Mark all read')"
+              @click="markAllRead"
+            >
+              <CheckCheck style="width: 14px; height: 14px" />
+            </oc-button>
+          </h1>
+          <label style="font-size: 12px; display: flex; align-items: center; gap: 4px">
+            {{ $gettext('Show') }}
+            <select v-model="showAll" style="font-size: 12px; padding: 2px 4px" :aria-label="$gettext('Show')">
+              <option :value="false">{{ $gettext('Unread') }}</option>
+              <option :value="true">{{ $gettext('All') }}</option>
+            </select>
+          </label>
         </div>
-        <label style="font-size: 12px; display: flex; align-items: center; gap: 4px">
-          {{ $gettext('Show') }}
-          <select v-model="showAll" style="font-size: 12px; padding: 2px 4px" :aria-label="$gettext('Show')">
-            <option :value="false">{{ $gettext('Unread') }}</option>
-            <option :value="true">{{ $gettext('All') }}</option>
-          </select>
-        </label>
-        <label style="font-size: 12px; display: flex; align-items: center; gap: 4px">
-          {{ $gettext('Order') }}
-          <select v-model="oldestFirst" style="font-size: 12px; padding: 2px 4px" :aria-label="$gettext('Order')">
-            <option :value="false">{{ $gettext('Newest first') }}</option>
-            <option :value="true">{{ $gettext('Oldest first') }}</option>
-          </select>
-        </label>
-        <oc-button
-          variation="passive"
-          appearance="raw"
-          :aria-label="$gettext('Keyboard shortcuts')"
-          :title="$gettext('Keyboard shortcuts (?)')"
-          @click="showShortcuts = true"
-        >
-          <Keyboard style="width: 16px; height: 16px" />
-        </oc-button>
-        <oc-button
-          variation="passive"
-          appearance="raw"
-          :aria-label="$gettext('Refresh')"
-          :title="$gettext('Refresh')"
-          :disabled="refreshing"
-          @click="refreshNow"
-        >
-          <RefreshCw style="width: 16px; height: 16px" :style="refreshing ? 'animation: news-spin 1s linear infinite' : ''" />
-        </oc-button>
-        <oc-button v-if="unreadCount > 0" variation="passive" appearance="raw" style="font-size: 13px" @click="markAllRead">
-          <CheckCheck style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Mark all read') }}
-        </oc-button>
+        <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex-wrap: wrap">
+          <label style="font-size: 12px; display: flex; align-items: center; gap: 4px">
+            {{ $gettext('Order') }}
+            <select v-model="oldestFirst" style="font-size: 12px; padding: 2px 4px" :aria-label="$gettext('Order')">
+              <option :value="false">{{ $gettext('Newest first') }}</option>
+              <option :value="true">{{ $gettext('Oldest first') }}</option>
+            </select>
+          </label>
+          <div style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1">
+            <Search style="width: 15px; height: 15px; opacity: 0.5; flex-shrink: 0" />
+            <input
+              v-model="searchQuery"
+              ref="searchInputEl"
+              type="search"
+              :placeholder="$gettext('Search articles…')"
+              :aria-label="$gettext('Search articles')"
+              style="flex: 1; min-width: 0; font-size: 13px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
+              @keydown.enter="doSearch"
+            />
+            <button
+              v-if="searchQuery"
+              style="background: none; border: 0; cursor: pointer; padding: 2px; display: inline-flex"
+              :aria-label="$gettext('Clear search')"
+              :title="$gettext('Clear search')"
+              @click="clearSearch"
+            >
+              <X style="width: 14px; height: 14px" />
+            </button>
+            <oc-button
+              v-if="searchActive"
+              variation="passive"
+              appearance="raw"
+              style="font-size: 12px; flex-shrink: 0"
+              :aria-label="$gettext('Save search')"
+              :title="$gettext('Save search')"
+              @click="saveCurrentSearch"
+            >
+              <BookmarkPlus style="width: 15px; height: 15px" />&nbsp;{{ $gettext('Save') }}
+            </oc-button>
+          </div>
+        </div>
       </header>
 
       <p
@@ -592,6 +565,62 @@
       </div>
     </div>
 
+    <!-- Añadir feed: URL y credenciales solo visibles al abrirlo (#49) -->
+    <div
+      v-if="addFeedOpen"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="$gettext('Add feed')"
+      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
+      @click.self="addFeedOpen = false"
+    >
+      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 420px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
+        <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 600">{{ $gettext('Add feed') }}</h3>
+        <label for="news-add-feed-url" style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Feed URL') }}</label>
+        <input
+          id="news-add-feed-url"
+          ref="addFeedUrlEl"
+          v-model="newFeedUrl"
+          type="url"
+          :placeholder="$gettext('https://site.example/feed')"
+          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 10px"
+          @keydown.enter="subscribeFeed"
+        />
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; opacity: 0.8">
+          <input v-model="newFeedAuth" type="checkbox" />
+          {{ $gettext('Requires authentication') }}
+        </label>
+        <div v-if="newFeedAuth" style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px">
+          <input
+            v-model="newFeedUser"
+            type="text"
+            autocomplete="off"
+            :placeholder="$gettext('Username')"
+            :aria-label="$gettext('Username')"
+            style="font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
+          />
+          <input
+            v-model="newFeedPass"
+            type="password"
+            autocomplete="new-password"
+            :placeholder="$gettext('Password')"
+            :aria-label="$gettext('Password')"
+            style="font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
+            @keydown.enter="subscribeFeed"
+          />
+        </div>
+        <p v-if="addFeedError" style="margin: 12px 0 0; font-size: 12px; color: var(--news-error)">{{ addFeedError }}</p>
+        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px">
+          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="addFeedOpen = false">
+            {{ $gettext('Cancel') }}
+          </oc-button>
+          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="!newFeedUrl.trim() || subscribing" @click="subscribeFeed">
+            {{ $gettext('Subscribe') }}
+          </oc-button>
+        </div>
+      </div>
+    </div>
+
     <!-- Selector de feeds descubiertos -->
     <div
       v-if="discoverPickerOpen"
@@ -896,7 +925,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, defineComponent, h, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 // useRouter SIEMPRE desde web-pkg (inyecta el router del host); el de
 // vue-router no tiene inyección en el contexto de extensión (issues #002/#004)
 import { useRouter } from '@opencloud-eu/web-pkg'
@@ -945,8 +974,13 @@ const MenuBtn = defineComponent({
       h(
         'button',
         {
+          class: 'news-menu-btn',
           style: {
-            all: 'unset',
+            appearance: 'none',
+            background: 'transparent',
+            border: 'none',
+            font: 'inherit',
+            textAlign: 'left',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -983,6 +1017,16 @@ const newFeedAuth = ref(false)
 const newFeedUser = ref('')
 const newFeedPass = ref('')
 const subscribing = ref(false)
+// #49: el formulario de suscripción vive en un diálogo; los campos no se ven hasta abrirlo.
+const addFeedOpen = ref(false)
+const addFeedError = ref('')
+const addFeedUrlEl = ref<HTMLInputElement | null>(null)
+
+function openAddFeed() {
+  addFeedError.value = ''
+  addFeedOpen.value = true
+  nextTick(() => addFeedUrlEl.value?.focus())
+}
 const refreshing = ref(false)
 const openMenu = ref('')
 const hovered = ref('')
@@ -1014,12 +1058,42 @@ const shortcutList = [
   { keys: 'Esc', label: 'Close dialogs' }
 ]
 
-// resize de la columna de titulares arrastrando el divisor derecho.
+// resize de la columna de titulares arrastrando el divisor derecho. El ancho
+// seleccionado persiste en localStorage.
+const listWidthKey = 'ocnews:listWidth'
 const resizerEl = ref<HTMLElement | null>(null)
-const listWidth = ref(380)
+const listWidth = ref<number>(loadListWidth())
 const resizing = ref(false)
 const resizeStartX = ref(0)
 const resizeStartW = ref(380)
+
+function loadListWidth(): number {
+  try {
+    const v = parseInt(localStorage.getItem(listWidthKey) ?? '', 10)
+    if (Number.isFinite(v) && v >= 240 && v <= 700) return v
+  } catch {
+    /* sin storage: usar default */
+  }
+  return 380
+}
+
+function saveListWidthLocal() {
+  try {
+    localStorage.setItem(listWidthKey, String(listWidth.value))
+  } catch {
+    /* sin storage */
+  }
+}
+
+// persiste el ancho en el backend (user_settings) para que sobreviva a
+// cualquier refresco, incluso si localStorage no está disponible en el iframe.
+async function persistListWidth() {
+  try {
+    await api.updateSettings({ readerListWidth: String(listWidth.value) })
+  } catch {
+    /* best-effort: el local ya quedó guardado */
+  }
+}
 
 function resizeStart(e: MouseEvent) {
   if (e.button !== 0) return
@@ -1044,6 +1118,8 @@ function resizeEnd() {
   document.body.style.userSelect = ''
   window.removeEventListener('mousemove', resizeMove)
   window.removeEventListener('mouseup', resizeEnd)
+  saveListWidthLocal()
+  persistListWidth()
 }
 
 const searchActive = computed(() => searchQuery.value.trim() !== '')
@@ -1092,6 +1168,12 @@ async function loadSettings() {
     userWidth.value = s.readerMaxWidth || 'wide'
     userFont.value = s.readerFont || 'default'
     userFontSize.value = s.readerFontSize || '15'
+    // ancho de lista persistido en el backend (tras cualquier refresco)
+    const w = parseInt(s.readerListWidth ?? '', 10)
+    if (Number.isFinite(w) && w >= 240 && w <= 700) {
+      listWidth.value = w
+      saveListWidthLocal()
+    }
   } catch {
     /* defaults */
   }
@@ -1458,6 +1540,7 @@ function onKeydown(e: KeyboardEvent) {
     else if (retentionOpen.value) retentionOpen.value = false
     else if (settingsOpen.value) settingsOpen.value = false
     else if (discoverPickerOpen.value) discoverPickerOpen.value = false
+    else if (addFeedOpen.value) addFeedOpen.value = false
     else if (textPrompt.value) textPrompt.value = null
     else if (moveOpen.value) moveOpen.value = false
     else if (credOpen.value) credOpen.value = false
@@ -1602,7 +1685,7 @@ async function subscribeFeed() {
   const url = newFeedUrl.value.trim()
   if (!url) return
   subscribing.value = true
-  error.value = ''
+  addFeedError.value = ''
   const authUser = newFeedAuth.value ? newFeedUser.value.trim() : ''
   const authPass = newFeedAuth.value ? newFeedPass.value : ''
   try {
@@ -1611,6 +1694,7 @@ async function subscribeFeed() {
     newFeedAuth.value = false
     newFeedUser.value = ''
     newFeedPass.value = ''
+    addFeedOpen.value = false
     await loadSidebar()
     await loadItems()
   } catch (e: unknown) {
@@ -1618,7 +1702,7 @@ async function subscribeFeed() {
     if (resp?.data?.error?.code === 'feed_auth_required') {
       // el origen pide auth: abrir los campos de credenciales y avisar
       newFeedAuth.value = true
-      error.value = resp.data.error.message || $gettext('This feed requires authentication (username and password)')
+      addFeedError.value = resp.data.error.message || $gettext('This feed requires authentication (username and password)')
     } else if (resp?.status === 422) {
       // no es un feed directo: probar autodetección en la URL del sitio
       try {
@@ -1629,6 +1713,7 @@ async function subscribeFeed() {
           newFeedAuth.value = false
           newFeedUser.value = ''
           newFeedPass.value = ''
+          addFeedOpen.value = false
           await loadSidebar()
           await loadItems()
           return
@@ -1642,9 +1727,9 @@ async function subscribeFeed() {
       } catch {
         /* si discover también falla, caemos al error genérico */
       }
-      error.value = extractErrorMessage(e, $gettext('Could not subscribe to the feed'))
+      addFeedError.value = extractErrorMessage(e, $gettext('Could not subscribe to the feed'))
     } else {
-      error.value = extractErrorMessage(e, $gettext('Could not subscribe to the feed'))
+      addFeedError.value = extractErrorMessage(e, $gettext('Could not subscribe to the feed'))
     }
   } finally {
     subscribing.value = false
@@ -1666,10 +1751,13 @@ async function subscribeDiscovered() {
     newFeedUser.value = ''
     newFeedPass.value = ''
     discoverPickerOpen.value = false
+    addFeedOpen.value = false
     await loadSidebar()
     await loadItems()
   } catch (e) {
-    error.value = extractErrorMessage(e, $gettext('Could not subscribe to the feed'))
+    // cerrar el selector para que el error se vea en el diálogo de añadir
+    discoverPickerOpen.value = false
+    addFeedError.value = extractErrorMessage(e, $gettext('Could not subscribe to the feed'))
   } finally {
     discoverSubscribing.value = false
   }
@@ -2327,6 +2415,55 @@ main.news-theme-dark {
 @keyframes news-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+/* hover de navegación (carpetas/suscripciones) y de opciones del menú (#48):
+   mismo token que el menú lateral nativo del host (SidebarNavItem.vue) */
+.news-nav-entry:hover {
+  background: var(--oc-role-surface-container-highest);
+}
+.news-menu-btn:hover {
+  background: var(--oc-role-surface-container-highest);
+}
+/* Botones CTA (ajustes + añadir feed): réplica del botón "New" del host
+   (web-runtime SidebarNav.vue) — filled con gradiente secondary→primary,
+   sombra y hover con brillo. #20434F es el secondary por defecto del host
+   (design-system defaults.css); la app lo sobreescribe en main (#23) y aquí
+   se restaura solo para estos botones. En modo oscuro el host usa los
+   tokens container, que se resuelven en runtime con el tema activo. (#49) */
+.news-cta {
+  --oc-role-secondary: #20434f;
+  appearance: none;
+  border: 0;
+  margin: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  background: linear-gradient(to right, var(--oc-role-secondary), var(--oc-role-primary));
+  color: var(--oc-role-on-primary);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  transition: filter 150ms ease-out, box-shadow 150ms ease-out;
+}
+.news-cta:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+.news-cta:disabled {
+  opacity: 0.5;
+  cursor: default;
+  filter: none;
+}
+main.news-theme-dark .news-cta {
+  background: linear-gradient(to right, var(--oc-role-secondary-container), var(--oc-role-primary-container));
+  color: var(--oc-role-on-primary-container);
 }
 .news-body p { margin: 0 0 0.9em; line-height: 1.65; }
 .news-body h1, .news-body h2, .news-body h3, .news-body h4 {
