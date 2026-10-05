@@ -191,6 +191,10 @@ OCNEWS_FETCH_TIMEOUT=20s
 OCNEWS_LOG_LEVEL=info
 AUTH_USER=admin
 AUTH_PASS=${ADMIN_PASS}
+# Para la extension web de OpenCloud (o cualquier cliente con sesion web),
+# cambia el modo y define la URL publica de tu instancia OpenCloud:
+#   OCNEWS_AUTH_MODE=opencloud
+#   OCNEWS_OPENCLOUD_URL=https://cloud.example.com
 EOF
   run root_required install -Dm600 "${TMPDIR}/env" "$ENV_FILE"
   run root_required chown "${USER}:${USER}" "$ENV_FILE"
@@ -255,5 +259,10 @@ echo "Comandos útiles:"
 echo "  systemctl status ${APP}"
 echo "  journalctl -u ${APP} -f"
 echo ""
+if grep -q '^OCNEWS_AUTH_MODE=local' "$ENV_FILE" 2>/dev/null; then
+  echo "Nota: con OCNEWS_AUTH_MODE=local solo funciona el acceso Basic local."
+  echo "Para la extensión web de OpenCloud usa modo opencloud (ver ${ENV_FILE})."
+  echo ""
+fi
 echo "Para desinstalar: sh install.sh --uninstall"
 echo "Para purgar todo:   sh install.sh --purge"

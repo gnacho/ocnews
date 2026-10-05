@@ -144,6 +144,19 @@ location /index.php/apps/news/ {
 }
 ```
 
+La instalación standalone (install.sh) arranca por defecto con
+`OCNEWS_AUTH_MODE=local` (cuenta admin propia del script). La extensión web
+se autentica con la sesión de OpenCloud, así que un backend standalone
+necesita modo opencloud en `/etc/ocnews/env`:
+
+```sh
+OCNEWS_AUTH_MODE=opencloud
+OCNEWS_OPENCLOUD_URL=https://cloud.example.com
+```
+
+Reinicia con `systemctl restart ocnews`. El nombre histórico con errata
+`OCNEWS_OPENCOLOUD_URL` se sigue aceptando como fallback.
+
 No enrutes `/api/` ni otros prefijos hacia el backend de news; el cliente
 web de OpenCloud los usa.
 

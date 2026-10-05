@@ -21,8 +21,8 @@ type Config struct {
 	MaxGap       time.Duration // OCNEWS_MAX_GAP, default 6h (tope adaptativo)
 	Retention    time.Duration // OCNEWS_RETENTION_DAYS, default 90d; 0 = desactivada
 
-	AuthMode       string // OCNEWS_AUTH_MODE: local (default) | opencloud
-	OpenCloudURL   string // OCNEWS_OPENCOLOUD_URL: raíz del servidor OpenCloud (modo opencloud)
+	AuthMode     string // OCNEWS_AUTH_MODE: local (default) | opencloud
+	OpenCloudURL string // OCNEWS_OPENCLOUD_URL: raíz del servidor OpenCloud (modo opencloud)
 
 	NtfyURL   string // OCNEWS_NTFY_URL, default https://ntfy.sh (base de notificaciones)
 	NtfyTopic string // OCNEWS_NTFY_TOPIC: topic global de ntfy (vacío = desactivado salvo per-usuario)
@@ -42,7 +42,10 @@ func Load() (*Config, error) {
 		MaxGap:         6 * time.Hour,
 		Retention:      90 * 24 * time.Hour,
 		AuthMode:       env("OCNEWS_AUTH_MODE", "local"),
-		OpenCloudURL:   os.Getenv("OCNEWS_OPENCOLOUD_URL"),
+		OpenCloudURL: firstNonEmpty(
+			os.Getenv("OCNEWS_OPENCLOUD_URL"),
+			os.Getenv("OCNEWS_OPENCOLOUD_URL"), // nombre histórico con errata, issue #58
+		),
 		NtfyURL:        env("OCNEWS_NTFY_URL", "https://ntfy.sh"),
 		NtfyTopic:      os.Getenv("OCNEWS_NTFY_TOPIC"),
 		PublicURL:      os.Getenv("OCNEWS_PUBLIC_URL"),
@@ -94,7 +97,7 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("OCNEWS_AUTH_MODE inválido: %q (local|opencloud)", c.AuthMode)
 	}
 	if c.AuthMode == "opencloud" && c.OpenCloudURL == "" {
-		return nil, fmt.Errorf("OCNEWS_AUTH_MODE=opencloud exige OCNEWS_OPENCOLOUD_URL")
+		return nil, fmt.Errorf("OCNEWS_AUTH_MODE=opencloud exige OCNEWS_OPENCLOUD_URL")
 	}
 	if c.Addr == "" {
 		return nil, fmt.Errorf("OCNEWS_ADDR no puede estar vacío")
@@ -129,4 +132,14 @@ func env(key, def string) string {
 		return v
 	}
 	return def
+}
+
+// firstNonEmpty devuelve el primer valor no vacío (para aliases de variables).
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
