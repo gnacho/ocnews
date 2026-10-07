@@ -91,8 +91,11 @@ func TestRefreshNewItemsResetsStreak(t *testing.T) {
 	if got.NoNewStreak != 0 {
 		t.Errorf("racha debe resetear: %d", got.NoNewStreak)
 	}
-	// con novedades → gap base (1m ±20%): entre 48s y 72s
-	if g := gapUntil(got.NextUpdateTime); g < 48*time.Second || g > 72*time.Second {
+	// con novedades → gap base (1m ±20%). gapUntil mide wall-clock DESPUÉS de
+	// las operaciones de scheduling, así que un run cargado puede quedarse un
+	// pelín por debajo de 48s (47.89s en CI, issue #59): margen 45-75s, igual
+	// que bc6bdeb hizo con los tests de backoff.
+	if g := gapUntil(got.NextUpdateTime); g < 45*time.Second || g > 75*time.Second {
 		t.Errorf("gap con novedades: %v", g)
 	}
 }
