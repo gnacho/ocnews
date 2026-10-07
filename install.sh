@@ -1,6 +1,6 @@
 #!/bin/sh
 # install.sh — instala o actualiza ocnews-backend en Linux (systemd, sin Docker).
-# Uso: curl -fsSL https://github.com/gnacho/ocnews/releases/latest/download/install.sh | sh
+# Uso: curl -fsSL https://raw.githubusercontent.com/gnacho/ocnews/main/install.sh | sh
 #      sh install.sh --version v0.1.1
 #      sh install.sh --uninstall
 
@@ -78,8 +78,12 @@ detect_arch() {
 }
 
 fetch_latest_version() {
-  curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | \
-    sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1
+  # El repo publica dos trenes de release: backend "v*" y extensión "news-v*".
+  # releases/latest puede resolver a una release de extensión (sin binario),
+  # así que tomamos la primera release de la lista cuyo tag NO empiece por news-.
+  curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=30" | \
+    sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | \
+    grep -v '^news-' | head -n1
 }
 
 random_pass() {
@@ -187,6 +191,10 @@ OCNEWS_FETCH_TIMEOUT=20s
 OCNEWS_LOG_LEVEL=info
 AUTH_USER=admin
 AUTH_PASS=${ADMIN_PASS}
+# Para la extension web de OpenCloud (o cualquier cliente con sesion web),
+# cambia el modo y define la URL publica de tu instancia OpenCloud:
+#   OCNEWS_AUTH_MODE=opencloud
+#   OCNEWS_OPENCLOUD_URL=https://cloud.example.com
 EOF
   run root_required install -Dm600 "${TMPDIR}/env" "$ENV_FILE"
   run root_required chown "${USER}:${USER}" "$ENV_FILE"
@@ -251,5 +259,10 @@ echo "Comandos útiles:"
 echo "  systemctl status ${APP}"
 echo "  journalctl -u ${APP} -f"
 echo ""
+if grep -q '^OCNEWS_AUTH_MODE=local' "$ENV_FILE" 2>/dev/null; then
+  echo "Nota: con OCNEWS_AUTH_MODE=local solo funciona el acceso Basic local."
+  echo "Para la extensión web de OpenCloud usa modo opencloud (ver ${ENV_FILE})."
+  echo ""
+fi
 echo "Para desinstalar: sh install.sh --uninstall"
 echo "Para purgar todo:   sh install.sh --purge"

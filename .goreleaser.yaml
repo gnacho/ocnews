@@ -30,3 +30,5 @@ checksum:
 
 release:
   draft: true
+  extra_files:
+    - glob: ./install.sh

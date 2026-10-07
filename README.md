@@ -139,6 +139,18 @@ The port depends on how you run the backend: ocapps listens on 8096 by
 default; a standalone ocnews install via install.sh prints its port at the
 end ("URL: http://IP:PORT", default 8094).
 
+Standalone installs default to `OCNEWS_AUTH_MODE=local` (the script's own
+admin account). The web extension authenticates with your OpenCloud session,
+so a standalone backend needs OpenCloud mode in `/etc/ocnews/env`:
+
+```sh
+OCNEWS_AUTH_MODE=opencloud
+OCNEWS_OPENCLOUD_URL=https://cloud.example.com
+```
+
+Restart with `systemctl restart ocnews`. The older misspelled variable name
+`OCNEWS_OPENCOLOUD_URL` is still accepted as a fallback.
+
 Do not route `/api/` or other prefixes to the news backend; the OpenCloud web client
 uses them.
 
