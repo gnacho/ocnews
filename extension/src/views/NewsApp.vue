@@ -23,7 +23,7 @@
           </span>
           <span style="display: flex; align-items: center; gap: 4px">
             <oc-button
-              variation="passive"
+              color-role="secondary"
               appearance="raw"
               :aria-label="$gettext('Refresh')"
               :title="$gettext('Refresh')"
@@ -33,7 +33,7 @@
               <RefreshCw style="width: 15px; height: 15px" :style="refreshing ? 'animation: news-spin 1s linear infinite' : ''" />
             </oc-button>
             <oc-button
-              variation="passive"
+              color-role="secondary"
               appearance="raw"
               :aria-label="$gettext('New folder')"
               :title="$gettext('New folder')"
@@ -76,7 +76,7 @@
             <span v-if="entry.unread" style="font-size: 12px; opacity: 0.6; flex-shrink: 0">{{ entry.unread }}</span>
             <oc-button
               v-if="entry.kind === 'feed' || entry.kind === 'folder' || entry.kind === 'search'"
-              variation="passive"
+              color-role="secondary"
               appearance="raw"
               style="flex-shrink: 0"
               :aria-label="$gettext('Options')"
@@ -123,7 +123,7 @@
           {{ $gettext('News settings') }}
         </button>
         <oc-button
-          variation="passive"
+          color-role="secondary"
           appearance="raw"
           :aria-label="$gettext('Keyboard shortcuts')"
           :title="$gettext('Keyboard shortcuts (?)')"
@@ -157,7 +157,7 @@
             <span v-if="unreadCount > 0" style="font-weight: 400; opacity: 0.6; flex-shrink: 0">· {{ unreadCount }}</span>
             <oc-button
               v-if="unreadCount > 0"
-              variation="passive"
+              color-role="secondary"
               appearance="raw"
               style="flex-shrink: 0; padding: 1px"
               :aria-label="$gettext('Mark all read')"
@@ -205,7 +205,7 @@
             </button>
             <oc-button
               v-if="searchActive"
-              variation="passive"
+              color-role="secondary"
               appearance="raw"
               style="font-size: 12px; flex-shrink: 0"
               :aria-label="$gettext('Save search')"
@@ -281,7 +281,7 @@
           </button>
         </li>
         <li v-if="moreAvailable" style="padding: 12px; text-align: center; list-style: none">
-          <oc-button variation="passive" appearance="filled" @click="loadMore">
+          <oc-button color-role="secondary" appearance="filled" @click="loadMore">
             {{ $gettext('Load more') }}
           </oc-button>
         </li>
@@ -302,7 +302,7 @@
       style="display: flex; flex-direction: column; flex: 1; min-width: 0; border-left: 1px solid var(--news-border)"
     >
       <header style="display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-bottom: 1px solid var(--news-border)">
-        <oc-button variation="passive" appearance="raw" :aria-label="$gettext('Back')" @click="detail = null">
+        <oc-button color-role="secondary" appearance="raw" :aria-label="$gettext('Back')" @click="detail = null">
           <X style="width: 20px; height: 20px" />
         </oc-button>
         <h2 style="flex: 1; font-size: 17px; font-weight: 600; margin: 0">
@@ -312,7 +312,7 @@
         </h2>
         <oc-button
           v-if="!detail.feedFullContent"
-          variation="passive"
+          color-role="secondary"
           appearance="raw"
           :aria-label="$gettext('Full article')"
           :title="fullBody ? $gettext('Show summary') : $gettext('Full article')"
@@ -322,7 +322,7 @@
           <BookOpenText style="width: 20px; height: 20px" :style="fullBody ? 'color: var(--news-primary)' : ''" />
         </oc-button>
         <oc-button
-          variation="passive"
+          color-role="secondary"
           appearance="raw"
           :aria-label="detail.unread ? $gettext('Mark as unread') : $gettext('Mark as read')"
           :title="detail.unread ? $gettext('Mark as read') : $gettext('Mark as unread')"
@@ -331,7 +331,7 @@
           <MailOpen style="width: 20px; height: 20px" />
         </oc-button>
         <oc-button
-          variation="passive"
+          color-role="secondary"
           appearance="raw"
           :aria-label="detail.starred ? $gettext('Unstar') : $gettext('Star')"
           :title="detail.starred ? $gettext('Unstar') : $gettext('Star')"
@@ -340,7 +340,7 @@
           <Star style="width: 20px; height: 20px" :fill="detail.starred ? 'currentColor' : 'none'" />
         </oc-button>
         <oc-button
-          variation="passive"
+          color-role="secondary"
           appearance="raw"
           :aria-label="$gettext('Open in new tab')"
           :title="$gettext('Open in new tab')"
@@ -349,7 +349,7 @@
           <ExternalLink style="width: 20px; height: 20px" />
         </oc-button>
         <oc-button
-          variation="passive"
+          color-role="secondary"
           appearance="raw"
           :aria-label="sharedUrl ? $gettext('Stop sharing') : $gettext('Share article')"
           :title="sharedUrl ? $gettext('Stop sharing') : $gettext('Share article')"
@@ -439,14 +439,14 @@
           style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 16px"
         />
         <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center">
-          <oc-button v-if="filterHasFilter" variation="passive" appearance="raw" style="font-size: 13px" @click="clearFilter">
+          <oc-button v-if="filterHasFilter" color-role="secondary" appearance="raw" style="font-size: 13px" @click="clearFilter">
             {{ $gettext('Clear filter') }}
           </oc-button>
           <span style="flex: 1"></span>
-          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="closeFilter">
+          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="closeFilter">
             {{ $gettext('Cancel') }}
           </oc-button>
-          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="filterSaving" @click="saveFilter">
+          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="filterSaving" @click="saveFilter">
             {{ $gettext('Save') }}
           </oc-button>
         </div>
@@ -476,10 +476,10 @@
           style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 16px"
         />
         <div style="display: flex; gap: 8px; justify-content: flex-end">
-          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="retentionOpen = false">
+          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="retentionOpen = false">
             {{ $gettext('Cancel') }}
           </oc-button>
-          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="retentionSaving" @click="saveRetention">
+          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="retentionSaving" @click="saveRetention">
             {{ $gettext('Save') }}
           </oc-button>
         </div>
@@ -540,25 +540,25 @@
         />
         <p style="margin: 0 0 16px; font-size: 11px; opacity: 0.6">{{ $gettext('Get a push notification when new articles arrive. Leave empty to use the server default (or none).') }}</p>
         <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 16px">
-          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="exportOpml">
+          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="exportOpml">
             <Download style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Export OPML') }}
           </oc-button>
-          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="opmlInputEl?.click()">
+          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="opmlInputEl?.click()">
             <Upload style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Import OPML') }}
           </oc-button>
           <span style="font-size: 11px; opacity: 0.6">{{ $gettext('Back up or restore your subscriptions.') }}</span>
         </div>
-        <oc-button variation="passive" appearance="outline" style="font-size: 13px; width: 100%; justify-content: flex-start; margin-bottom: 8px" @click="openGlobalRules">
+        <oc-button color-role="secondary" appearance="outline" style="font-size: 13px; width: 100%; justify-content: flex-start; margin-bottom: 8px" @click="openGlobalRules">
           <Filter style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Global rules…') }}
         </oc-button>
-        <oc-button variation="passive" appearance="outline" style="font-size: 13px; width: 100%; justify-content: flex-start; margin-bottom: 16px" @click="openAutoRead">
+        <oc-button color-role="secondary" appearance="outline" style="font-size: 13px; width: 100%; justify-content: flex-start; margin-bottom: 16px" @click="openAutoRead">
           <CheckCheck style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Auto-read rules…') }}
         </oc-button>
         <div style="display: flex; gap: 8px; justify-content: flex-end">
-          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="settingsOpen = false">
+          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="settingsOpen = false">
             {{ $gettext('Cancel') }}
           </oc-button>
-          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="settingsSaving" @click="saveSettings">
+          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="settingsSaving" @click="saveSettings">
             {{ $gettext('Save') }}
           </oc-button>
         </div>
@@ -611,10 +611,10 @@
         </div>
         <p v-if="addFeedError" style="margin: 12px 0 0; font-size: 12px; color: var(--news-error)">{{ addFeedError }}</p>
         <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px">
-          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="addFeedOpen = false">
+          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="addFeedOpen = false">
             {{ $gettext('Cancel') }}
           </oc-button>
-          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="!newFeedUrl.trim() || subscribing" @click="subscribeFeed">
+          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="!newFeedUrl.trim() || subscribing" @click="subscribeFeed">
             {{ $gettext('Subscribe') }}
           </oc-button>
         </div>
@@ -649,10 +649,10 @@
           </label>
         </fieldset>
         <div style="display: flex; gap: 8px; justify-content: flex-end">
-          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="discoverPickerOpen = false">
+          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="discoverPickerOpen = false">
             {{ $gettext('Cancel') }}
           </oc-button>
-          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="discoverSubscribing" @click="subscribeDiscovered">
+          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="discoverSubscribing" @click="subscribeDiscovered">
             {{ $gettext('Subscribe') }}
           </oc-button>
         </div>
@@ -677,10 +677,10 @@
           @keydown.enter="confirmTextPrompt"
         />
         <div style="display: flex; gap: 8px; justify-content: flex-end">
-          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="textPrompt = null">
+          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="textPrompt = null">
             {{ $gettext('Cancel') }}
           </oc-button>
-          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="textPromptSaving" @click="confirmTextPrompt">
+          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="textPromptSaving" @click="confirmTextPrompt">
             {{ $gettext('Save') }}
           </oc-button>
         </div>
@@ -703,10 +703,10 @@
           <option v-for="fo in folders" :key="fo.id" :value="fo.id">{{ fo.name }}</option>
         </select>
         <div style="display: flex; gap: 8px; justify-content: flex-end">
-          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="moveOpen = false">
+          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="moveOpen = false">
             {{ $gettext('Cancel') }}
           </oc-button>
-          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="moveSaving" @click="confirmMove">
+          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="moveSaving" @click="confirmMove">
             {{ $gettext('Save') }}
           </oc-button>
         </div>
@@ -740,14 +740,14 @@
         />
         <p style="margin: 0 0 16px; font-size: 11px; opacity: 0.6">{{ $gettext('Leave the password empty to keep the current one.') }}</p>
         <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center">
-          <oc-button v-if="credHasAuth" variation="passive" appearance="raw" style="font-size: 13px; color: var(--news-error)" @click="removeCredentials">
+          <oc-button v-if="credHasAuth" color-role="secondary" appearance="raw" style="font-size: 13px; color: var(--news-error)" @click="removeCredentials">
             {{ $gettext('Remove credentials') }}
           </oc-button>
           <span style="flex: 1"></span>
-          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="credOpen = false">
+          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="credOpen = false">
             {{ $gettext('Cancel') }}
           </oc-button>
-          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="credSaving" @click="saveCredentials">
+          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="credSaving" @click="saveCredentials">
             {{ $gettext('Save') }}
           </oc-button>
         </div>
@@ -803,13 +803,13 @@
               <option :value="0">{{ $gettext('All feeds') }}</option>
               <option v-for="fo in feeds" :key="fo.id" :value="fo.id">{{ fo.title }}</option>
             </select>
-            <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="autoReadSaving" @click="addAutoReadRule">
+            <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="autoReadSaving" @click="addAutoReadRule">
               {{ $gettext('Add') }}
             </oc-button>
           </div>
         </div>
         <div style="display: flex; gap: 8px; justify-content: flex-end">
-          <oc-button variation="primary" appearance="filled" style="font-size: 13px" @click="autoReadOpen = false">
+          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" @click="autoReadOpen = false">
             {{ $gettext('Close') }}
           </oc-button>
         </div>
@@ -838,14 +838,14 @@
           style="width: 100%; box-sizing: border-box; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 16px"
         />
         <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center">
-          <oc-button v-if="scraperForm" variation="passive" appearance="raw" style="font-size: 13px; color: var(--news-error)" @click="scraperForm = ''">
+          <oc-button v-if="scraperForm" color-role="secondary" appearance="raw" style="font-size: 13px; color: var(--news-error)" @click="scraperForm = ''">
             {{ $gettext('Clear') }}
           </oc-button>
           <span style="flex: 1"></span>
-          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="scraperOpen = false">
+          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="scraperOpen = false">
             {{ $gettext('Cancel') }}
           </oc-button>
-          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="scraperSaving" @click="saveScraper">
+          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="scraperSaving" @click="saveScraper">
             {{ $gettext('Save') }}
           </oc-button>
         </div>
@@ -883,14 +883,14 @@
           style="width: 100%; box-sizing: border-box; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 16px"
         ></textarea>
         <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center">
-          <oc-button v-if="rulesHasRules" variation="passive" appearance="raw" style="font-size: 13px; color: var(--news-error)" @click="clearRules">
+          <oc-button v-if="rulesHasRules" color-role="secondary" appearance="raw" style="font-size: 13px; color: var(--news-error)" @click="clearRules">
             {{ $gettext('Clear rules') }}
           </oc-button>
           <span style="flex: 1"></span>
-          <oc-button variation="passive" appearance="outline" style="font-size: 13px" @click="rulesOpen = false">
+          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="rulesOpen = false">
             {{ $gettext('Cancel') }}
           </oc-button>
-          <oc-button variation="primary" appearance="filled" style="font-size: 13px" :disabled="rulesSaving" @click="saveRules">
+          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="rulesSaving" @click="saveRules">
             {{ $gettext('Save') }}
           </oc-button>
         </div>
@@ -915,7 +915,7 @@
           </template>
         </dl>
         <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px">
-          <oc-button variation="primary" appearance="filled" style="font-size: 13px" @click="showShortcuts = false">
+          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" @click="showShortcuts = false">
             {{ $gettext('Close') }}
           </oc-button>
         </div>
@@ -2424,14 +2424,11 @@ main.news-theme-dark {
 .news-menu-btn:hover {
   background: var(--oc-role-surface-container-highest);
 }
-/* Botones CTA (ajustes + añadir feed): réplica del botón "New" del host
-   (web-runtime SidebarNav.vue) — filled con gradiente secondary→primary,
-   sombra y hover con brillo. #20434F es el secondary por defecto del host
-   (design-system defaults.css); la app lo sobreescribe en main (#23) y aquí
-   se restaura solo para estos botones. En modo oscuro el host usa los
-   tokens container, que se resuelven en runtime con el tema activo. (#49) */
+/* Botones CTA (ajustes + añadir feed): mismo aspecto que el botón flotante
+   del host en OpenCloud 9 (web-runtime SidebarNav.vue: appearance="filled"
+   color-role="primary"), sin gradiente propio. El color sale del token del
+   tema, así que sigue al tema claro/oscuro sin hex fijos. (#49) */
 .news-cta {
-  --oc-role-secondary: #20434f;
   appearance: none;
   border: 0;
   margin: 0;
@@ -2447,7 +2444,7 @@ main.news-theme-dark {
   font-size: 14px;
   font-weight: 600;
   line-height: 1.4;
-  background: linear-gradient(to right, var(--oc-role-secondary), var(--oc-role-primary));
+  background: var(--oc-role-primary);
   color: var(--oc-role-on-primary);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
   transition: filter 150ms ease-out, box-shadow 150ms ease-out;
@@ -2462,8 +2459,8 @@ main.news-theme-dark {
   filter: none;
 }
 main.news-theme-dark .news-cta {
-  background: linear-gradient(to right, var(--oc-role-secondary-container), var(--oc-role-primary-container));
-  color: var(--oc-role-on-primary-container);
+  background: var(--oc-role-primary);
+  color: var(--oc-role-on-primary);
 }
 .news-body p { margin: 0 0 0.9em; line-height: 1.65; }
 .news-body h1, .news-body h2, .news-body h3, .news-body h4 {

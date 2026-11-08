@@ -19,7 +19,7 @@ export default defineWebApplication({
       id: 'news',
       name: $gettext('News'),
       icon: 'rss',
-      color: '#ee7318'
+      color: 'var(--oc-role-secondary)'
     }
 
     // El host monta estas rutas bajo /news (via el menu item path).
