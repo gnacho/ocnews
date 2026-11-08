@@ -2443,8 +2443,8 @@ main.news-theme-dark {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
-  border-radius: 8px;
+  padding: 12px 8px;
+  border-radius: 10.5px;
   cursor: pointer;
   font-size: 14px;
   color: var(--oc-role-on-surface);
