@@ -5,7 +5,7 @@
   >
     <!-- Sidebar -->
     <aside
-      style="display: flex; flex-direction: column; width: 280px; flex-shrink: 0; border-right: 1px solid var(--news-border); overflow: hidden"
+      style="display: flex; flex-direction: column; width: 230px; flex-shrink: 0; border-right: 1px solid var(--news-border); overflow: hidden"
     >
       <!-- Add feed: solo el botón; URL y credenciales se piden al pulsar (#49) -->
       <div style="padding: 12px; border-bottom: 1px solid var(--news-border-light)">
