@@ -2459,8 +2459,8 @@ main.news-theme-dark {
   filter: none;
 }
 main.news-theme-dark .news-cta {
-  background: linear-gradient(to right, var(--oc-role-secondary-container), var(--oc-role-primary-container));
-  color: var(--oc-role-on-primary-container);
+  background: var(--oc-role-primary);
+  color: var(--oc-role-on-primary);
 }
 .news-body p { margin: 0 0 0.9em; line-height: 1.65; }
 .news-body h1, .news-body h2, .news-body h3, .news-body h4 {
