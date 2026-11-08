@@ -92,7 +92,25 @@ also covers Notes and ocphotos:
 
 ## Install
 
-### The easy way (OpenCloud App Store)
+### The easy way (`ocapps-ext`)
+
+The app ships as a release asset and can be installed and updated from the
+server with [`ocapps-ext`](https://github.com/gnacho/ocapps/blob/main/deploy/README.md):
+
+```bash
+ocapps-ext install news      # first install: download, apps.yaml entry, restart, verify
+ocapps-ext update            # update every app that came from a release
+ocapps-ext update --dry-run  # show what would change, touch nothing
+ocapps-ext rollback news     # restore the previous directory
+```
+
+It picks the newest release whose asset matches the app, replaces the folder
+under `/etc/opencloud/web/assets/apps`, restarts OpenCloud once and checks that
+the app appears in `/config.json` with a reachable entry point. If that check
+fails it restores the previous build on its own. Directories built by hand are
+marked `local:<date>` and are never overwritten unless you pass `--force`.
+
+### Manual install
 
 Download the latest release zip from the [releases page](https://github.com/gnacho/ocnews/releases):
 

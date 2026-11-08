@@ -388,48 +388,45 @@
       <div class="container">
         <div class="section-header">
           <span class="eyebrow" data-i18n="install.eyebrow">Instalación</span>
-          <h2 data-i18n="install.title">Un binario y un proxy</h2>
-          <p data-i18n="install.lead">No hay instalador mágico. Compila el binario, configura unas variables y añade una location a nginx.</p>
+          <h2 data-i18n="install.title">Una extensión y un backend compartido</h2>
+          <p data-i18n="install.lead">El backend es ocapps, un binario estático con SQLite. La extensión se publica como release y se instala y actualiza con un solo comando.</p>
         </div>
 
         <div class="install-card">
-          <p class="install-label" data-i18n="install.step1">1. Clona y compila el backend</p>
+          <p class="install-label" data-i18n="install.step1">1. Instala el backend ocapps</p>
           <div class="codebox">
-            <code id="installCode">git clone https://github.com/gnacho/ocnews
-cd ocnews/backend
-go test ./...
-CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o ocnews ./cmd/ocnews</code>
+            <code id="installCode">git clone https://github.com/gnacho/ocapps
+cd ocapps/deploy
+# sigue README.md: unit de systemd, /etc/ocapps/env y proxy</code>
             <button class="copy-btn" id="copyInstall" aria-label="Copiar comandos" data-i18n-aria="install.copyAria">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
               <span data-i18n="install.copy">Copiar</span>
             </button>
           </div>
 
-          <p class="install-label" data-i18n="install.step2">2. Configura el entorno</p>
+          <p class="install-label" data-i18n="install.step2">2. Instala o actualiza la extensión</p>
           <div class="codebox">
-            <code>OCNEWS_ADDR=:8094
-OCNEWS_DATA_DIR=/var/lib/ocnews
-OCNEWS_AUTH_MODE=opencloud
-OCNEWS_OPENCOLOUD_URL=https://cloud.example.com</code>
+            <code>ocapps-ext install news   # primera instalación
+ocapps-ext update         # mantenerla al día</code>
           </div>
 
-          <p class="install-label" data-i18n="install.step3">3. Añade la location a nginx</p>
+          <p class="install-label" data-i18n="install.step3">3. Añade la ruta al proxy</p>
           <div class="codebox">
             <code>location /index.php/apps/news/ {
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_pass http://127.0.0.1:8094;
+    proxy_pass http://127.0.0.1:8096;
 }</code>
           </div>
 
-          <p class="install-hint" data-i18n="install.hint">Para la extensión web, compila <code>extension/</code> y copia <code>dist/</code> a la carpeta de apps de OpenCloud. Los detalles completos están en el README del repositorio.</p>
+          <p class="install-hint" data-i18n="install.hint">ocapps-ext elige la última release, reemplaza la carpeta de la app, añade la entrada en apps.yaml, reinicia OpenCloud y verifica que la app carga. Si la verificación falla, restaura la versión anterior. Instalar a mano también vale: el zip de cada release se extrae en la carpeta de apps.</p>
         </div>
 
         <div class="requirements">
           <h3 data-i18n="install.reqs.title">Requisitos</h3>
           <ul>
-            <li data-i18n="install.reqs.item1">OpenCloud 7.x o posterior</li>
-            <li data-i18n="install.reqs.item2">Go 1.25+ para compilar</li>
+            <li data-i18n="install.reqs.item1">OpenCloud 8.1 o posterior (probado en 8.1 y 9.0)</li>
+            <li data-i18n="install.reqs.item2">Nada que compilar: binario y zip en cada release</li>
             <li data-i18n="install.reqs.item3">Un reverse proxy bajo el mismo dominio que OpenCloud</li>
             <li data-i18n="install.reqs.item4">SQLite incluido; sin MariaDB ni PostgreSQL</li>
           </ul>
