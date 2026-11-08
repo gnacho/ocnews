@@ -18,7 +18,7 @@ export default defineWebApplication({
     const appInfo = {
       id: 'news',
       name: $gettext('News'),
-      icon: 'rss-line',
+      icon: 'rss',
       color: 'var(--oc-role-secondary)'
     }
 
