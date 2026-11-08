@@ -4,11 +4,9 @@
     style="display: flex; height: 100%; width: 100%; overflow: hidden; background: var(--news-bg); color: var(--news-fg)"
   >
     <!-- Sidebar -->
-    <aside
-      style="display: flex; flex-direction: column; width: 230px; flex-shrink: 0; border-right: 1px solid var(--news-border); overflow: hidden"
-    >
+    <aside class="news-sidebar">
       <!-- Add feed: solo el botón; URL y credenciales se piden al pulsar (#49) -->
-      <div style="padding: 12px; border-bottom: 1px solid var(--news-border-light)">
+      <div class="news-sidebar-top">
         <button class="news-cta" type="button" @click="openAddFeed">
           <Plus style="width: 16px; height: 16px" />
           {{ $gettext('Add feed') }}
@@ -16,11 +14,9 @@
       </div>
 
       <!-- Sidebar nav -->
-      <nav style="flex: 1; overflow-y: auto; padding: 8px">
-        <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px">
-          <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; opacity: 0.6">
-            {{ $gettext('Subscriptions') }}
-          </span>
+      <nav class="news-sidebar-nav">
+        <div class="news-section">
+          <span class="news-section-label">{{ $gettext('Subscriptions') }}</span>
           <span style="display: flex; align-items: center; gap: 4px">
             <oc-button
               color-role="secondary"
@@ -47,9 +43,8 @@
         <template v-for="entry in navEntries" :key="entry.key">
           <div
             class="news-nav-entry"
-            style="display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 12px; cursor: pointer"
             :style="{
-              background: isActive(entry) ? 'var(--news-active-bg)' : 'transparent',
+              background: isActive(entry) ? 'var(--oc-role-secondary-container)' : 'transparent',
               paddingLeft: 8 + (entry.depth ?? 0) * 20 + 'px',
               fontWeight: entry.unread ? 600 : 400
             }"
@@ -117,20 +112,15 @@
       </nav>
 
       <!-- Pie: Ajustes (OPML vive dentro del diálogo de ajustes) + atajos -->
-      <div style="display: flex; align-items: center; gap: 8px; padding: 8px; border-top: 1px solid var(--news-border-light)">
-        <button class="news-cta" type="button" style="flex: 1; font-size: 13px" @click="openSettings">
+      <div class="news-sidebar-bottom">
+        <button class="news-quiet-action" type="button" @click="openSettings">
           <Settings style="width: 16px; height: 16px" />
           {{ $gettext('News settings') }}
         </button>
-        <oc-button
-          color-role="secondary"
-          appearance="raw"
-          :aria-label="$gettext('Keyboard shortcuts')"
-          :title="$gettext('Keyboard shortcuts (?)')"
-          @click="showShortcuts = true"
-        >
+        <button class="news-quiet-action" type="button" @click="showShortcuts = true">
           <Keyboard style="width: 16px; height: 16px" />
-        </oc-button>
+          {{ $gettext('Keyboard shortcuts') }}
+        </button>
         <input
           ref="opmlInputEl"
           type="file"
@@ -2415,6 +2405,74 @@ main.news-theme-dark {
 @keyframes news-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+/* Menú lateral: mismos valores que el sidebar de ocnotes y que el del host
+   (230px, fondo surface-container #f6f8fa, filas de 14px, radio 8px, iconos
+   16px, hover surface-container-highest, activo secondary-container). */
+.news-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 230px;
+  flex-shrink: 0;
+  background: var(--oc-role-surface-container);
+  border-right: 1px solid var(--oc-role-outline-variant);
+  overflow: hidden;
+}
+.news-sidebar-top {
+  padding: 8px;
+}
+.news-sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+.news-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 8px 4px;
+}
+.news-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--oc-role-on-surface-variant);
+}
+.news-nav-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--oc-role-on-surface);
+}
+.news-sidebar-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--oc-role-outline-variant);
+}
+.news-quiet-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--oc-role-on-surface);
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.news-quiet-action:hover {
+  background: var(--oc-role-surface-container-highest);
 }
 /* hover de navegación (carpetas/suscripciones) y de opciones del menú (#48):
    mismo token que el menú lateral nativo del host (SidebarNavItem.vue) */
