@@ -63,10 +63,23 @@ jobs:
       - name: gosec (SARIF, no bloquea)
         run: |
           go run github.com/securego/gosec/v2/cmd/gosec@v2.25.0 -no-fail -fmt sarif -out results.sarif -exclude=G104 ./...
+      # El upload de SARIF necesita code scanning habilitado y un token con
+      # security-events: write, que los PRs de Dependabot no reciben. Cuando
+      # no se puede subir, el informe se queda como artefacto del run y el
+      # job sigue: lo que bloquea de verdad es govulncheck.
       - name: Upload gosec SARIF
+        id: sarif
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: backend/results.sarif
+      - name: Keep gosec SARIF as artifact
+        if: steps.sarif.outcome != 'success'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: gosec-sarif
+          path: backend/results.sarif
+          if-no-files-found: ignore
       - name: govulncheck (bloquea)
         run: |
           # Pin until go.mod moves to go 1.26: govulncheck@latest (x/vuln
