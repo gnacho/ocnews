@@ -61,7 +61,7 @@
               loading="lazy"
               style="width: 16px; height: 16px; border-radius: 4px; object-fit: contain; flex-shrink: 0"
             />
-            <component v-else :is="entry.icon" style="width: 16px; height: 16px; opacity: 0.7; flex-shrink: 0" />
+            <component :is="entry.icon" v-else style="width: 16px; height: 16px; opacity: 0.7; flex-shrink: 0" />
             <span style="flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
               {{ entry.label }}
             </span>
@@ -176,8 +176,8 @@
           <div style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1">
             <Search style="width: 15px; height: 15px; opacity: 0.5; flex-shrink: 0" />
             <input
-              v-model="searchQuery"
               ref="searchInputEl"
+              v-model="searchQuery"
               type="search"
               :placeholder="$gettext('Search articles…')"
               :aria-label="$gettext('Search articles')"
@@ -1292,7 +1292,6 @@ const navEntries = computed<NavEntry[]>(() => {
   }
   for (const folder of rootFolders) {
     const children = childByParent.get(folder.id) ?? []
-    const childIds = new Set(children.map((c) => c.id))
     const childUnread = children.reduce(
       (a, c) => a + (byFolder.get(c.id) ?? []).reduce((x, f) => x + f.unreadCount, 0),
       0
@@ -1441,7 +1440,7 @@ function clusterTitle(item: Item): string {
 function fmtRelative(epoch: number) {
   if (!epoch) return ''
   const now = Date.now() / 1000
-  let secs = Math.round(now - epoch)
+  const secs = Math.round(now - epoch)
   if (secs < 60) return $gettext('just now')
   if (secs < 3600) {
     const m = Math.floor(secs / 60)
@@ -1807,7 +1806,7 @@ function entryFolder(entry: NavEntry): Folder | undefined {
   return folders.value.find((f) => `folder-${f.id}` === entry.key)
 }
 
-async function renameFeed(entry: NavEntry) {
+function renameFeed(entry: NavEntry) {
   openMenu.value = ''
   const f = entryFeed(entry)
   if (!f) return
@@ -1820,7 +1819,7 @@ const moveFeedId = ref(0)
 const moveFolderSel = ref(0)
 const moveSaving = ref(false)
 
-async function moveFeed(entry: NavEntry) {
+function moveFeed(entry: NavEntry) {
   openMenu.value = ''
   const f = entryFeed(entry)
   if (!f) return
@@ -1842,7 +1841,7 @@ async function confirmMove() {
   }
 }
 
-async function renameFolder(entry: NavEntry) {
+function renameFolder(entry: NavEntry) {
   openMenu.value = ''
   const fo = entryFolder(entry)
   if (!fo) return

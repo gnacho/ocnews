@@ -104,7 +104,7 @@ jobs:
           govulncheck ./...
 
   extension:
-    name: Extension (types, build)
+    name: Extension (types, lint, tests, build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -119,6 +119,12 @@ jobs:
       - name: Types
         working-directory: extension
         run: npm run check:types
+      - name: Lint
+        working-directory: extension
+        run: npm run lint
+      - name: Tests
+        working-directory: extension
+        run: npm run test:unit
       - name: Build
         working-directory: extension
         run: npm run build

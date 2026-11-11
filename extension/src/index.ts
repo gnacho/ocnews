@@ -1,6 +1,5 @@
 import {
   defineWebApplication,
-  ApplicationSetupOptions,
   Extension,
   AppMenuItemExtension
 } from '@opencloud-eu/web-pkg'
@@ -12,7 +11,7 @@ import { useGettext } from 'vue3-gettext'
 import translations from '../l10n/translations.json'
 
 export default defineWebApplication({
-  setup(args) {
+  setup() {
     const { $gettext } = useGettext()
 
     const appInfo = {
@@ -73,7 +72,7 @@ export default defineWebApplication({
       }
     ]
 
-    const extensions = ({ applicationConfig }: ApplicationSetupOptions) => {
+    const extensions = () => {
       return computed<Extension[]>(() => {
         const menuItems: AppMenuItemExtension[] = [
           {
@@ -92,7 +91,7 @@ export default defineWebApplication({
     return {
       appInfo,
       routes,
-      extensions: extensions(args),
+      extensions: extensions(),
       translations
     }
   }
