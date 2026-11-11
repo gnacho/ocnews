@@ -69,8 +69,8 @@ jobs:
           sarif_file: backend/results.sarif
       - name: govulncheck (bloquea)
         run: |
-          # Pin until go.mod moves to go 1.26: govulncheck@latest (x/vuln
-          # v1.8.0) requires go >= 1.26.0 and the job runs with
-          # GOTOOLCHAIN=local + the version from backend/go.mod (#61).
-          go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+          # go.mod is on go 1.26, so the current govulncheck no longer needs
+          # the v1.7.0 pin that #61 added for go 1.25 (x/vuln v1.8.0 requires
+          # go >= 1.26.0 and the job runs with GOTOOLCHAIN=local).
+          go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
