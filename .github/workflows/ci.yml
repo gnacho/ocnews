@@ -20,6 +20,10 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: backend/go.mod
+          # Sin esto setup-go instala el parche exacto del go.mod (1.26.0) y
+          # govulncheck marca los CVE del stdlib ya corregidos en parches
+          # posteriores de la misma minor.
+          check-latest: true
           cache: true
       - name: Vet
         run: go vet ./...
@@ -38,6 +42,10 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: backend/go.mod
+          # Sin esto setup-go instala el parche exacto del go.mod (1.26.0) y
+          # govulncheck marca los CVE del stdlib ya corregidos en parches
+          # posteriores de la misma minor.
+          check-latest: true
           cache: true
       - name: golangci-lint (new issues only)
         uses: golangci/golangci-lint-action@v9
@@ -59,6 +67,10 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: backend/go.mod
+          # Sin esto setup-go instala el parche exacto del go.mod (1.26.0) y
+          # govulncheck marca los CVE del stdlib ya corregidos en parches
+          # posteriores de la misma minor.
+          check-latest: true
           cache: true
       - name: gosec (SARIF, no bloquea)
         run: |
