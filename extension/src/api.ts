@@ -217,9 +217,8 @@ export function useNewsApi() {
         headers: { 'Content-Type': 'text/xml' }
       })
     },
-    exportOpml: async () => {
-      return client.httpAuthenticated.get(`${BASE}/export/opml`, { responseType: 'text' })
-    },
+    exportOpml: () =>
+      client.httpAuthenticated.get(`${BASE}/export/opml`, { responseType: 'text' }),
     searches: (): Promise<{ searches: SavedSearch[] }> => get('/searches'),
     addSearch: (name: string, query: string) =>
       client.httpAuthenticated.post(`${BASE}/searches`, { name, query }),
