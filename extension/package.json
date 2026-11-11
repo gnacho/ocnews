@@ -10,7 +10,8 @@
     "build:w": "vite build --watch --mode development",
     "check:types": "vue-tsc --noEmit",
     "lint": "eslint 'src/**/*.{js,ts,vue}' --max-warnings=1 --color",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@opencloud-eu/eslint-config": "^8.2.2",
@@ -20,6 +21,7 @@
     "@opencloud-eu/web-pkg": "^7.4.0",
     "@vitejs/plugin-vue": "^6.0.10",
     "@vitest/coverage-v8": "^4.1.12",
+    "@vue/test-utils": "^2.5.1",
     "eslint": "^10.14.0",
     "happy-dom": "^21.0.4",
     "lucide-vue-next": "^1.0.0",
