@@ -4,132 +4,31 @@
     style="display: flex; height: 100%; width: 100%; overflow: hidden; background: var(--news-bg); color: var(--news-fg)"
   >
     <!-- Sidebar -->
-    <aside class="news-sidebar">
-      <!-- Add feed: solo el botón; URL y credenciales se piden al pulsar (#49) -->
-      <div class="news-sidebar-top">
-        <button class="news-cta" type="button" @click="openAddFeed">
-          <Plus style="width: 16px; height: 16px" />
-          {{ $gettext('Add feed') }}
-        </button>
-      </div>
-
-      <!-- Sidebar nav -->
-      <nav class="news-sidebar-nav">
-        <div class="news-section">
-          <span class="news-section-label">{{ $gettext('Subscriptions') }}</span>
-          <span style="display: flex; align-items: center; gap: 4px">
-            <oc-button
-              color-role="secondary"
-              appearance="raw"
-              :aria-label="$gettext('Refresh')"
-              :title="$gettext('Refresh')"
-              :disabled="refreshing"
-              @click="refreshNow"
-            >
-              <RefreshCw style="width: 15px; height: 15px" :style="refreshing ? 'animation: news-spin 1s linear infinite' : ''" />
-            </oc-button>
-            <oc-button
-              color-role="secondary"
-              appearance="raw"
-              :aria-label="$gettext('New folder')"
-              :title="$gettext('New folder')"
-              @click="createFolder"
-            >
-              <FolderPlus style="width: 16px; height: 16px" />
-            </oc-button>
-          </span>
-        </div>
-
-        <template v-for="entry in navEntries" :key="entry.key">
-          <div
-            class="news-nav-entry"
-            :style="{
-              background: isActive(entry) ? 'var(--oc-role-secondary-container)' : 'transparent',
-              paddingLeft: 8 + (entry.depth ?? 0) * 20 + 'px',
-              fontWeight: entry.unread ? 600 : 400
-            }"
-            @mouseenter="hovered = entry.key"
-            @mouseleave="hovered = ''"
-            @click="select(entry)"
-          >
-            <img
-              v-if="entry.kind === 'feed' && entry.favicon"
-              :src="entry.favicon"
-              alt=""
-              width="16"
-              height="16"
-              loading="lazy"
-              style="width: 16px; height: 16px; border-radius: 4px; object-fit: contain; flex-shrink: 0"
-            />
-            <component :is="entry.icon" v-else style="width: 16px; height: 16px; opacity: 0.7; flex-shrink: 0" />
-            <span style="flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
-              {{ entry.label }}
-            </span>
-            <span v-if="entry.error" :title="entry.error" style="flex-shrink: 0; display: inline-flex">
-              <AlertTriangle style="width: 14px; height: 14px; color: var(--news-warning)" />
-            </span>
-            <span v-if="entry.unread" style="font-size: 12px; opacity: 0.6; flex-shrink: 0">{{ entry.unread }}</span>
-            <oc-button
-              v-if="entry.kind === 'feed' || entry.kind === 'folder' || entry.kind === 'search'"
-              color-role="secondary"
-              appearance="raw"
-              style="flex-shrink: 0"
-              :aria-label="$gettext('Options')"
-              :title="$gettext('Options')"
-              @click.stop="openMenu = openMenu === entry.key ? '' : entry.key"
-            >
-              <MoreHorizontal style="width: 16px; height: 16px" />
-            </oc-button>
-          </div>
-
-          <!-- Context menu -->
-          <div
-            v-if="openMenu === entry.key"
-            style="margin: 2px 8px; border: 1px solid var(--news-border-medium); border-radius: 8px; padding: 4px; display: flex; flex-direction: column; gap: 2px; background: var(--news-bg); box-shadow: 0 4px 12px var(--news-shadow)"
-          >
-            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Rename')" @click="renameFeed(entry)" />
-            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Move to folder…')" @click="moveFeed(entry)" />
-            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Credentials…')" @click="openCredentials(entry)" />
-            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Filter articles…')" @click="openFilter(entry)" />
-            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Rules…')" @click="openRules(entry)" />
-            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Scraper…')" @click="openScraper(entry)" />
-            <MenuBtn v-if="entry.kind === 'feed'" :label="$gettext('Retention…')" @click="openRetention(entry)" />
-            <MenuBtn v-if="entry.kind === 'folder'" :label="$gettext('Rename')" @click="renameFolder(entry)" />
-            <MenuBtn v-if="entry.kind === 'folder'" :label="$gettext('New subfolder…')" @click="createSubfolder(entry)" />
-            <MenuBtn
-              v-if="entry.kind === 'feed' || entry.kind === 'folder'"
-              :label="$gettext('Mark all read')"
-              @click="markEntryRead(entry)"
-            />
-            <MenuBtn
-              v-if="entry.kind === 'feed' || entry.kind === 'folder' || entry.kind === 'search'"
-              :label="$gettext('Delete')"
-              danger
-              @click="deleteEntry(entry)"
-            />
-          </div>
-        </template>
-      </nav>
-
-      <!-- Pie: Ajustes (OPML vive dentro del diálogo de ajustes) + atajos -->
-      <div class="news-sidebar-bottom">
-        <button class="news-quiet-action" type="button" @click="openSettings">
-          <Settings style="width: 16px; height: 16px" />
-          {{ $gettext('News settings') }}
-        </button>
-        <button class="news-quiet-action" type="button" @click="showShortcuts = true">
-          <Keyboard style="width: 16px; height: 16px" />
-          {{ $gettext('Keyboard shortcuts') }}
-        </button>
-        <input
-          ref="opmlInputEl"
-          type="file"
-          accept=".opml,.xml,text/xml,text/x-opml"
-          style="display: none"
-          @change="importOpml"
-        />
-      </div>
-    </aside>
+    <SidebarNav
+      ref="sidebarRef"
+      v-model:open-menu="openMenu"
+      :entries="navEntries"
+      :active-key="activeEntryKey"
+      :refreshing="refreshing"
+      @add-feed="openAddFeed"
+      @refresh="refreshNow"
+      @create-folder="createFolder"
+      @select="select"
+      @rename="renameFeed"
+      @move="moveFeed"
+      @credentials="openCredentials"
+      @filter="openFilter"
+      @rules="openRules"
+      @scraper="openScraper"
+      @retention="openRetention"
+      @rename-folder="renameFolder"
+      @new-subfolder="createSubfolder"
+      @mark-read="markEntryRead"
+      @delete="deleteEntry"
+      @settings="openSettings"
+      @shortcuts="showShortcuts = true"
+      @import-opml="importOpml"
+    />
 
     <!-- Lista -->
     <NoteList
@@ -287,7 +186,7 @@
       @save="saveSettings"
       @cancel="settingsOpen = false"
       @export-opml="exportOpml"
-      @import-opml="opmlInputEl?.click()"
+      @import-opml="sidebarRef?.openOpmlPicker()"
       @open-global-rules="openGlobalRules"
       @open-auto-read="openAutoRead"
     />
@@ -588,7 +487,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 // useRouter SIEMPRE desde web-pkg (inyecta el router del host); el de
 // vue-router no tiene inyección en el contexto de extensión (issues #002/#004)
 import { useRouter } from '@opencloud-eu/web-pkg'
@@ -597,21 +496,16 @@ import {
   Newspaper,
   Star,
   FolderOpen,
-  FolderPlus,
-  Plus,
   X,
   Rss,
-  MoreHorizontal,
-  RefreshCw,
-  AlertTriangle,
-  Settings,
   Podcast,
-  Keyboard,
   Bookmark
 } from 'lucide-vue-next'
 import SettingsDialog from '../components/SettingsDialog.vue'
 import NoteList from '../components/NoteList.vue'
+import type { NavEntry } from '../lib/nav'
 import ReaderPane, { type ReaderStyle } from '../components/ReaderPane.vue'
+import SidebarNav from '../components/SidebarNav.vue'
 import TextPromptDialog from '../components/TextPromptDialog.vue'
 import MoveFeedDialog from '../components/MoveFeedDialog.vue'
 import FeedCredentialsDialog from '../components/FeedCredentialsDialog.vue'
@@ -623,39 +517,6 @@ const route = computed(() => router.currentRoute.value)
 const api = useNewsApi()
 
 // botón de menú contextual (componente local mínimo)
-const MenuBtn = defineComponent({
-  props: { label: { type: String, required: true }, danger: { type: Boolean, default: false } },
-  emits: ['click'],
-  setup(props, { emit }) {
-    return () =>
-      h(
-        'button',
-        {
-          class: 'news-menu-btn',
-          style: {
-            appearance: 'none',
-            background: 'transparent',
-            border: 'none',
-            font: 'inherit',
-            textAlign: 'left',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            width: '100%',
-            padding: '6px 10px',
-            borderRadius: '6px',
-            fontSize: '13px',
-            color: props.danger ? 'var(--news-error)' : 'inherit'
-          },
-          onClick: (e: MouseEvent) => {
-            e.stopPropagation()
-            emit('click')
-          }
-        },
-        props.label
-      )
-  }
-})
 
 const folders = ref<Folder[]>([])
 const feeds = ref<Feed[]>([])
@@ -686,11 +547,10 @@ function openAddFeed() {
 }
 const refreshing = ref(false)
 const openMenu = ref('')
-const hovered = ref('')
+const sidebarRef = ref<InstanceType<typeof SidebarNav> | null>(null)
 const showAll = ref(false)
 const oldestFirst = ref(false)
 const moreAvailable = ref(false)
-const opmlInputEl = ref<HTMLInputElement | null>(null)
 const searchQuery = ref('')
 const noteListRef = ref<InstanceType<typeof NoteList> | null>(null)
 
@@ -885,20 +745,6 @@ const discoverSubscribing = ref(false)
 
 const BATCH = 50
 
-type NavEntry = {
-  key: string
-  kind: 'all' | 'starred' | 'podcasts' | 'search' | 'folder' | 'feed'
-  label: string
-  icon: typeof Rss
-  sel: Selection
-  unread: number
-  error?: string
-  depth?: number
-  favicon?: string
-  searchQuery?: string
-  searchId?: number
-}
-
 const selection = computed<Selection>(() => {
   const r = route.value
   if (r.name === 'news-feed') return { kind: 'feed', id: Number(r.params.feedId) }
@@ -1048,6 +894,8 @@ const currentTitle = computed(() => {
   const e = navEntries.value.find((e) => JSON.stringify(e.sel) === JSON.stringify(selection.value))
   return e?.label ?? $gettext('News')
 })
+
+const activeEntryKey = computed(() => navEntries.value.find((entry) => isActive(entry))?.key ?? '')
 
 function isActive(entry: NavEntry) {
   if (entry.kind === 'search') {
@@ -1873,10 +1721,7 @@ async function exportOpml() {
   }
 }
 
-async function importOpml(ev: Event) {
-  const input = ev.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
+async function importOpml(file: File) {
   try {
     const res: { data: { imported: number; skipped: number } } = await api.importOpml(file)
     error.value = ''
@@ -1885,8 +1730,6 @@ async function importOpml(ev: Event) {
     window.alert($gettext('Imported') + `: ${res.data.imported}, ` + $gettext('skipped') + `: ${res.data.skipped}`)
   } catch (e) {
     error.value = $gettext('Import failed: ') + errText(e)
-  } finally {
-    input.value = ''
   }
 }
 
