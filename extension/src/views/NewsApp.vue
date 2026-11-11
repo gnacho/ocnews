@@ -462,100 +462,36 @@
       </div>
     </div>
     <!-- Diálogo de texto genérico (nueva carpeta / renombrar feed / renombrar carpeta) -->
-    <div
+    <TextPromptDialog
       v-if="textPrompt"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="textPrompt.title"
-      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
-      @click.self="textPrompt = null"
-    >
-      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 360px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
-        <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 600">{{ textPrompt.title }}</h3>
-        <input
-          ref="textPromptInput"
-          v-model="textPrompt.value"
-          type="text"
-          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 16px"
-          @keydown.enter="confirmTextPrompt"
-        />
-        <div style="display: flex; gap: 8px; justify-content: flex-end">
-          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="textPrompt = null">
-            {{ $gettext('Cancel') }}
-          </oc-button>
-          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="textPromptSaving" @click="confirmTextPrompt">
-            {{ $gettext('Save') }}
-          </oc-button>
-        </div>
-      </div>
-    </div>
+      v-model="textPrompt.value"
+      :title="textPrompt.title"
+      :saving="textPromptSaving"
+      @confirm="confirmTextPrompt"
+      @cancel="textPrompt = null"
+    />
 
     <!-- Mover feed a carpeta -->
-    <div
+    <MoveFeedDialog
       v-if="moveOpen"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="$gettext('Move to folder')"
-      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
-      @click.self="moveOpen = false"
-    >
-      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 360px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
-        <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 600">{{ $gettext('Move to folder') }}</h3>
-        <select v-model="moveFolderSel" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 16px">
-          <option :value="0">{{ $gettext('No folder') }}</option>
-          <option v-for="fo in folders" :key="fo.id" :value="fo.id">{{ fo.name }}</option>
-        </select>
-        <div style="display: flex; gap: 8px; justify-content: flex-end">
-          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="moveOpen = false">
-            {{ $gettext('Cancel') }}
-          </oc-button>
-          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="moveSaving" @click="confirmMove">
-            {{ $gettext('Save') }}
-          </oc-button>
-        </div>
-      </div>
-    </div>
+      v-model="moveFolderSel"
+      :folders="folders"
+      :saving="moveSaving"
+      @confirm="confirmMove"
+      @cancel="moveOpen = false"
+    />
 
     <!-- Credenciales del feed (Basic auth) -->
-    <div
+    <FeedCredentialsDialog
       v-if="credOpen"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="$gettext('Feed credentials')"
-      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
-      @click.self="credOpen = false"
-    >
-      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 380px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
-        <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 600">{{ $gettext('Feed credentials') }}</h3>
-        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Username') }}</label>
-        <input
-          v-model="credUser"
-          type="text"
-          autocomplete="off"
-          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 10px"
-        />
-        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Password') }}</label>
-        <input
-          v-model="credPass"
-          type="password"
-          autocomplete="new-password"
-          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 4px"
-        />
-        <p style="margin: 0 0 16px; font-size: 11px; opacity: 0.6">{{ $gettext('Leave the password empty to keep the current one.') }}</p>
-        <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center">
-          <oc-button v-if="credHasAuth" color-role="secondary" appearance="raw" style="font-size: 13px; color: var(--news-error)" @click="removeCredentials">
-            {{ $gettext('Remove credentials') }}
-          </oc-button>
-          <span style="flex: 1"></span>
-          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="credOpen = false">
-            {{ $gettext('Cancel') }}
-          </oc-button>
-          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="credSaving" @click="saveCredentials">
-            {{ $gettext('Save') }}
-          </oc-button>
-        </div>
-      </div>
-    </div>
+      v-model:user="credUser"
+      v-model:pass="credPass"
+      :has-auth="credHasAuth"
+      :saving="credSaving"
+      @confirm="saveCredentials"
+      @remove="removeCredentials"
+      @cancel="credOpen = false"
+    />
 
     <!-- Reglas de auto-marcado como leído -->
     <div
@@ -755,6 +691,9 @@ import {
 } from 'lucide-vue-next'
 import SettingsDialog from '../components/SettingsDialog.vue'
 import NoteList from '../components/NoteList.vue'
+import TextPromptDialog from '../components/TextPromptDialog.vue'
+import MoveFeedDialog from '../components/MoveFeedDialog.vue'
+import FeedCredentialsDialog from '../components/FeedCredentialsDialog.vue'
 import { feedIcon as feedIconOf, feedTitle as feedTitleOf, relativeLabel } from '../lib/format'
 import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings, DiscoveredFeed, SavedSearch, Rules, AutoReadRule } from '../api'
 
