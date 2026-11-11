@@ -166,99 +166,23 @@
     ></div>
 
     <!-- Detalle -->
-    <section
+    <ReaderPane
       v-if="detail"
-      style="display: flex; flex-direction: column; flex: 1; min-width: 0; border-left: 1px solid var(--news-border)"
-    >
-      <header style="display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-bottom: 1px solid var(--news-border)">
-        <oc-button color-role="secondary" appearance="raw" :aria-label="$gettext('Back')" @click="detail = null">
-          <X style="width: 20px; height: 20px" />
-        </oc-button>
-        <h2 style="flex: 1; font-size: 17px; font-weight: 600; margin: 0">
-          <a :href="detail.url" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none">
-            {{ detail.title }}
-          </a>
-        </h2>
-        <oc-button
-          v-if="!detail.feedFullContent"
-          color-role="secondary"
-          appearance="raw"
-          :aria-label="$gettext('Full article')"
-          :title="fullBody ? $gettext('Show summary') : $gettext('Full article')"
-          :disabled="fullLoading"
-          @click="toggleFull"
-        >
-          <BookOpenText style="width: 20px; height: 20px" :style="fullBody ? 'color: var(--news-primary)' : ''" />
-        </oc-button>
-        <oc-button
-          color-role="secondary"
-          appearance="raw"
-          :aria-label="detail.unread ? $gettext('Mark as unread') : $gettext('Mark as read')"
-          :title="detail.unread ? $gettext('Mark as read') : $gettext('Mark as unread')"
-          @click="toggleUnread(detail)"
-        >
-          <MailOpen style="width: 20px; height: 20px" />
-        </oc-button>
-        <oc-button
-          color-role="secondary"
-          appearance="raw"
-          :aria-label="detail.starred ? $gettext('Unstar') : $gettext('Star')"
-          :title="detail.starred ? $gettext('Unstar') : $gettext('Star')"
-          @click="toggleStar(detail)"
-        >
-          <Star style="width: 20px; height: 20px" :fill="detail.starred ? 'currentColor' : 'none'" />
-        </oc-button>
-        <oc-button
-          color-role="secondary"
-          appearance="raw"
-          :aria-label="$gettext('Open in new tab')"
-          :title="$gettext('Open in new tab')"
-          @click="openOriginal"
-        >
-          <ExternalLink style="width: 20px; height: 20px" />
-        </oc-button>
-        <oc-button
-          color-role="secondary"
-          appearance="raw"
-          :aria-label="sharedUrl ? $gettext('Stop sharing') : $gettext('Share article')"
-          :title="sharedUrl ? $gettext('Stop sharing') : $gettext('Share article')"
-          @click="toggleShare"
-        >
-          <Share2 style="width: 20px; height: 20px" :style="sharedUrl ? 'color: var(--news-primary)' : ''" />
-        </oc-button>
-      </header>
-      <div style="flex: 1; overflow-y: auto; padding: 12px 16px">
-        <audio
-          v-if="detail.enclosureMime?.startsWith('audio/') && detail.enclosureLink"
-          :src="detail.enclosureLink"
-          controls
-          preload="metadata"
-          style="width: 100%; margin: 0 0 12px"
-        />
-        <video
-          v-else-if="detail.enclosureMime?.startsWith('video/') && detail.enclosureLink"
-          :src="detail.enclosureLink"
-          controls
-          preload="metadata"
-          style="width: 100%; border-radius: 8px; margin: 0 0 12px; max-height: 60vh; background: #000"
-        />
-        <p style="font-size: 12px; opacity: 0.6; margin: 0 0 12px; display: flex; align-items: center; gap: 4px">
-          <img v-if="feedIcon(detail.feedId)" :src="feedIcon(detail.feedId)" alt="" width="14" height="14" loading="lazy" style="width: 14px; height: 14px; border-radius: 3px; object-fit: contain" />
-          <span>{{ feedTitle(detail.feedId) }}<span v-if="detail.author"> · {{ detail.author }}</span> · {{ fmtRelative(detail.pubDate) }}</span>
-          <span v-if="fullLoading" style="opacity: 0.7"> · {{ $gettext('loading full article…') }}</span>
-          <span v-else-if="fullFailed" style="color: var(--news-warning)">
-            · {{ $gettext('full article not available — open the original') }}
-          </span>
-        </p>
-        <!-- body sanitizado server-side; imágenes via proxy propio (CSP) -->
-        <div
-          class="oc-prose news-body"
-          :class="readerClass"
-          :style="{ maxWidth: readerMaxWidth, fontFamily: readerFontFamily, fontSize: readerFontSizePx, ['--news-bg' as any]: readerBg, ['--news-fg' as any]: readerFg }"
-          v-html="detailBody"
-        />
-      </div>
-    </section>
+      :item="detail"
+      :feeds="feeds"
+      :body="detailBody"
+      :reader="readerStyle"
+      :shared="!!sharedUrl"
+      :full-loading="fullLoading"
+      :full-failed="fullFailed"
+      :full-body-active="!!fullBody"
+      @close="detail = null"
+      @toggle-full="toggleFull"
+      @toggle-unread="toggleUnread"
+      @toggle-star="toggleStar"
+      @toggle-share="toggleShare"
+      @open-original="openOriginal"
+    />
 
     <!-- Estado vacío: ningún artículo seleccionado -->
     <section
@@ -680,24 +604,20 @@ import {
   MoreHorizontal,
   RefreshCw,
   AlertTriangle,
-  MailOpen,
-  ExternalLink,
-  BookOpenText,
   Settings,
   Podcast,
   Keyboard,
-  Bookmark,
-  Share2
+  Bookmark
 } from 'lucide-vue-next'
 import SettingsDialog from '../components/SettingsDialog.vue'
 import NoteList from '../components/NoteList.vue'
+import ReaderPane, { type ReaderStyle } from '../components/ReaderPane.vue'
 import TextPromptDialog from '../components/TextPromptDialog.vue'
 import MoveFeedDialog from '../components/MoveFeedDialog.vue'
 import FeedCredentialsDialog from '../components/FeedCredentialsDialog.vue'
-import { feedIcon as feedIconOf, feedTitle as feedTitleOf, relativeLabel } from '../lib/format'
 import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings, DiscoveredFeed, SavedSearch, Rules, AutoReadRule } from '../api'
 
-const { $gettext, $ngettext } = useGettext()
+const { $gettext } = useGettext()
 const router = useRouter()
 const route = computed(() => router.currentRoute.value)
 const api = useNewsApi()
@@ -897,6 +817,15 @@ const readerBg = computed(() =>
 const readerFg = computed(() =>
   effectiveTheme.value === 'dark' ? 'var(--news-fg)' : effectiveTheme.value === 'light' ? 'var(--news-fg)' : ''
 )
+
+const readerStyle = computed<ReaderStyle>(() => ({
+  class: readerClass.value,
+  maxWidth: readerMaxWidth.value,
+  fontFamily: readerFontFamily.value,
+  fontSizePx: readerFontSizePx.value,
+  bg: readerBg.value,
+  fg: readerFg.value
+}))
 
 async function loadSettings() {
   try {
@@ -1141,29 +1070,6 @@ function select(entry: NavEntry) {
     case 'feed': router.push(`/news/feed/${entry.sel.id}`); break
     case 'folder': router.push(`/news/folder/${entry.sel.id}`); break
   }
-}
-
-function feedTitle(feedId: number) {
-  return feedTitleOf(feeds.value, feedId)
-}
-
-function feedIcon(feedId: number): string {
-  return feedIconOf(feeds.value, feedId)
-}
-
-function fmtDate(epoch: number) {
-  return new Date(epoch * 1000).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
-
-// fmtRelative: "hace 3 min", "hace 2 h" para tiempos cortos; fecha completa
-// más allá de un día. i18n con plurales básicos.
-function fmtRelative(epoch: number) {
-  return relativeLabel(epoch, Date.now(), { t: $gettext, n: $ngettext, date: fmtDate })
 }
 
 async function loadSidebar() {
