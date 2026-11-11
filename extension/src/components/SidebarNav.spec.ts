@@ -107,6 +107,42 @@ describe('SidebarNav', () => {
     ])
   })
 
+  it('emits every feed action with its entry', async () => {
+    const events = ['rename', 'move', 'credentials', 'filter', 'rules', 'scraper', 'retention', 'markRead', 'delete']
+    for (const [index, event] of events.entries()) {
+      const wrapper = mountNav({ openMenu: 'feed-2' })
+      await wrapper.find('[data-testid="context-menu"]').findAll('button')[index].trigger('click')
+      expect(wrapper.emitted(event), event).toHaveLength(1)
+      expect(wrapper.emitted(event)?.[0], event).toEqual([entries[3]])
+    }
+  })
+
+  it('emits every folder action with its entry', async () => {
+    const events = ['renameFolder', 'newSubfolder', 'markRead', 'delete']
+    for (const [index, event] of events.entries()) {
+      const wrapper = mountNav({ openMenu: 'folder-1' })
+      await wrapper.find('[data-testid="context-menu"]').findAll('button')[index].trigger('click')
+      expect(wrapper.emitted(event), event).toHaveLength(1)
+      expect(wrapper.emitted(event)?.[0], event).toEqual([entries[2]])
+    }
+  })
+
+  it('tracks the hovered row', async () => {
+    const wrapper = mountNav()
+    const rows = wrapper.findAll('[data-testid="nav-entry"]')
+    await rows[1].trigger('mouseenter')
+    expect((wrapper.vm as unknown as { hovered: string }).hovered).toBe('starred')
+    await rows[1].trigger('mouseleave')
+    expect((wrapper.vm as unknown as { hovered: string }).hovered).toBe('')
+  })
+
+  it('closes the menu of the entry that is already open', async () => {
+    const wrapper = mountNav({ openMenu: 'folder-1' })
+    const rows = wrapper.findAll('[data-testid="nav-entry"]')
+    await rows[2].find('button').trigger('click')
+    expect(wrapper.emitted('update:openMenu')?.at(-1)).toEqual([''])
+  })
+
   it('marks the delete action as dangerous', () => {
     const menu = mountNav({ openMenu: 'folder-1' }).find('[data-testid="context-menu"]')
     const remove = menu.findAll('button').at(-1)!
