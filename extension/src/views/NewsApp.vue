@@ -94,89 +94,24 @@
     </section>
 
     <!-- Filtro de artículos por feed (News 28.4.0) -->
-    <div
+    <FeedFilterDialog
       v-if="filterOpen"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="$gettext('Filter articles')"
-      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
-      @click.self="closeFilter"
-    >
-      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 420px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
-        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">
-          {{ $gettext('Filter articles') }}
-        </h3>
-        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.6">
-          {{ $gettext('Hide articles whose title, body or URL contains any keyword (comma-separated, case-insensitive).') }}
-        </p>
-        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Title keywords') }}</label>
-        <input
-          v-model="filterForm.titleKeywords"
-          type="text"
-          placeholder="sponsored,ads,offer"
-          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 10px"
-        />
-        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Body keywords') }}</label>
-        <input
-          v-model="filterForm.bodyKeywords"
-          type="text"
-          placeholder="tracking,cookie"
-          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 10px"
-        />
-        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('URL keywords') }}</label>
-        <input
-          v-model="filterForm.urlKeywords"
-          type="text"
-          placeholder="utm_,/tag/"
-          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 16px"
-        />
-        <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center">
-          <oc-button v-if="filterHasFilter" color-role="secondary" appearance="raw" style="font-size: 13px" @click="clearFilter">
-            {{ $gettext('Clear filter') }}
-          </oc-button>
-          <span style="flex: 1"></span>
-          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="closeFilter">
-            {{ $gettext('Cancel') }}
-          </oc-button>
-          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="filterSaving" @click="saveFilter">
-            {{ $gettext('Save') }}
-          </oc-button>
-        </div>
-      </div>
-    </div>
+      v-model="filterForm"
+      :has-filter="filterHasFilter"
+      :saving="filterSaving"
+      @confirm="saveFilter"
+      @cancel="closeFilter"
+      @clear="clearFilter"
+    />
 
     <!-- Retención por feed -->
-    <div
+    <RetentionDialog
       v-if="retentionOpen"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="$gettext('Article retention')"
-      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
-      @click.self="retentionOpen = false"
-    >
-      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 380px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
-        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">{{ $gettext('Article retention') }}</h3>
-        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.6">
-          {{ $gettext('Days to keep read, non-starred articles for this feed. 0 = use the server default.') }}
-        </p>
-        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Retention (days)') }}</label>
-        <input
-          v-model.number="retentionForm"
-          type="number"
-          min="0"
-          max="3650"
-          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 16px"
-        />
-        <div style="display: flex; gap: 8px; justify-content: flex-end">
-          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="retentionOpen = false">
-            {{ $gettext('Cancel') }}
-          </oc-button>
-          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="retentionSaving" @click="saveRetention">
-            {{ $gettext('Save') }}
-          </oc-button>
-        </div>
-      </div>
-    </div>
+      v-model="retentionForm"
+      :saving="retentionSaving"
+      @confirm="saveRetention"
+      @cancel="retentionOpen = false"
+    />
 
     <!-- Ajustes de usuario -->
     <SettingsDialog
@@ -192,98 +127,28 @@
     />
 
     <!-- Añadir feed: URL y credenciales solo visibles al abrirlo (#49) -->
-    <div
+    <AddFeedDialog
       v-if="addFeedOpen"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="$gettext('Add feed')"
-      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
-      @click.self="addFeedOpen = false"
-    >
-      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 420px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
-        <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 600">{{ $gettext('Add feed') }}</h3>
-        <label for="news-add-feed-url" style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Feed URL') }}</label>
-        <input
-          id="news-add-feed-url"
-          ref="addFeedUrlEl"
-          v-model="newFeedUrl"
-          type="url"
-          :placeholder="$gettext('https://site.example/feed')"
-          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 10px"
-          @keydown.enter="subscribeFeed"
-        />
-        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; opacity: 0.8">
-          <input v-model="newFeedAuth" type="checkbox" />
-          {{ $gettext('Requires authentication') }}
-        </label>
-        <div v-if="newFeedAuth" style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px">
-          <input
-            v-model="newFeedUser"
-            type="text"
-            autocomplete="off"
-            :placeholder="$gettext('Username')"
-            :aria-label="$gettext('Username')"
-            style="font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
-          />
-          <input
-            v-model="newFeedPass"
-            type="password"
-            autocomplete="new-password"
-            :placeholder="$gettext('Password')"
-            :aria-label="$gettext('Password')"
-            style="font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
-            @keydown.enter="subscribeFeed"
-          />
-        </div>
-        <p v-if="addFeedError" style="margin: 12px 0 0; font-size: 12px; color: var(--news-error)">{{ addFeedError }}</p>
-        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px">
-          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="addFeedOpen = false">
-            {{ $gettext('Cancel') }}
-          </oc-button>
-          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="!newFeedUrl.trim() || subscribing" @click="subscribeFeed">
-            {{ $gettext('Subscribe') }}
-          </oc-button>
-        </div>
-      </div>
-    </div>
+      v-model:url="newFeedUrl"
+      v-model:auth="newFeedAuth"
+      v-model:user="newFeedUser"
+      v-model:pass="newFeedPass"
+      :error="addFeedError"
+      :submitting="subscribing"
+      @confirm="subscribeFeed"
+      @cancel="addFeedOpen = false"
+    />
 
     <!-- Selector de feeds descubiertos -->
-    <div
+    <DiscoverFeedsDialog
       v-if="discoverPickerOpen"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="$gettext('Select a feed')"
-      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
-      @click.self="discoverPickerOpen = false"
-    >
-      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 440px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
-        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">{{ $gettext('Select a feed') }}</h3>
-        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.6">
-          {{ $gettext('Multiple feeds were found on this site.') }}
-        </p>
-        <fieldset style="border: 0; margin: 0 0 16px; padding: 0; max-height: 260px; overflow-y: auto">
-          <label
-            v-for="(f, i) in discoverCandidates"
-            :key="f.url"
-            style="display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-radius: 6px; cursor: pointer; font-size: 13px"
-          >
-            <input v-model="discoverSelected" type="radio" name="discover-feed" :value="i" />
-            <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
-              {{ f.title || f.url }}
-            </span>
-            <span style="font-size: 11px; opacity: 0.5; text-transform: uppercase">{{ f.type }}</span>
-          </label>
-        </fieldset>
-        <div style="display: flex; gap: 8px; justify-content: flex-end">
-          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="discoverPickerOpen = false">
-            {{ $gettext('Cancel') }}
-          </oc-button>
-          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="discoverSubscribing" @click="subscribeDiscovered">
-            {{ $gettext('Subscribe') }}
-          </oc-button>
-        </div>
-      </div>
-    </div>
+      v-model="discoverSelected"
+      :candidates="discoverCandidates"
+      :submitting="discoverSubscribing"
+      @confirm="subscribeDiscovered"
+      @cancel="discoverPickerOpen = false"
+    />
+
     <!-- Diálogo de texto genérico (nueva carpeta / renombrar feed / renombrar carpeta) -->
     <TextPromptDialog
       v-if="textPrompt"
@@ -506,6 +371,10 @@ import NoteList from '../components/NoteList.vue'
 import type { NavEntry } from '../lib/nav'
 import ReaderPane, { type ReaderStyle } from '../components/ReaderPane.vue'
 import SidebarNav from '../components/SidebarNav.vue'
+import FeedFilterDialog from '../components/FeedFilterDialog.vue'
+import RetentionDialog from '../components/RetentionDialog.vue'
+import AddFeedDialog from '../components/AddFeedDialog.vue'
+import DiscoverFeedsDialog from '../components/DiscoverFeedsDialog.vue'
 import TextPromptDialog from '../components/TextPromptDialog.vue'
 import MoveFeedDialog from '../components/MoveFeedDialog.vue'
 import FeedCredentialsDialog from '../components/FeedCredentialsDialog.vue'
