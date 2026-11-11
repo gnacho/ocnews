@@ -2242,8 +2242,8 @@ async function saveSettings() {
 
 async function exportOpml() {
   try {
-    const res: { data: string } = await api.exportOpml()
-    const blob = new Blob([res.data], { type: 'text/x-opml' })
+    const res = await api.exportOpml()
+    const blob = new Blob([res.data as string], { type: 'text/x-opml' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url

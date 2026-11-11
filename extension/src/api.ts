@@ -105,10 +105,12 @@ export interface AutoReadRule {
 export function useNewsApi() {
   const client = useClientService()
 
-  async function get(path: string, params: Record<string, string> = {}) {
+  async function get(path: string, params: Record<string, string> = {}): Promise<any> {
     const usp = new URLSearchParams(params)
     const qs = usp.toString()
     const { data } = await client.httpAuthenticated.get(`${BASE}${path}${qs ? `?${qs}` : ''}`)
+    // The client types the response body as unknown; the callers below carry
+    // the shape of each endpoint, so the value crosses the boundary here.
     return data
   }
 
@@ -176,11 +178,11 @@ export function useNewsApi() {
       client.httpAuthenticated.delete(`${BASE}/feeds/${feedId}/rules`),
     myRules: async (): Promise<Rules> => {
       const { data } = await client.httpAuthenticated.get('/api/me/rules')
-      return data.rules as Rules
+      return (data as { rules: Rules }).rules
     },
     updateMyRules: async (rules: Rules): Promise<Rules> => {
       const { data } = await client.httpAuthenticated.put('/api/me/rules', rules)
-      return data.rules as Rules
+      return (data as { rules: Rules }).rules
     },
     getRetention: (feedId: number): Promise<{ retentionDays: number }> =>
       get(`/feeds/${feedId}/retention`),
