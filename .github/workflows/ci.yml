@@ -122,9 +122,9 @@ jobs:
       - name: Lint
         working-directory: extension
         run: npm run lint
-      - name: Tests
+      - name: Tests and coverage
         working-directory: extension
-        run: npm run test:unit
+        run: npm run test:coverage
       - name: Build
         working-directory: extension
         run: npm run build

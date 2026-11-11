@@ -132,151 +132,30 @@
     </aside>
 
     <!-- Lista -->
-    <section
-      style="display: flex; flex-direction: column; flex-shrink: 0; min-width: 0; border-right: 1px solid var(--news-border-lighter)"
-      :style="{ width: listWidth + 'px' }"
-    >
-      <header
-        style="display: flex; flex-direction: column; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--news-border); flex-shrink: 0"
-      >
-        <div style="display: flex; align-items: center; gap: 12px; min-width: 0">
-          <h1
-            style="font-size: 14px; font-weight: 600; margin: 0; flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px"
-          >
-            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{ currentTitle }}</span>
-            <span v-if="unreadCount > 0" style="font-weight: 400; opacity: 0.6; flex-shrink: 0">· {{ unreadCount }}</span>
-            <oc-button
-              v-if="unreadCount > 0"
-              color-role="secondary"
-              appearance="raw"
-              style="flex-shrink: 0; padding: 1px"
-              :aria-label="$gettext('Mark all read')"
-              :title="$gettext('Mark all read')"
-              @click="markAllRead"
-            >
-              <CheckCheck style="width: 14px; height: 14px" />
-            </oc-button>
-          </h1>
-          <label style="font-size: 12px; display: flex; align-items: center; gap: 4px">
-            {{ $gettext('Show') }}
-            <select v-model="showAll" style="font-size: 12px; padding: 2px 4px" :aria-label="$gettext('Show')">
-              <option :value="false">{{ $gettext('Unread') }}</option>
-              <option :value="true">{{ $gettext('All') }}</option>
-            </select>
-          </label>
-        </div>
-        <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex-wrap: wrap">
-          <label style="font-size: 12px; display: flex; align-items: center; gap: 4px">
-            {{ $gettext('Order') }}
-            <select v-model="oldestFirst" style="font-size: 12px; padding: 2px 4px" :aria-label="$gettext('Order')">
-              <option :value="false">{{ $gettext('Newest first') }}</option>
-              <option :value="true">{{ $gettext('Oldest first') }}</option>
-            </select>
-          </label>
-          <div style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1">
-            <Search style="width: 15px; height: 15px; opacity: 0.5; flex-shrink: 0" />
-            <input
-              ref="searchInputEl"
-              v-model="searchQuery"
-              type="search"
-              :placeholder="$gettext('Search articles…')"
-              :aria-label="$gettext('Search articles')"
-              style="flex: 1; min-width: 0; font-size: 13px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
-              @keydown.enter="doSearch"
-            />
-            <button
-              v-if="searchQuery"
-              style="background: none; border: 0; cursor: pointer; padding: 2px; display: inline-flex"
-              :aria-label="$gettext('Clear search')"
-              :title="$gettext('Clear search')"
-              @click="clearSearch"
-            >
-              <X style="width: 14px; height: 14px" />
-            </button>
-            <oc-button
-              v-if="searchActive"
-              color-role="secondary"
-              appearance="raw"
-              style="font-size: 12px; flex-shrink: 0"
-              :aria-label="$gettext('Save search')"
-              :title="$gettext('Save search')"
-              @click="saveCurrentSearch"
-            >
-              <BookmarkPlus style="width: 15px; height: 15px" />&nbsp;{{ $gettext('Save') }}
-            </oc-button>
-          </div>
-        </div>
-      </header>
-
-      <p
-        v-if="error"
-        style="padding: 8px 16px; color: var(--news-error); font-size: 13px; border-bottom: 1px solid var(--news-border-light); margin: 0"
-      >
-        {{ error }}
-      </p>
-      <p v-if="loading" style="padding: 32px 16px; opacity: 0.6; font-size: 13px">{{ $gettext('Loading…') }}</p>
-      <p v-else-if="items.length === 0" style="padding: 32px 16px; opacity: 0.6; font-size: 13px">
-        {{ $gettext('No articles') }}
-      </p>
-
-      <ul v-else style="flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: 0">
-        <li
-          v-for="item in items"
-          :key="item.id"
-          style="display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--news-border-lighter); cursor: pointer"
-          :style="{
-            background: detail?.id === item.id ? 'var(--news-hover-bg)' : 'transparent',
-            opacity: item.unread ? 1 : 0.65
-          }"
-          @click="openItem(item)"
-        >
-          <div style="flex: 1; min-width: 0">
-            <p style="margin: 0; font-size: 17px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
-              {{ item.title }}
-            </p>
-            <p
-              v-if="itemSnippet(item)"
-              style="margin: 3px 0 0; font-size: 13px; opacity: 0.75; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden"
-            >
-              {{ itemSnippet(item) }}
-            </p>
-            <p style="margin: 3px 0 0; font-size: 12px; opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
-              <img v-if="feedIcon(item.feedId)" :src="feedIcon(item.feedId)" alt="" width="12" height="12" loading="lazy" style="width: 12px; height: 12px; border-radius: 3px; object-fit: contain; vertical-align: -1px; margin-right: 4px" />
-              {{ feedTitle(item.feedId) }}<span v-if="item.author"> · {{ item.author }}</span> · {{ fmtRelative(item.pubDate) }}
-              <span
-                v-if="item.clusterSize && item.clusterSize > 1"
-                :title="clusterTitle(item)"
-                style="display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; font-weight: 600; opacity: 0.8"
-              >
-                <Copy style="width: 11px; height: 11px" />{{ item.clusterSize }}
-              </span>
-            </p>
-          </div>
-          <button
-            style="align-self: flex-start; background: none; border: 0; cursor: pointer; padding: 2px"
-            :style="{ color: item.unread ? 'var(--news-primary)' : 'var(--news-muted)' }"
-            :aria-label="item.unread ? $gettext('Mark as read') : $gettext('Mark as unread')"
-            :title="item.unread ? $gettext('Mark as read') : $gettext('Mark as unread')"
-            @click.stop="toggleUnread(item)"
-          >
-            <component :is="item.unread ? Mail : MailOpen" style="width: 16px; height: 16px" />
-          </button>
-          <button
-            style="align-self: flex-start; background: none; border: 0; cursor: pointer; padding: 2px"
-            :style="{ color: item.starred ? 'var(--news-warning)' : 'var(--news-muted)' }"
-            :aria-label="item.starred ? $gettext('Unstar') : $gettext('Star')"
-            @click.stop="toggleStar(item)"
-          >
-            <Star style="width: 16px; height: 16px" :fill="item.starred ? 'currentColor' : 'none'" />
-          </button>
-        </li>
-        <li v-if="moreAvailable" style="padding: 12px; text-align: center; list-style: none">
-          <oc-button color-role="secondary" appearance="filled" @click="loadMore">
-            {{ $gettext('Load more') }}
-          </oc-button>
-        </li>
-      </ul>
-    </section>
+    <NoteList
+      ref="noteListRef"
+      v-model:show-all="showAll"
+      v-model:oldest-first="oldestFirst"
+      v-model:search-query="searchQuery"
+      :items="items"
+      :feeds="feeds"
+      :loading="loading"
+      :error="error"
+      :title="currentTitle"
+      :unread-count="unreadCount"
+      :search-active="searchActive"
+      :selected-id="detail?.id ?? null"
+      :more-available="moreAvailable"
+      :width="listWidth"
+      @select="openItem"
+      @toggle-unread="toggleUnread"
+      @toggle-star="toggleStar"
+      @mark-all-read="markAllRead"
+      @search="doSearch"
+      @clear-search="clearSearch"
+      @save-search="saveCurrentSearch"
+      @load-more="loadMore"
+    />
 
     <!-- Divisor redimensionable de la columna de titulares -->
     <div
@@ -477,83 +356,17 @@
     </div>
 
     <!-- Ajustes de usuario -->
-    <div
+    <SettingsDialog
       v-if="settingsOpen"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="$gettext('Settings')"
-      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
-      @click.self="settingsOpen = false"
-    >
-      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 400px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
-        <h3 style="margin: 0 0 16px; font-size: 15px; font-weight: 600">{{ $gettext('News settings') }}</h3>
-        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Reader theme') }}</label>
-        <select v-model="settingsForm.theme" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 12px">
-          <option value="system">{{ $gettext('System') }}</option>
-          <option value="light">{{ $gettext('Light') }}</option>
-          <option value="dark">{{ $gettext('Dark') }}</option>
-        </select>
-        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Reader width') }}</label>
-        <select v-model="settingsForm.readerMaxWidth" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 12px">
-          <option value="narrow">{{ $gettext('Narrow') }}</option>
-          <option value="normal">{{ $gettext('Normal') }}</option>
-          <option value="wide">{{ $gettext('Wide') }}</option>
-        </select>
-        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Font') }}</label>
-        <select v-model="settingsForm.readerFont" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 12px">
-          <option value="default">{{ $gettext('Default') }}</option>
-          <option value="serif">{{ $gettext('Serif') }}</option>
-          <option value="sans">{{ $gettext('Sans-serif') }}</option>
-          <option value="mono">{{ $gettext('Monospace') }}</option>
-        </select>
-        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Font size') }}</label>
-        <select v-model="settingsForm.readerFontSize" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 12px">
-          <option v-for="n in [13, 14, 15, 16, 17, 18, 19, 20]" :key="n" :value="String(n)">{{ n }} px</option>
-        </select>
-        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Refresh interval (minutes)') }}</label>
-        <input
-          v-model="settingsForm.feedIntervalMin"
-          type="number"
-          min="5"
-          max="1440"
-          placeholder=""
-          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 16px"
-        />
-        <p style="margin: 0 0 16px; font-size: 11px; opacity: 0.6">{{ $gettext('Leave empty for the server default (15 min).') }}</p>
-        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Notification topic (ntfy)') }}</label>
-        <input
-          v-model="settingsForm.ntfyTopic"
-          type="text"
-          spellcheck="false"
-          placeholder="ocnews"
-          style="width: 100%; box-sizing: border-box; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 4px"
-        />
-        <p style="margin: 0 0 16px; font-size: 11px; opacity: 0.6">{{ $gettext('Get a push notification when new articles arrive. Leave empty to use the server default (or none).') }}</p>
-        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 16px">
-          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="exportOpml">
-            <Download style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Export OPML') }}
-          </oc-button>
-          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="opmlInputEl?.click()">
-            <Upload style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Import OPML') }}
-          </oc-button>
-          <span style="font-size: 11px; opacity: 0.6">{{ $gettext('Back up or restore your subscriptions.') }}</span>
-        </div>
-        <oc-button color-role="secondary" appearance="outline" style="font-size: 13px; width: 100%; justify-content: flex-start; margin-bottom: 8px" @click="openGlobalRules">
-          <Filter style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Global rules…') }}
-        </oc-button>
-        <oc-button color-role="secondary" appearance="outline" style="font-size: 13px; width: 100%; justify-content: flex-start; margin-bottom: 16px" @click="openAutoRead">
-          <CheckCheck style="width: 16px; height: 16px" />&nbsp;{{ $gettext('Auto-read rules…') }}
-        </oc-button>
-        <div style="display: flex; gap: 8px; justify-content: flex-end">
-          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="settingsOpen = false">
-            {{ $gettext('Cancel') }}
-          </oc-button>
-          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="settingsSaving" @click="saveSettings">
-            {{ $gettext('Save') }}
-          </oc-button>
-        </div>
-      </div>
-    </div>
+      v-model="settingsForm"
+      :saving="settingsSaving"
+      @save="saveSettings"
+      @cancel="settingsOpen = false"
+      @export-opml="exportOpml"
+      @import-opml="opmlInputEl?.click()"
+      @open-global-rules="openGlobalRules"
+      @open-auto-read="openAutoRead"
+    />
 
     <!-- Añadir feed: URL y credenciales solo visibles al abrirlo (#49) -->
     <div
@@ -923,7 +736,6 @@ import { useGettext } from 'vue3-gettext'
 import {
   Newspaper,
   Star,
-  Mail,
   FolderOpen,
   FolderPlus,
   Plus,
@@ -931,23 +743,19 @@ import {
   Rss,
   MoreHorizontal,
   RefreshCw,
-  CheckCheck,
-  Download,
-  Upload,
   AlertTriangle,
   MailOpen,
   ExternalLink,
   BookOpenText,
-  Filter,
-  Search,
   Settings,
   Podcast,
   Keyboard,
   Bookmark,
-  BookmarkPlus,
-  Share2,
-  Copy
+  Share2
 } from 'lucide-vue-next'
+import SettingsDialog from '../components/SettingsDialog.vue'
+import NoteList from '../components/NoteList.vue'
+import { feedIcon as feedIconOf, feedTitle as feedTitleOf, relativeLabel } from '../lib/format'
 import { useNewsApi, Item, Feed, Folder, Selection, FeedFilter, UserSettings, DiscoveredFeed, SavedSearch, Rules, AutoReadRule } from '../api'
 
 const { $gettext, $ngettext } = useGettext()
@@ -1025,7 +833,7 @@ const oldestFirst = ref(false)
 const moreAvailable = ref(false)
 const opmlInputEl = ref<HTMLInputElement | null>(null)
 const searchQuery = ref('')
-const searchInputEl = ref<HTMLInputElement | null>(null)
+const noteListRef = ref<InstanceType<typeof NoteList> | null>(null)
 
 // Atajos de teclado (#34): índice del item "en foco" de la lista y ayuda.
 const listIndex = ref(-1)
@@ -1397,27 +1205,11 @@ function select(entry: NavEntry) {
 }
 
 function feedTitle(feedId: number) {
-  return feeds.value.find((f) => f.id === feedId)?.title ?? ''
+  return feedTitleOf(feeds.value, feedId)
 }
 
 function feedIcon(feedId: number): string {
-  return feeds.value.find((f) => f.id === feedId)?.faviconLink ?? ''
-}
-
-// itemSnippet: extrae el texto plano del body y lo acota para la previsualización.
-const MAX_SNIPPET = 220
-function itemSnippet(item: Item): string {
-  const raw = item.body || item.title || ''
-  const text = raw
-    .replace(/<[^>]+>/g, ' ') // quitar etiquetas
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/\s+/g, ' ')
-    .trim()
-  if (text.length <= MAX_SNIPPET) return text
-  return text.slice(0, MAX_SNIPPET).trimEnd() + '…'
+  return feedIconOf(feeds.value, feedId)
 }
 
 function fmtDate(epoch: number) {
@@ -1429,28 +1221,10 @@ function fmtDate(epoch: number) {
   })
 }
 
-// clusterTitle: tooltip del badge de duplicados (#42).
-function clusterTitle(item: Item): string {
-  if (!item.clusterSize) return ''
-  return $gettext('This story also appears in ') + String(item.clusterSize - 1) + ' ' + $gettext('other feed(s)')
-}
-
 // fmtRelative: "hace 3 min", "hace 2 h" para tiempos cortos; fecha completa
 // más allá de un día. i18n con plurales básicos.
 function fmtRelative(epoch: number) {
-  if (!epoch) return ''
-  const now = Date.now() / 1000
-  const secs = Math.round(now - epoch)
-  if (secs < 60) return $gettext('just now')
-  if (secs < 3600) {
-    const m = Math.floor(secs / 60)
-    return $ngettext('%d minute ago', '%d minutes ago', m).replace('%d', String(m))
-  }
-  if (secs < 86400) {
-    const h = Math.floor(secs / 3600)
-    return $ngettext('%d hour ago', '%d hours ago', h).replace('%d', String(h))
-  }
-  return fmtDate(epoch)
+  return relativeLabel(epoch, Date.now(), { t: $gettext, n: $ngettext, date: fmtDate })
 }
 
 async function loadSidebar() {
@@ -1511,7 +1285,7 @@ function navList(delta: number) {
 }
 
 function focusSearch() {
-  searchInputEl.value?.focus()
+  noteListRef.value?.focusSearch()
 }
 
 // handler global de teclado (#34). No interfiere con inputs (salvo Esc para

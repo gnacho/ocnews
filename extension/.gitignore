@@ -2,3 +2,4 @@ node_modules/
 dist/
 *.local
 .__mf__temp/
+coverage/
