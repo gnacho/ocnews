@@ -182,172 +182,42 @@
     />
 
     <!-- Reglas de auto-marcado como leído -->
-    <div
+    <AutoReadRulesDialog
       v-if="autoReadOpen"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="$gettext('Auto-read rules')"
-      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
-      @click.self="autoReadOpen = false"
-    >
-      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 460px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
-        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">{{ $gettext('Auto-read rules') }}</h3>
-        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.65">
-          {{ $gettext('Articles whose title matches a rule are marked as read automatically when they arrive.') }}
-        </p>
-        <div v-if="autoReadRules.length" style="margin-bottom: 12px; max-height: 200px; overflow-y: auto">
-          <div
-            v-for="rule in autoReadRules"
-            :key="rule.id"
-            style="display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 6px; font-size: 13px"
-          >
-            <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
-              <span style="opacity: 0.6">{{ autoReadFeedLabel(rule.feedId) }}</span>
-              <code style="font-size: 12px">{{ rule.titlePattern }}</code>
-            </span>
-            <button
-              style="background: none; border: 0; cursor: pointer; padding: 2px; display: inline-flex"
-              :aria-label="$gettext('Delete rule')"
-              :title="$gettext('Delete rule')"
-              @click="removeAutoRead(rule)"
-            >
-              <X style="width: 15px; height: 15px; color: var(--news-muted)" />
-            </button>
-          </div>
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px">
-          <label style="display: block; font-size: 12px; margin-bottom: -6px">{{ $gettext('New rule (regex on the title)') }}</label>
-          <div style="display: flex; gap: 8px; align-items: center">
-            <input
-              v-model="autoReadPattern"
-              type="text"
-              spellcheck="false"
-              :placeholder="'(?i)urgente'"
-              style="flex: 1; min-width: 0; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit"
-              @keydown.enter="addAutoReadRule"
-            />
-            <select v-model="autoReadFeedSel" style="font-size: 12px; padding: 5px 4px" :aria-label="$gettext('Feed')">
-              <option :value="0">{{ $gettext('All feeds') }}</option>
-              <option v-for="fo in feeds" :key="fo.id" :value="fo.id">{{ fo.title }}</option>
-            </select>
-            <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="autoReadSaving" @click="addAutoReadRule">
-              {{ $gettext('Add') }}
-            </oc-button>
-          </div>
-        </div>
-        <div style="display: flex; gap: 8px; justify-content: flex-end">
-          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" @click="autoReadOpen = false">
-            {{ $gettext('Close') }}
-          </oc-button>
-        </div>
-      </div>
-    </div>
+      v-model:pattern="autoReadPattern"
+      v-model:feed-id="autoReadFeedSel"
+      :rules="autoReadRules"
+      :feeds="feeds"
+      :saving="autoReadSaving"
+      @add="addAutoReadRule"
+      @remove="removeAutoRead"
+      @close="autoReadOpen = false"
+    />
 
     <!-- Selector CSS de extracción por feed (#39) -->
-    <div
+    <ScraperDialog
       v-if="scraperOpen"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="$gettext('Article scraper')"
-      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
-      @click.self="scraperOpen = false"
-    >
-      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 420px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
-        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">{{ $gettext('Article scraper') }}</h3>
-        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.65; line-height: 1.5">
-          {{ $gettext('CSS selector of the article body on the site, used before the automatic extraction when the feed only has summaries. Leave empty to use the automatic extraction.') }}
-        </p>
-        <input
-          v-model="scraperForm"
-          type="text"
-          spellcheck="false"
-          placeholder="div#articleBody, article"
-          style="width: 100%; box-sizing: border-box; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 16px"
-        />
-        <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center">
-          <oc-button v-if="scraperForm" color-role="secondary" appearance="raw" style="font-size: 13px; color: var(--news-error)" @click="scraperForm = ''">
-            {{ $gettext('Clear') }}
-          </oc-button>
-          <span style="flex: 1"></span>
-          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="scraperOpen = false">
-            {{ $gettext('Cancel') }}
-          </oc-button>
-          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="scraperSaving" @click="saveScraper">
-            {{ $gettext('Save') }}
-          </oc-button>
-        </div>
-      </div>
-    </div>
+      v-model="scraperForm"
+      :saving="scraperSaving"
+      @confirm="saveScraper"
+      @cancel="scraperOpen = false"
+      @clear="scraperForm = ''"
+    />
 
     <!-- Reglas block/keep (feed o globales) -->
-    <div
+    <FeedRulesDialog
       v-if="rulesOpen"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="$gettext('Filter rules')"
-      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
-      @click.self="rulesOpen = false"
-    >
-      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 520px; max-width: 94vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
-        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 600">
-          {{ rulesTitle }}
-        </h3>
-        <p style="margin: 0 0 12px; font-size: 12px; opacity: 0.65; line-height: 1.5">
-          {{ $gettext('One rule per line: Field=regex (RE2). Fields: EntryTitle, EntryURL, EntryAuthor, EntryContent, EntryDate. For EntryDate: future, before:YYYY-MM-DD, after:YYYY-MM-DD, between:A,B or max-age:7d.') }}
-        </p>
-        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Block rules (matching articles are hidden)') }}</label>
-        <textarea
-          v-model="rulesForm.block"
-          rows="4"
-          spellcheck="false"
-          style="width: 100%; box-sizing: border-box; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 12px"
-        ></textarea>
-        <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Keep rules (only matching articles are kept)') }}</label>
-        <textarea
-          v-model="rulesForm.keep"
-          rows="4"
-          spellcheck="false"
-          style="width: 100%; box-sizing: border-box; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); background: transparent; color: inherit; margin-bottom: 16px"
-        ></textarea>
-        <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center">
-          <oc-button v-if="rulesHasRules" color-role="secondary" appearance="raw" style="font-size: 13px; color: var(--news-error)" @click="clearRules">
-            {{ $gettext('Clear rules') }}
-          </oc-button>
-          <span style="flex: 1"></span>
-          <oc-button color-role="secondary" appearance="outline" style="font-size: 13px" @click="rulesOpen = false">
-            {{ $gettext('Cancel') }}
-          </oc-button>
-          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" :disabled="rulesSaving" @click="saveRules">
-            {{ $gettext('Save') }}
-          </oc-button>
-        </div>
-      </div>
-    </div>
+      v-model="rulesForm"
+      :title="rulesTitle"
+      :has-rules="rulesHasRules"
+      :saving="rulesSaving"
+      @confirm="saveRules"
+      @cancel="rulesOpen = false"
+      @clear="clearRules"
+    />
 
     <!-- Atajos de teclado -->
-    <div
-      v-if="showShortcuts"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="$gettext('Keyboard shortcuts')"
-      style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000"
-      @click.self="showShortcuts = false"
-    >
-      <div style="background: var(--news-bg); border-radius: 12px; padding: 20px; width: 460px; max-width: 92vw; box-shadow: 0 8px 32px var(--news-shadow); color: var(--news-fg)">
-        <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 600">{{ $gettext('Keyboard shortcuts') }}</h3>
-        <dl style="margin: 0; font-size: 13px; display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; max-height: 60vh; overflow-y: auto">
-          <template v-for="s in shortcutList" :key="s.keys">
-            <dt style="font-weight: 600"><code>{{ s.keys }}</code></dt>
-            <dd style="margin: 0; opacity: 0.85">{{ $gettext(s.label) }}</dd>
-          </template>
-        </dl>
-        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px">
-          <oc-button color-role="primary" appearance="filled" style="font-size: 13px" @click="showShortcuts = false">
-            {{ $gettext('Close') }}
-          </oc-button>
-        </div>
-      </div>
-    </div>
+    <ShortcutsDialog v-if="showShortcuts" :shortcuts="SHORTCUTS" @close="showShortcuts = false" />
   </main>
 </template>
 
@@ -361,7 +231,6 @@ import {
   Newspaper,
   Star,
   FolderOpen,
-  X,
   Rss,
   Podcast,
   Bookmark
@@ -375,6 +244,11 @@ import FeedFilterDialog from '../components/FeedFilterDialog.vue'
 import RetentionDialog from '../components/RetentionDialog.vue'
 import AddFeedDialog from '../components/AddFeedDialog.vue'
 import DiscoverFeedsDialog from '../components/DiscoverFeedsDialog.vue'
+import AutoReadRulesDialog from '../components/AutoReadRulesDialog.vue'
+import ScraperDialog from '../components/ScraperDialog.vue'
+import FeedRulesDialog from '../components/FeedRulesDialog.vue'
+import ShortcutsDialog from '../components/ShortcutsDialog.vue'
+import { SHORTCUTS } from '../lib/shortcuts'
 import TextPromptDialog from '../components/TextPromptDialog.vue'
 import MoveFeedDialog from '../components/MoveFeedDialog.vue'
 import FeedCredentialsDialog from '../components/FeedCredentialsDialog.vue'
@@ -426,23 +300,6 @@ const noteListRef = ref<InstanceType<typeof NoteList> | null>(null)
 // Atajos de teclado (#34): índice del item "en foco" de la lista y ayuda.
 const listIndex = ref(-1)
 const showShortcuts = ref(false)
-
-const shortcutList = [
-  { keys: 'j / n / ↓', label: 'Next article' },
-  { keys: 'k / p / ↑', label: 'Previous article' },
-  { keys: 'o / Enter', label: 'Open article' },
-  { keys: 'm', label: 'Toggle read/unread' },
-  { keys: 'f', label: 'Star / unstar' },
-  { keys: 'v', label: 'Open original link' },
-  { keys: 'g u', label: 'All articles' },
-  { keys: 'g b', label: 'Starred' },
-  { keys: 'g p', label: 'Podcasts' },
-  { keys: 'a', label: 'Mark all read' },
-  { keys: 'r', label: 'Refresh feeds' },
-  { keys: '/', label: 'Focus search' },
-  { keys: '?', label: 'Show this help' },
-  { keys: 'Esc', label: 'Close dialogs' }
-]
 
 // resize de la columna de titulares arrastrando el divisor derecho. El ancho
 // seleccionado persiste en localStorage.
@@ -1440,12 +1297,6 @@ async function openAutoRead() {
     autoReadRules.value = []
   }
   autoReadOpen.value = true
-}
-
-function autoReadFeedLabel(feedId: number): string {
-  if (feedId === 0) return $gettext('All feeds') + ' · '
-  const f = feeds.value.find((x) => x.id === feedId)
-  return (f?.title ?? `#${feedId}`) + ' · '
 }
 
 async function addAutoReadRule() {
