@@ -172,6 +172,22 @@ Restart with `systemctl restart ocnews`. The older misspelled variable name
 Do not route `/api/` or other prefixes to the news backend; the OpenCloud web client
 uses them.
 
+## Mobile app (Android)
+
+News has a native Android client: [ocnews-android](https://github.com/gnacho/ocnews-android)
+(Kotlin + Jetpack Compose, AGPL-3.0). It talks to the Nextcloud News API v1.3 that this
+backend implements, so it works against ocnews and against any Nextcloud News server.
+
+- Download the signed APK from the [latest release](https://github.com/gnacho/ocnews-android/releases/latest).
+- In the login screen pick your provider (OpenCloud or Nextcloud) and enter the server
+  URL, your user name and an **app password**: an app token in OpenCloud, an app
+  password in Nextcloud. The account password will not work for the API.
+- The URL can be typed without a scheme (`cloud.example.com`): `https://` is added for
+  you and trailing slashes are trimmed.
+- The login screen has a "Test connection" button that reports DNS, TCP, TLS,
+  `status.php` and the API version, which is the quickest way to tell a broken server
+  from a blocked client.
+
 ## Store package / release zip
 
 Releases are built automatically by GitHub Actions when a tag `news-v*` is pushed.
