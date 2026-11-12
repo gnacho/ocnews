@@ -22,6 +22,16 @@ jobs:
           cache: 'npm'
           cache-dependency-path: extension/package-lock.json
 
+      - name: Verify tag matches package.json
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME##*-v}"
+          PKG_VERSION=$(node -p "require('./extension/package.json').version")
+          echo "tag=${TAG_VERSION} extension/package.json=${PKG_VERSION}"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} declares ${TAG_VERSION} but extension/package.json says ${PKG_VERSION}. Bump the version before tagging: the build copies package.json into manifest.json, and OpenCloud shows that version in the apps menu."
+            exit 1
+          fi
+
       - name: Install dependencies
         working-directory: extension
         run: npm ci
@@ -35,6 +45,12 @@ jobs:
           TAG=${GITHUB_REF_NAME}
           APP=${TAG%-v*}
           VERSION=${TAG##*-v}
+          MANIFEST_VERSION=$(node -p "require('./extension/dist/manifest.json').version")
+          echo "tag=${VERSION} dist/manifest.json=${MANIFEST_VERSION}"
+          if [ "$MANIFEST_VERSION" != "$VERSION" ]; then
+            echo "::error::The built manifest declares ${MANIFEST_VERSION} but the tag says ${VERSION}. Refusing to publish an asset whose manifest disagrees with its file name."
+            exit 1
+          fi
           mkdir -p "apps/${APP}"
           cp -r extension/dist/. "apps/${APP}/"
           cd apps
