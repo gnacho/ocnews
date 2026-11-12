@@ -1,6 +1,6 @@
 {
   "name": "web-app-news",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "News (RSS/Atom) reader extension for OpenCloud, backed by the ocnews API v1.3 service",
   "license": "AGPL-3.0",
   "private": true,
