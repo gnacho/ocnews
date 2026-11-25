@@ -462,7 +462,7 @@ const retentionForm = ref(0)
 
 const settingsOpen = ref(false)
 const settingsSaving = ref(false)
-const settingsForm = ref<UserSettings>({ theme: 'system', readerMaxWidth: 'wide', feedIntervalMin: '', readerFont: 'default', readerFontSize: '15', ntfyTopic: '' })
+const settingsForm = ref<UserSettings>({ theme: 'system', readerMaxWidth: 'wide', feedIntervalMin: '', readerFont: 'default', readerFontSize: '15', ntfyTopic: '', linkHygiene: 'tracking' })
 
 const discoverPickerOpen = ref(false)
 const discoverCandidates = ref<DiscoveredFeed[]>([])
@@ -1396,7 +1396,8 @@ async function openSettings() {
       feedIntervalMin: s.feedIntervalMin ?? '',
       readerFont: s.readerFont || 'default',
       readerFontSize: s.readerFontSize || '15',
-      ntfyTopic: s.ntfyTopic ?? ''
+      ntfyTopic: s.ntfyTopic ?? '',
+      linkHygiene: s.linkHygiene || 'tracking'
     }
   } catch {
     /* usar defaults */
@@ -1412,7 +1413,8 @@ async function saveSettings() {
       feedIntervalMin: settingsForm.value.feedIntervalMin.trim(),
       readerFont: settingsForm.value.readerFont,
       readerFontSize: settingsForm.value.readerFontSize,
-      ntfyTopic: settingsForm.value.ntfyTopic?.trim() ?? ''
+      ntfyTopic: settingsForm.value.ntfyTopic?.trim() ?? '',
+      linkHygiene: settingsForm.value.linkHygiene || 'tracking'
     })
     userTheme.value = updated.theme || 'system'
     userWidth.value = updated.readerMaxWidth || 'wide'

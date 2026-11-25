@@ -73,6 +73,7 @@ export interface UserSettings {
   readerFontSize: string
   ntfyTopic?: string
   readerListWidth?: string
+  linkHygiene?: string
 }
 
 // type: 0 feed, 1 folder, 2 starred, 3 all

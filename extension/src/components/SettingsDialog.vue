@@ -31,6 +31,13 @@
       <select v-model="form.readerFontSize" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 12px">
         <option v-for="n in [13, 14, 15, 16, 17, 18, 19, 20]" :key="n" :value="String(n)">{{ n }} px</option>
       </select>
+      <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Link cleaning') }}</label>
+      <select v-model="form.linkHygiene" style="width: 100%; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--news-input-border); margin-bottom: 4px">
+        <option value="tracking">{{ $gettext('Remove tracking parameters') }}</option>
+        <option value="aggressive">{{ $gettext('Also unwrap redirectors and shorteners') }}</option>
+        <option value="off">{{ $gettext('Leave links untouched') }}</option>
+      </select>
+      <p style="margin: 0 0 16px; font-size: 11px; opacity: 0.6">{{ $gettext('Links inside articles lose their campaign tags. The aggressive mode also skips affiliate and shortener hops when the destination is visible in the link.') }}</p>
       <label style="display: block; font-size: 12px; margin-bottom: 4px">{{ $gettext('Refresh interval (minutes)') }}</label>
       <input
         :value="form.feedIntervalMin"

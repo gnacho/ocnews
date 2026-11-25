@@ -168,6 +168,10 @@ var messages = map[string]map[Lang]string{
 		ES: "topic ntfy inválido (letras, números, guiones y guion bajo, máx. 64)",
 		EN: "invalid ntfy topic (letters, numbers, dashes and underscores, max 64)",
 	},
+	"invalid_link_hygiene": {
+		ES: "higiene de enlaces inválida (off, tracking o aggressive)",
+		EN: "invalid link hygiene (off, tracking or aggressive)",
+	},
 	"invalid_selector": {
 		ES: "selector CSS no válido",
 		EN: "invalid CSS selector",

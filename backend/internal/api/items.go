@@ -128,7 +128,7 @@ func (s *Server) listItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.annotateClusters(u, items)
-	s.rewriteAll(items)
+	s.rewriteAll(items, s.linkHygiene(r))
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
@@ -145,7 +145,7 @@ func (s *Server) updatedItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.annotateClusters(u, items)
-	s.rewriteAll(items)
+	s.rewriteAll(items, s.linkHygiene(r))
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
@@ -174,7 +174,7 @@ func (s *Server) searchItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.annotateClusters(u, items)
-	s.rewriteAll(items)
+	s.rewriteAll(items, s.linkHygiene(r))
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
