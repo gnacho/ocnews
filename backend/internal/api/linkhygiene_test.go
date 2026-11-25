@@ -52,7 +52,13 @@ func TestLinkHygieneSetting(t *testing.T) {
 		map[string]string{"linkHygiene": "tracking"}); code != 200 {
 		t.Fatalf("reset a tracking: %d", code)
 	}
-	code, body = e.do(t, "GET", "/api/me/settings", e.user, e.pass, nil)
+	body = func() []byte {
+		code, b := e.do(t, "GET", "/api/me/settings", e.user, e.pass, nil)
+		if code != 200 {
+			t.Fatalf("leer settings: %d", code)
+		}
+		return b
+	}()
 	decode(t, body, &got)
 	if got.LinkHygiene != "tracking" {
 		t.Fatalf("tracking no se lee como default: %s", body)
