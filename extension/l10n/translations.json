@@ -160,8 +160,13 @@
   "just now": "ahora mismo",
   "loading full article…": "cargando el artículo completo…",
   "other feed(s)": "otra(s) fuente(s)",
-  "skipped": "omitidos"
- },
+  "skipped": "omitidos",
+  "Link cleaning": "Limpieza de enlaces",
+  "Remove tracking parameters": "Quitar parámetros de seguimiento",
+  "Also unwrap redirectors and shorteners": "Además saltar redireccionadores y acortadores",
+  "Leave links untouched": "Dejar los enlaces tal cual",
+  "Links inside articles lose their campaign tags. The aggressive mode also skips affiliate and shortener hops when the destination is visible in the link.": "Los enlaces dentro de los artículos pierden las etiquetas de campaña. El modo agresivo además salta los intermediarios de afiliados y acortadores cuando el destino es visible en el enlace."
+},
  "en": {
   "Add": "Add",
   "Add feed": "Add feed",
@@ -275,6 +280,11 @@
   "Leave the password empty to keep the current one.": "Leave the password empty to keep the current one.",
   "Remove credentials": "Remove credentials",
   "Username is required to set credentials": "Username is required to set credentials",
-  "Could not save credentials": "Could not save credentials"
- }
+  "Could not save credentials": "Could not save credentials",
+  "Link cleaning": "Link cleaning",
+  "Remove tracking parameters": "Remove tracking parameters",
+  "Also unwrap redirectors and shorteners": "Also unwrap redirectors and shorteners",
+  "Leave links untouched": "Leave links untouched",
+  "Links inside articles lose their campaign tags. The aggressive mode also skips affiliate and shortener hops when the destination is visible in the link.": "Links inside articles lose their campaign tags. The aggressive mode also skips affiliate and shortener hops when the destination is visible in the link."
+}
 }

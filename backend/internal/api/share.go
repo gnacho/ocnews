@@ -70,7 +70,7 @@ func (s *Server) sharePage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	body := s.rewriteImages(it.Body)
+	body := s.rewriteBody(it.Body, s.ownerLinkHygiene(it.FeedID))
 	media := ""
 	if it.EnclosureLink != nil && it.EnclosureMime != nil {
 		if len(*it.EnclosureMime) >= 6 && (*it.EnclosureMime)[:6] == "audio/" {

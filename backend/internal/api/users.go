@@ -12,6 +12,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/gnacho/ocnews/backend/internal/auth"
+	"github.com/gnacho/ocnews/backend/internal/privacy"
 	"github.com/gnacho/ocnews/backend/internal/store"
 )
 
@@ -161,6 +162,7 @@ type userSettings struct {
 	ReaderFontSize  string `json:"readerFontSize"`  // px; vacío = 15
 	NtfyTopic       string `json:"ntfyTopic"`       // topic ntfy del usuario; vacío = global/off
 	ReaderListWidth string `json:"readerListWidth"` // px del ancho de la lista; vacío = 380
+	LinkHygiene     string `json:"linkHygiene"`     // off|tracking|aggressive; vacío = tracking
 }
 
 func (s *Server) mySettings(w http.ResponseWriter, r *http.Request) {
@@ -172,6 +174,7 @@ func (s *Server) mySettings(w http.ResponseWriter, r *http.Request) {
 	fontSize, _ := s.store.GetUserSetting(u.ID, "reader_font_size")
 	ntfy, _ := s.store.GetUserSetting(u.ID, "ntfy_topic")
 	listWidth, _ := s.store.GetUserSetting(u.ID, "reader_list_width")
+	hygiene, _ := s.store.GetUserSetting(u.ID, "link_hygiene")
 	if theme == "" {
 		theme = "system"
 	}
@@ -184,7 +187,10 @@ func (s *Server) mySettings(w http.ResponseWriter, r *http.Request) {
 	if fontSize == "" {
 		fontSize = "15"
 	}
-	writeJSON(w, http.StatusOK, userSettings{theme, width, interval, font, fontSize, ntfy, listWidth})
+	if hygiene == "" {
+		hygiene = string(privacy.LevelTracking)
+	}
+	writeJSON(w, http.StatusOK, userSettings{theme, width, interval, font, fontSize, ntfy, listWidth, hygiene})
 }
 
 func (s *Server) updateMySettings(w http.ResponseWriter, r *http.Request) {
@@ -196,6 +202,7 @@ func (s *Server) updateMySettings(w http.ResponseWriter, r *http.Request) {
 		ReaderFontSize  *string `json:"readerFontSize"`
 		NtfyTopic       *string `json:"ntfyTopic"`
 		ReaderListWidth *string `json:"readerListWidth"`
+		LinkHygiene     *string `json:"linkHygiene"`
 	}
 	if err := decodeBody(r, &body); err != nil {
 		errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_body")
@@ -279,6 +286,21 @@ func (s *Server) updateMySettings(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := s.store.SetUserSetting(u.ID, "ntfy_topic", v); err != nil {
 			s.logError(w, r, "guardar topic ntfy", err)
+			return
+		}
+	}
+	if body.LinkHygiene != nil {
+		v, ok := privacy.ValidLevel(*body.LinkHygiene)
+		if !ok {
+			errorStatus(w, r, http.StatusUnprocessableEntity, "invalid_link_hygiene")
+			return
+		}
+		stored := string(v)
+		if v == privacy.LevelTracking {
+			stored = "" // el default no se guarda
+		}
+		if err := s.store.SetUserSetting(u.ID, "link_hygiene", stored); err != nil {
+			s.logError(w, r, "guardar higiene de enlaces", err)
 			return
 		}
 	}

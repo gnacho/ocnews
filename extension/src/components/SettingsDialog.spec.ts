@@ -12,6 +12,7 @@ function makeForm(overrides: Partial<UserSettings> = {}): UserSettings {
     readerFontSize: '15',
     feedIntervalMin: '',
     ntfyTopic: '',
+    linkHygiene: 'tracking',
     ...overrides
   }
 }
@@ -36,6 +37,25 @@ describe('SettingsDialog', () => {
     expect((selects[1].element as HTMLSelectElement).value).toBe('narrow')
     expect((selects[2].element as HTMLSelectElement).value).toBe('serif')
     expect((selects[3].element as HTMLSelectElement).value).toBe('18')
+    expect((selects[4].element as HTMLSelectElement).value).toBe('tracking')
+  })
+
+  it('offers the three link hygiene levels with no tracking as default', () => {
+    const wrapper = mountDialog()
+    const options = wrapper.findAll('select')[4].findAll('option')
+    expect(options.map((o) => (o.element as HTMLOptionElement).value)).toEqual([
+      'tracking',
+      'aggressive',
+      'off'
+    ])
+    expect(wrapper.findAll('select')[4].findAll('option')[0].text()).toBe('Remove tracking parameters')
+  })
+
+  it('writes the chosen link hygiene level back into the model', async () => {
+    const form = makeForm()
+    const wrapper = mountDialog({ form })
+    await wrapper.findAll('select')[4].setValue('aggressive')
+    expect(form.linkHygiene).toBe('aggressive')
   })
 
   it('offers every font size the reader supports', () => {
